@@ -2,12 +2,30 @@
 
 Transpose is an open-source, ad-free YouTube client for Android, built with Kotlin and Jetpack Compose. It offers a unique feature set focused on audio manipulation and an enhanced viewing experience.
 
+[한국어 버전 (Korean version)](README_KO.md)
+
+
+
+
+| Home Screen | Convert Screen | Library Screen |
+|:-----------:|:--------------:|:--------------:|
+| <img src="assets/home_screen.jpeg" alt="Home Screen" width="100%"> | <img src="assets/convert_screen.jpeg" alt="Convert Screen" width="100%"> | <img src="assets/library_screen.jpeg" alt="Library Screen" width="100%"> |
+
+
+## Installation
+
+The latest beta version of Transpose is now available!
+
+[![GitHub release (latest by date including pre-releases)](https://img.shields.io/github/v/release/joh9911/Transpose?include_prereleases)](https://github.com/joh9911/Transpose/releases/latest) ![GitHub all releases](https://img.shields.io/github/downloads/joh9911/Transpose/total)
+
+You can download the latest APK from my [GitHub Releases page](https://github.com/joh9911/Transpose/releases/tag/v0.1.0-beta).
+
+Please note that this is a beta release and may contain bugs. We appreciate your feedback to help improve Transpose!
+
 ## Features
 
 ### 🎵 Real-time Audio Effects (No Download Required!)
-
 Our standout feature is the ability to apply audio effects to YouTube videos in real-time, without downloading the audio file:
-
 - **Pitch Adjustment**: Modify the pitch of the audio
 - **Tempo Control**: Speed up or slow down the playback without affecting pitch
 - **Equalizer**: Fine-tune the audio frequencies
@@ -18,33 +36,24 @@ Our standout feature is the ability to apply audio effects to YouTube videos in 
 - **Audio-reactive Vibration**: Feel the music with vibration effects
 
 ### 🔍 Comprehensive Search
-
 - Search for any video within YouTube's vast library
 
 ### 🎨 Customizable Playback
-
 - Background playback: Continue listening with the screen off or while using other apps
 - Adjust audio effects from the notification bar during background playback
 
 ### 📋 Playlist Management
-
 - Create and manage playlists of your favorite videos
 - Add videos to playlists for easy access
 
 ### 🚫 Ad-Free Experience
-
 - Enjoy YouTube content without any advertisements
 
 ### 💾 Local File Playback
+- Browse and play local video and audio files
+- Apply the same powerful audio effects to your local media
 
-Browse and play local video and audio files
-Apply the same powerful audio effects to your local media
 
-## Screenshots
-
-| Home Screen | Convert Screen | Library Screen |
-|:-----------:|:--------------:|:--------------:|
-| <img src="assets/home_screen.jpeg" alt="Home Screen" width="100%"> | <img src="assets/convert_screen.jpeg" alt="Convert Screen" width="100%"> | <img src="assets/library_screen.jpeg" alt="Library Screen" width="100%"> |
 
 ## Upcoming Features (Todo List)
 
@@ -53,16 +62,6 @@ Apply the same powerful audio effects to your local media
 - [ ] Viewing history
 - [ ] Channel browsing
 - [ ] Playlist overview
-
-## Installation
-
-The latest beta version of Transpose is now available!
-
-[![GitHub release (latest by date including pre-releases)](https://img.shields.io/github/v/release/joh9911/Transpose?include_prereleases)](https://github.com/joh9911/Transpose/releases/latest)
-
-You can download the latest APK from my [GitHub Releases page](https://github.com/joh9911/Transpose/releases/tag/v0.1.0-beta).
-
-Please note that this is a beta release and may contain bugs. We appreciate your feedback to help improve Transpose!
 
 ## Technology Stack
 
@@ -98,5 +97,4 @@ This project is not affiliated with, endorsed by, or sponsored by YouTube or any
 
 ## Contact
 
-Sungmin Joh - joh9911@naver.com
-
+Sungmin Joh - joh99111@gmail.com
