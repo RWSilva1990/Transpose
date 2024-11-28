@@ -88,15 +88,16 @@ fun PlaylistVideoItem(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1
             )
-            Box{
-                IconButton(onClick = {isExpanded = true}) {
-                    Icon(
-                        imageVector = Icons.Default.MoreVert,
-                        contentDescription = "More options"
-                    )
-                }
-                DropDownMenu(text = "delete",isExpanded = isExpanded, onDismissRequest = {isExpanded = false}, onClick = { dropDownMenuClick()})
+
+        }
+        Box{
+            IconButton(onClick = {isExpanded = true}) {
+                Icon(
+                    imageVector = Icons.Default.MoreVert,
+                    contentDescription = "More options"
+                )
             }
+            DropDownMenu(text = "delete",isExpanded = isExpanded, onDismissRequest = {isExpanded = false}, onClick = { dropDownMenuClick()})
         }
 
 
