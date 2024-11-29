@@ -30,7 +30,7 @@ fun NavGraphBuilder.homeNavGraph(
         HomePlaylistItemScreen(
             mainViewModel = mainViewModel,
             homePlaylistItemViewModel = hiltViewModel(),
-            navigationViewModel = hiltViewModel(),
+            navigationViewModel = navigationViewModel,
             mediaViewModel = mediaViewModel,
             itemId = itemId
         )
@@ -42,7 +42,7 @@ fun NavGraphBuilder.homeNavGraph(
         val query = backStackEntry.arguments?.getString("query")
         HomeSearchResultScreen(
             homeSearchResultViewModel = hiltViewModel(),
-            navigationViewModel = hiltViewModel(),
+            navigationViewModel = navigationViewModel,
             mediaViewModel = mediaViewModel,
             mainViewModel = mainViewModel,
             query = query
