@@ -27,7 +27,6 @@ import com.example.transpose.ui.components.items.PlaylistItem
 import com.example.transpose.ui.components.scrollbar.EndlessLazyColumn
 import org.schabi.newpipe.extractor.InfoItem
 
-@RequiresApi(Build.VERSION_CODES.O)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeSearchResultScreen(
