@@ -15,24 +15,16 @@ import androidx.media3.common.Tracks
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionToken
-import com.example.transpose.data.model.newpipe.NewPipeStreamInfoData
-import com.example.transpose.data.model.newpipe.NewPipeVideoData
-import com.example.transpose.data.repository.newpipe.NewPipeRepository
-import com.example.transpose.media.MediaService
-import com.example.transpose.media.audio_effect.data.equalizer.EqualizerPresets
-import com.example.transpose.media.audio_effect.data.equalizer.EqualizerSettings
-import com.example.transpose.media.audio_effect.data.reverb.ReverbPresets
-import com.example.transpose.media.model.MediaItemType
-import com.example.transpose.media.model.PlayableItemBasicInfoData
-import com.example.transpose.media.model.PlayableItemData
-import com.example.transpose.ui.common.PlayableItemUiState
-import com.example.transpose.ui.common.UiState
+import com.example.domain.model.youtube.video.BasicVideoData
+import com.example.domain.model.youtube.video_detail.VideoDetailData
+import com.example.domain.repository.NewPipeRepository
+import com.example.media.MediaService
+import com.example.media.audio_effect.data.equalizer.EqualizerPresets
+import com.example.media.audio_effect.data.equalizer.EqualizerSettings
+import com.example.media.audio_effect.data.reverb.ReverbPresets
 import com.example.transpose.utils.Logger
-import com.example.transpose.utils.PlayableItemConverter
-import com.example.transpose.utils.PlayableItemConverter.toBundle
-import com.example.transpose.utils.PlayableItemConverter.toPlayableItemBasicInfoData
-import com.example.transpose.utils.PlayableItemConverter.toPlayableMediaItem
 import com.example.transpose.utils.constants.MediaSessionCallback
+import com.example.ui.common.VideoPlayerUiState
 import com.google.common.util.concurrent.MoreExecutors
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
@@ -42,10 +34,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import org.schabi.newpipe.extractor.InfoItem
-import org.schabi.newpipe.extractor.stream.AudioStream
-import org.schabi.newpipe.extractor.stream.StreamInfo
-import org.schabi.newpipe.extractor.stream.VideoStream
 import javax.inject.Inject
 import kotlin.math.log2
 import kotlin.math.roundToInt
@@ -117,8 +105,14 @@ class MediaViewModel @Inject constructor(
 
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
             super.onMediaItemTransition(mediaItem, reason)
+
+            var basicVideoData: BasicVideoData? = null
+            mediaItem?.localConfiguration?.let { localConfiguration ->
+                basicVideoData = localConfiguration.tag as? BasicVideoData
+            }
+
             mediaItem?.let {
-                handleMediaItemTransition(it)
+                handleMediaItemTransition(basicVideoData)
             }
         }
 
@@ -165,21 +159,11 @@ class MediaViewModel @Inject constructor(
         }
     }
 
-    private fun handleMediaItemTransition(mediaItem: MediaItem) {
+    private fun handleMediaItemTransition(basicVideoData: BasicVideoData?) {
         viewModelScope.launch {
-            val basicInfoData = mediaItem.mediaMetadata.extras?.toPlayableItemBasicInfoData()
-            if (basicInfoData != null) {
-                _currentVideoItemState.value = PlayableItemUiState.BasicInfoLoaded(basicInfoData)
-
-                val cachedFullInfo = fullInfoCache[mediaItem.mediaId]
-                if (cachedFullInfo != null) {
-                    _currentVideoItemState.value = PlayableItemUiState.FullInfoLoaded(cachedFullInfo)
-                } else {
-                    if (basicInfoData.type == MediaItemType.YOUTUBE)
-                        loadFullItemInfo(mediaItem.mediaId)
-                }
-                if (basicInfoData.type == MediaItemType.YOUTUBE)
-                    getRelatedVideoItems(mediaItem.mediaId)
+            basicVideoData?.let {
+                _currentVideoItemState.value = VideoPlayerUiState.BasicDataLoaded(basicVideoData)
+                loadFullItemInfo(basicVideoData.id)
             }
         }
     }
@@ -197,37 +181,23 @@ class MediaViewModel @Inject constructor(
     private val _currentPlayingIndex = MutableStateFlow<Int?>(null)
     val currentPlayingIndex: StateFlow<Int?> = _currentPlayingIndex
 
-    private val _currentPlaylistItems = MutableStateFlow<List<PlayableItemBasicInfoData?>>(
-        emptyList<PlayableItemBasicInfoData>()
-    )
-    val currentPlaylistItems = _currentPlaylistItems.asStateFlow()
 
     private val _currentVideoItemState =
-        MutableStateFlow<PlayableItemUiState>(PlayableItemUiState.Initial)
+        MutableStateFlow<VideoPlayerUiState>(VideoPlayerUiState.Initial)
     val currentVideoItemState = _currentVideoItemState.asStateFlow()
 
-    private val fullInfoCache = mutableMapOf<String, PlayableItemData>()
 
-    private val _relatedVideoItems =
-        MutableStateFlow<UiState<MutableList<out InfoItem>?>>(UiState.Initial)
-    val relatedVideoItems = _relatedVideoItems.asStateFlow()
-
-    private val _availableResolutions = MutableStateFlow<List<String>>(emptyList())
-    val availableResolutions: StateFlow<List<String>> = _availableResolutions
-
-    private var currentVideoStreams: List<VideoStream>? = null
-    private var currentAudioStream: AudioStream? = null
-
-
-
-    fun onMediaItemClick(item: Any, playlistItems: List<Any>? = null, clickedIndex: Int = 0) {
+    fun onMediaItemClick(
+        clickedItem: BasicVideoData,
+        playlistItems: List<BasicVideoData>? = null,
+        clickedIndex: Int = 0
+    ) {
         viewModelScope.launch(Dispatchers.Main) {
             try {
-                val currentItem = PlayableItemConverter.toBasicInfoData(item)
                 val isPlaylist = playlistItems != null
 
                 // 현재 재생 중인 아이템과 비교
-                val isSameItem = mediaController.value?.currentMediaItem?.mediaId == currentItem.id
+                val isSameItem = mediaController.value?.currentMediaItem?.mediaId == clickedItem.id
 
                 if (isSameItem) {
                     // 같은 아이템을 클릭한 경우 재생/일시정지 토글
@@ -240,49 +210,46 @@ class MediaViewModel @Inject constructor(
                 // 새로운 아이템 또는 플레이리스트 재생 준비
                 clearCurrentPlayback()
 
-                _currentVideoItemState.value = PlayableItemUiState.BasicInfoLoaded(currentItem)
+                _currentVideoItemState.value = VideoPlayerUiState.BasicDataLoaded(clickedItem)
 
                 if (isPlaylist) {
                     // 플레이리스트 처리
                     loadPlaylistItems(playlistItems!!, clickedIndex)
                 } else {
                     // 단일 아이템 처리
-                    val mediaItem = createMediaItem(currentItem)
+                    val mediaItem = createMediaItem(clickedItem)
                     mediaController.value?.setMediaItem(mediaItem)
                 }
 
                 mediaController.value?.prepare()
                 mediaController.value?.play()
 
-                if (currentItem.type == MediaItemType.YOUTUBE)
-                    loadFullItemInfo(currentItem.id)
-            }catch (e: Exception){
+                loadFullItemInfo(clickedItem.id)
+            } catch (e: Exception) {
                 Logger.d("onMediaItemClick $e")
             }
 
         }
     }
-    fun clearCurrentPlayback() {
+
+    private fun clearCurrentPlayback() {
         mediaController.value?.apply {
             stop()
             clearMediaItems()
         }
-        _currentVideoItemState.value = PlayableItemUiState.Initial
+        _currentVideoItemState.value = VideoPlayerUiState.Initial
         _currentPlayingIndex.value = null
-        _currentPlaylistItems.value = emptyList()
         lastProcessedMediaId = null
-        fullInfoCache.clear()
         // 기타 필요한 초기화...
     }
 
-    private fun loadPlaylistItems(items: List<Any>, clickedIndex: Int) {
+    private fun loadPlaylistItems(items: List<BasicVideoData>, clickedIndex: Int) {
         viewModelScope.launch(Dispatchers.Main) {
             val initialLoadSize = 10
             val startLoadIndex = (clickedIndex - initialLoadSize / 2).coerceAtLeast(0)
             val endLoadIndex = (startLoadIndex + initialLoadSize).coerceAtMost(items.size)
 
             val initialItems = items.subList(startLoadIndex, endLoadIndex)
-                .map { PlayableItemConverter.toBasicInfoData(it) }
                 .map { createMediaItem(it) }
 
             mediaController.value?.setMediaItems(initialItems, clickedIndex - startLoadIndex, 0)
@@ -295,31 +262,30 @@ class MediaViewModel @Inject constructor(
         }
     }
 
-    private fun createMediaItem(basicInfo: PlayableItemBasicInfoData): MediaItem {
-        val uri = when (basicInfo.type) {
-            MediaItemType.LOCAL_FILE -> Uri.parse(basicInfo.id)
-            MediaItemType.YOUTUBE -> Uri.parse("asset:///15-seconds-of-silence.mp3")
-        }
+    private fun createMediaItem(basicVideoData: BasicVideoData): MediaItem {
+        val uri = Uri.parse("asset:///15-seconds-of-silence.mp3")
         return MediaItem.Builder()
-            .setMediaId(basicInfo.id)
+            .setMediaId(basicVideoData.id)
             .setUri(uri)
             .setMediaMetadata(
                 MediaMetadata.Builder()
-                    .setTitle(basicInfo.title)
-                    .setArtist(basicInfo.uploaderName ?: "Unknown Uploader")
-                    .setExtras(basicInfo.toBundle())
-                    .setArtworkUri(basicInfo.thumbnailUrl?.let { Uri.parse(it) })
+                    .setTitle(basicVideoData.title)
+                    .setArtist(basicVideoData.uploaderName ?: "Unknown Uploader")
+                    .setArtworkUri(Uri.parse(basicVideoData.thumbnailUrl))
                     .build()
             )
             .build()
     }
 
-    private suspend fun loadRemainingItems(precedingItems: List<Any>, followingItems: List<Any>) {
+    private suspend fun loadRemainingItems(
+        precedingItems: List<BasicVideoData>,
+        followingItems: List<BasicVideoData>
+    ) {
         val batchSize = 10
 
         // 앞쪽 아이템 로드
         precedingItems.chunked(batchSize).forEach { batch ->
-            val mediaItems = batch.map { PlayableItemConverter.toBasicInfoData(it) }.map { createMediaItem(it) }
+            val mediaItems = batch.map { createMediaItem(it) }
             withContext(Dispatchers.Main) {
                 mediaController.value?.addMediaItems(0, mediaItems)
             }
@@ -327,40 +293,36 @@ class MediaViewModel @Inject constructor(
 
         // 뒤쪽 아이템 로드
         followingItems.chunked(batchSize).forEach { batch ->
-            val mediaItems = batch.map { PlayableItemConverter.toBasicInfoData(it) }.map { createMediaItem(it) }
+            val mediaItems = batch.map { createMediaItem(it) }
             withContext(Dispatchers.Main) {
                 mediaController.value?.addMediaItems(mediaItems)
             }
         }
     }
 
-    private suspend fun loadFullItemInfo(itemId: String) = viewModelScope.launch(Dispatchers.IO){
+    private suspend fun loadFullItemInfo(videoId: String) = viewModelScope.launch(Dispatchers.IO) {
         try {
-            val result = newPipeRepository.fetchStreamInfoByVideoId(itemId)
+            val result = newPipeRepository.fetchVideoDetail(videoId)
             if (result.isSuccess) {
-                val streamInfoData = result.getOrNull()
-                streamInfoData?.let { streamInfo ->
-                    Logger.d("${streamInfo.videoStreams?.first()?.content}")
-                    val basicInfo = (currentVideoItemState.value as? PlayableItemUiState.BasicInfoLoaded)?.basicInfo
-                    if (basicInfo != null) {
-                        val fullInfo = streamInfo.toPlayableMediaItem(basicInfo)
-                        fullInfoCache[itemId] = fullInfo
-                        _currentVideoItemState.value = PlayableItemUiState.FullInfoLoaded(fullInfo)
-                        withContext(Dispatchers.Main){
-                            updateMediaItemWithFullInfo(itemId, streamInfo)
-                        }
+                val videoDetailResult = result.getOrNull()
+                videoDetailResult?.let { videoDetail ->
+                    _currentVideoItemState.value =
+                        VideoPlayerUiState.DetailedDataLoaded(videoDetail)
+                    withContext(Dispatchers.Main) {
+                        updateMediaItemWithFullInfo(videoId, videoDetail)
                     }
                 }
             } else {
-                _currentVideoItemState.value = PlayableItemUiState.Error(result.exceptionOrNull()?.message)
+                _currentVideoItemState.value =
+                    VideoPlayerUiState.LoadError(result.exceptionOrNull()?.message)
             }
         } catch (e: Exception) {
-            _currentVideoItemState.value = PlayableItemUiState.Error(e.message)
+            _currentVideoItemState.value = VideoPlayerUiState.LoadError(e.message)
         }
     }
 
-    private fun updateMediaItemWithFullInfo(itemId: String, streamInfo: NewPipeStreamInfoData) {
-        val selectedVideoStream = streamInfo.videoStreams?.maxByOrNull { it.getResolution() }
+    private fun updateMediaItemWithFullInfo(itemId: String, streamInfo: VideoDetailData) {
+        val selectedVideoStream = streamInfo.videoStream
         if (selectedVideoStream != null) {
             val currentIndex = mediaController.value?.currentMediaItemIndex ?: 0
             val currentItem = mediaController.value?.getMediaItemAt(currentIndex)
@@ -373,90 +335,28 @@ class MediaViewModel @Inject constructor(
         }
     }
 
-
-
-
-    private suspend fun getRelatedVideoItems(videoId: String) =
-        viewModelScope.launch(Dispatchers.IO) {
-            Logger.d("getRelatedVideoItems $videoId")
-            _relatedVideoItems.value = UiState.Loading
-            try {
-                val result = newPipeRepository.fetchRelatedVideoStreamByVideoId(videoId)
-                if (result.isSuccess) {
-                    _relatedVideoItems.value = UiState.Success(data = result.getOrNull())
-                }
-                if (result.isFailure) {
-                    _relatedVideoItems.value =
-                        UiState.Error(message = result.exceptionOrNull()?.message.toString())
-                }
-            } catch (e: Exception) {
-                _relatedVideoItems.value = UiState.Error(message = e.message.toString())
-
-            }
-        }
-
-
-
-
-    fun setMediaItemForNewPipeData(item: NewPipeVideoData) {
-        viewModelScope.launch {
-            try {
-                val streamInfo = getSeparatedStreamByVideoId(item.id)
-                streamInfo?.let { (videoStreams, audioStreams) ->
-                    val selectedVideoStream = videoStreams?.minByOrNull { it.getResolution() }
-                    val selectedAudioStream = audioStreams.firstOrNull()
-                    if (selectedVideoStream != null && selectedAudioStream != null) {
-                        Logger.d("${selectedVideoStream.content}               ${selectedAudioStream.content}")
-                        val mediaItem = MediaItem.Builder()
-                            .setMediaId(item.id)
-                            .setMediaMetadata(
-                                MediaMetadata.Builder()
-                                    .setExtras(Bundle().apply {
-                                        putString("videoUrl", selectedVideoStream.content)
-                                        putString("audioUrl", selectedAudioStream.content)
-                                    })
-                                    .setTitle(item.title)
-                                    .setArtist(item.uploaderName ?: "Unknown Uploader")
-                                    .setArtworkUri(item.thumbnailUrl?.let { Uri.parse(it) })
-                                    .setDescription(item.description)
-                                    .build()
-                            )
-                            .build()
-
-                        mediaController.value?.setMediaItem(mediaItem)
-                        mediaController.value?.prepare()
-                        mediaController.value?.play()
-                    }
-                }
-            } catch (e: Exception) {
-                // 에러 처리
-            }
-        }
-    }
-
-    fun changeResolution(resolution: String) {
-        val selectedVideoStream = currentVideoStreams?.find { it.getResolution() == resolution }
-        val currentItem = mediaController.value?.currentMediaItem
-
-
-        if (selectedVideoStream != null && currentItem != null) {
-            val currentPosition = mediaController.value?.currentPosition ?: 0
-
-            val newMediaItem = MediaItem.Builder()
-                .setMediaId(currentItem.mediaId)
-                .setUri(selectedVideoStream.content)
-                .setMediaMetadata(currentItem.mediaMetadata)
-                .setTag(Bundle().apply {
-                    putString("audioUrl", currentAudioStream?.content)
-                })
-                .build()
-
-            mediaController.value?.setMediaItem(newMediaItem, currentPosition)
-            mediaController.value?.prepare()
-            mediaController.value?.play()
-        }
-
-    }
+//    fun changeResolution(resolution: String) {
+//        val selectedVideoStream = currentVideoStreams?.find { it.getResolution() == resolution }
+//        val currentItem = mediaController.value?.currentMediaItem
+//
+//
+//        if (selectedVideoStream != null && currentItem != null) {
+//            val currentPosition = mediaController.value?.currentPosition ?: 0
+//
+//            val newMediaItem = MediaItem.Builder()
+//                .setMediaId(currentItem.mediaId)
+//                .setUri(selectedVideoStream.content)
+//                .setMediaMetadata(currentItem.mediaMetadata)
+//                .setTag(Bundle().apply {
+//                    putString("audioUrl", currentAudioStream?.content)
+//                })
+//                .build()
+//
+//            mediaController.value?.setMediaItem(newMediaItem, currentPosition)
+//            mediaController.value?.prepare()
+//            mediaController.value?.play()
+//        }
+//    }
 
     fun playPause() {
         if (isPlaying.value)
@@ -465,55 +365,6 @@ class MediaViewModel @Inject constructor(
             mediaController.value?.play()
     }
 
-    private suspend fun getVideoStreamByVideoId(videoId: String): MutableList<VideoStream>? {
-        _isShowingThumbnail.value = true
-        _isShowingLoadingIndicator.value = true
-        return withContext(Dispatchers.IO) {
-            try {
-                val result = newPipeRepository.fetchVideoStreamByVideoId(videoId)
-                if (result.isSuccess) {
-                    _isShowingThumbnail.value = false
-                    _isShowingLoadingIndicator.value = false
-                    result.getOrNull()
-                } else {
-                    Logger.d("getStreamInfoByVideoId ${result.exceptionOrNull()}")
-                    null
-                }
-            } catch (e: Exception) {
-                Logger.d("getStreamInfoByVideoId ${e}")
-                null
-            }
-        }
-    }
-
-    private suspend fun getSeparatedStreamByVideoId(videoId: String): Pair<MutableList<VideoStream>?, MutableList<AudioStream>>? {
-        _isShowingThumbnail.value = true
-        _isShowingLoadingIndicator.value = true
-        return withContext(Dispatchers.IO) {
-            try {
-                val result = newPipeRepository.fetchSeparatedStreamByVideoId(videoId)
-                if (result.isSuccess) {
-                    _isShowingThumbnail.value = false
-                    _isShowingLoadingIndicator.value = false
-                    result.getOrNull()
-                } else {
-                    Logger.d("getStreamInfoByVideoId ${result.exceptionOrNull()}")
-                    null
-                }
-            } catch (e: Exception) {
-                Logger.d("getStreamInfoByVideoId ${e}")
-                null
-            }
-        }
-    }
-
-
-    fun getAvailableResolutions(streamInfo: StreamInfo): List<String> {
-        val videoStreams = streamInfo.videoStreams + streamInfo.videoOnlyStreams
-        return videoStreams
-            .map { it.getResolution() }
-            .distinct()
-    }
 
     private val _pitchValue = MutableStateFlow(100)
     val pitchValue = _pitchValue.asStateFlow()
@@ -626,7 +477,7 @@ class MediaViewModel @Inject constructor(
         mediaController.value?.sendCustomCommand(sessionCommand, bundle)
     }
 
-    fun disableEqualizer(){
+    fun disableEqualizer() {
         if (isEqualizerEnabled.value) return
         val action = MediaSessionCallback.DISABLE_EQUALIZER
         val bundle = Bundle()
@@ -696,7 +547,7 @@ class MediaViewModel @Inject constructor(
         mediaController.value?.sendCustomCommand(sessionCommand, bundle)
     }
 
-    fun disablePreset(){
+    fun disablePreset() {
         if (isReverbEnabled.value) return
         val action = MediaSessionCallback.DISABLE_REVERB
         val bundle = Bundle()
@@ -773,7 +624,7 @@ class MediaViewModel @Inject constructor(
     private val _isHapticGeneratorEnabled = MutableStateFlow(false)
     val isHapticGeneratorEnabled = _isHapticGeneratorEnabled.asStateFlow()
 
-    private fun setHapticGenerator(){
+    private fun setHapticGenerator() {
         val action = MediaSessionCallback.SET_HAPTIC_GENERATOR
         val bundle = Bundle().apply {
             putBoolean("isEnabled", isHapticGeneratorEnabled.value)
