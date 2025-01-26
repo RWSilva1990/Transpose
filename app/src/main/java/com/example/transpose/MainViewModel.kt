@@ -6,35 +6,77 @@ import androidx.compose.material3.SheetValue
 import androidx.compose.ui.geometry.Rect
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.transpose.data.database.entity.PlaylistEntity
-import com.example.transpose.data.model.newpipe.NewPipeChannelData
-import com.example.transpose.data.model.newpipe.NewPipeVideoData
-import com.example.transpose.data.repository.database.MyPlaylistDBRepository
-import com.example.transpose.data.repository.newpipe.NewPipeRepository
-import com.example.transpose.data.repository.suggestion_keyword.SuggestionKeywordRepository
-import com.example.transpose.ui.components.appbar.SearchWidgetState
-import com.example.transpose.utils.Logger
+import com.example.domain.model.youtube.PlayableVideo
+import com.example.domain.model.youtube.playlist.Playlist
+import com.example.domain.model.youtube.video.BasicVideoData
+import com.example.domain.model.youtube.video_detail.VideoDetailData
+import com.example.domain.repository.MyPlaylistDBRepository
+import com.example.domain.repository.NewPipeRepository
+import com.example.domain.repository.SuggestionKeywordRepository
+import com.example.media.MediaPlaybackManager
+import com.example.transpose.components.appbar.SearchWidgetState
 import com.example.transpose.utils.PermissionUtils
-import com.example.transpose.utils.SuggestionKeywordStringExtractor
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import okhttp3.ResponseBody
 import org.schabi.newpipe.extractor.InfoItem
 import javax.inject.Inject
 
 @OptIn(ExperimentalMaterial3Api::class)
 @HiltViewModel
 class MainViewModel @Inject constructor(
+    private val mediaPlaybackManager: MediaPlaybackManager,
     private val suggestionKeywordRepository: SuggestionKeywordRepository,
-    private val newPipeRepository: NewPipeRepository,
-    private val playlistDBRepository: MyPlaylistDBRepository,
     @ApplicationContext private val context: Context  // Application Context 주입
 ) : ViewModel() {
+
+    val mediaController = mediaPlaybackManager.mediaController
+    val isPlaying = mediaPlaybackManager.isPlaying
+    val currentVideoData = mediaPlaybackManager.currentVideoData
+    val currentPlaylist = mediaPlaybackManager.currentPlaylist
+    val currentPlaylistIndex = mediaPlaybackManager.currentPlaylistIndex
+
+    private val _currentVideoDetailData = MutableStateFlow<VideoDetailData?>(null)
+    val currentVideoDetailData = _currentVideoDetailData.asStateFlow()
+
+    fun playPause(){
+        mediaPlaybackManager.playPause()
+    }
+
+    fun onMediaItemClick(
+        clickedItem: PlayableVideo,
+        playlistItems: List<PlayableVideo>? = null,
+        clickedIndex: Int = 0
+    ){
+        mediaPlaybackManager.onMediaItemClick(clickedItem, playlistItems, clickedIndex)
+    }
+
+    fun pitchPlusOne() {
+        mediaPlaybackManager.pitchPlusOne()
+    }
+
+    fun pitchMinusOne() {
+        mediaPlaybackManager.pitchMinusOne()
+    }
+
+    fun initPitchValue() {
+        mediaPlaybackManager.initPitch()
+    }
+
+    fun tempoPlusOne() {
+        mediaPlaybackManager.tempoPlusOne()
+    }
+
+    fun initTempoValue() {
+        mediaPlaybackManager.initTempo()
+    }
+
+    fun tempoMinusOne() {
+        mediaPlaybackManager.tempoMinusOne()
+    }
 
     private val _permissionGranted = MutableStateFlow(false)
     val permissionGranted: StateFlow<Boolean> = _permissionGranted.asStateFlow()
@@ -84,8 +126,8 @@ class MainViewModel @Inject constructor(
     }
 
 
-    private val _suggestionKeywords: MutableStateFlow<ArrayList<String>> = MutableStateFlow(
-        arrayListOf()
+    private val _suggestionKeywords: MutableStateFlow<List<String>> = MutableStateFlow(
+        listOf()
     )
     val suggestionKeywords = _suggestionKeywords.asStateFlow()
 
@@ -94,28 +136,14 @@ class MainViewModel @Inject constructor(
     }
 
     fun getSuggestionKeyword(query: String) = viewModelScope.launch {
-        val suggestionKeywordStringExtractor = SuggestionKeywordStringExtractor()
         suggestionKeywordRepository.getSuggestionKeywords(query)
-            .onSuccess { value: ResponseBody ->
-                value.string().let {
-                    val responseString =
-                        suggestionKeywordStringExtractor.convertStringUnicodeToKorean(it)
-                    val splitBracketList = responseString.split('[')
-                    val splitCommaList = splitBracketList[2].split(',')
-                    if (splitCommaList[0] != "]]" && splitCommaList[0] != '"'.toString()) {
-                        _suggestionKeywords.value =
-                            suggestionKeywordStringExtractor.addSubstringToSuggestionKeyword(
-                                splitCommaList
-                            )
-                    }
-                }
+            .onSuccess { list ->
+                _suggestionKeywords.value = list
             }
             .onFailure {
-                Logger.d("검색어 실패")
+                // 에러 처리
             }
-
     }
-
 
     private val _normalizedOffset = MutableStateFlow(0f)
     val normalizedOffset = _normalizedOffset.asStateFlow()
@@ -158,78 +186,73 @@ class MainViewModel @Inject constructor(
 
     fun hideBottomSheet() {
 //        Logger.d("hideBottomSheet")
-
         _bottomSheetState.value = SheetValue.Hidden
-
-
     }
 
 
-    private val _channelData = MutableStateFlow<NewPipeChannelData?>(null)
-    val channelData = _channelData.asStateFlow()
-
-    fun fetchChannelData(item: NewPipeVideoData) = viewModelScope.launch(Dispatchers.IO) {
-        try {
-            newPipeRepository.fetchChannelDataByChannelUrl(item.uploaderUrl ?: "")
-        } catch (e: Exception) {
-
-        }
-    }
+//    private val _channelData = MutableStateFlow<NewPipeChannelData?>(null)
+//    val channelData = _channelData.asStateFlow()
+//
+//    fun fetchChannelData(item: NewPipeVideoData) = viewModelScope.launch(Dispatchers.IO) {
+//        try {
+//            newPipeRepository.fetchChannelDataByChannelUrl(item.uploaderUrl ?: "")
+//        } catch (e: Exception) {
+//
+//        }
+//    }
 
     private val _relatedVideos = MutableStateFlow<MutableList<out InfoItem>?>(null)
     val relatedVideos = _relatedVideos.asStateFlow()
 
 
-    fun fetchRelatedVideos(videoId: String) = viewModelScope.launch(Dispatchers.IO) {
-        try {
-            val result = newPipeRepository.fetchRelatedVideoStreamByVideoId(videoId)
-            if (result.isSuccess) {
-                _relatedVideos.value = result.getOrNull()
-            }
-            if (result.isFailure) {
-
-            }
-        } catch (e: Exception) {
-
-        }
-    }
+//    fun fetchRelatedVideos(videoId: String) = viewModelScope.launch(Dispatchers.IO) {
+//        try {
+//            val result = newPipeRepository.fetchRelatedVideoStreamByVideoId(videoId)
+//            if (result.isSuccess) {
+//                _relatedVideos.value = result.getOrNull()
+//            }
+//            if (result.isFailure) {
+//
+//            }
+//        } catch (e: Exception) {
+//
+//        }
+//    }
 
     private val _isShowingAddVideoToPlaylistDialog = MutableStateFlow(false)
     val isShowAddVideoToPlaylistDialog = _isShowingAddVideoToPlaylistDialog.asStateFlow()
 
-    private val _myPlaylists = MutableStateFlow<List<PlaylistEntity>>(emptyList())
+    private val _myPlaylists = MutableStateFlow<List<Playlist>>(emptyList())
     val myPlaylists = _myPlaylists.asStateFlow()
 
-    private val _selectedVideo = MutableStateFlow<NewPipeVideoData?>(null)
-    val selectedVideo = _selectedVideo.asStateFlow()
+//    private val _selectedVideo = MutableStateFlow<NewPipeVideoData?>(null)
+//    val selectedVideo = _selectedVideo.asStateFlow()
 
-    fun showAddToPlaylistDialog(video: NewPipeVideoData) {
-        getAllMyPlaylist()
-        _selectedVideo.value = video
-        _isShowingAddVideoToPlaylistDialog.value = true
+//    fun showAddToPlaylistDialog(video: NewPipeVideoData) {
+//        getAllMyPlaylist()
+//        _selectedVideo.value = video
+//        _isShowingAddVideoToPlaylistDialog.value = true
+//
+//    }
+//
+//    fun dismissPlaylistDialog() {
+//        _isShowingAddVideoToPlaylistDialog.value = false
+//        _myPlaylists.value = emptyList()
+//        _selectedVideo.value = null
+//    }
 
-    }
+//    private fun getAllMyPlaylist() = viewModelScope.launch {
+//        try {
+//            _myPlaylists.value = playlistDBRepository.getAllPlaylists()
+//
+//        } catch (e: Exception) {
+//            Logger.d("getAllMyPlaylist $e")
+//        }
+//    }
 
-    fun dismissPlaylistDialog() {
-        _isShowingAddVideoToPlaylistDialog.value = false
-        _myPlaylists.value = emptyList()
-        _selectedVideo.value = null
-    }
-
-    private fun getAllMyPlaylist() = viewModelScope.launch {
-        try {
-            _myPlaylists.value = playlistDBRepository.getAllPlaylists()
-
-        } catch (e: Exception) {
-            Logger.d("getAllMyPlaylist $e")
-        }
-    }
-
-    fun addVideoToPlaylist(video: NewPipeVideoData, playlistId: Long) =
-        viewModelScope.launch(Dispatchers.IO) {
-            playlistDBRepository.addVideoToPlaylist(video, playlistId)
-        }
-
-
+//    fun addVideoToPlaylist(video: NewPipeVideoData, playlistId: Long) =
+//        viewModelScope.launch(Dispatchers.IO) {
+//            playlistDBRepository.addVideoToPlaylist(video, playlistId)
+//        }
 
 }
