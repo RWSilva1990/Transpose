@@ -107,8 +107,13 @@ class LocalFileRepositoryImpl @Inject constructor(
 
     override fun deleteFile(file: LocalFileData): Result<Boolean> {
         return runCatching {
-            val deletedRows = context.contentResolver.delete(file.uri, null, null)
-            deletedRows > 0
+            try {
+                val deletedRows = context.contentResolver.delete(file.uri, null, null)
+                deletedRows > 0
+            } catch (e: SecurityException) {
+                // 안드로이드 10(Q) 이상 & 다른 앱이 소유한 파일 => RecoverableSecurityException 가능
+                throw e  // 여기서 그대로 던져서 ViewModel에서 분기 처리
+            }
         }
     }
 
