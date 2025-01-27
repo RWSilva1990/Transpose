@@ -1,6 +1,7 @@
 package com.example.transpose.ui.screen.library.my_local_item.item
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -17,23 +18,35 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.ColorPainter
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.example.transpose.R
 import com.example.transpose.data.model.local_file.LocalFileData
+import com.example.transpose.ui.components.dropdown_menu.DropDownMenu
 
 @Composable
 fun LocalFileData(
     item: LocalFileData,
-    onClick: (LocalFileData) -> Unit
-) {
+    onClick: (LocalFileData) -> Unit,
+    dropDownMenuClick: () -> Unit,
+    ) {
+
+    var isExpanded by remember {
+        mutableStateOf(false)
+    }
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -79,14 +92,20 @@ fun LocalFileData(
                 maxLines = 1
             )
         }
-        IconButton(
-            onClick = { /* Handle options click */ },
+        Box(
             modifier = Modifier.align(Alignment.CenterVertically)
-        ) {
-            Icon(
-                imageVector = Icons.Default.MoreVert,
-                contentDescription = "More options"
-            )
+        ){
+            IconButton(
+                onClick = { isExpanded = true },
+            ) {
+                Icon(
+                    imageVector = Icons.Default.MoreVert,
+                    contentDescription = "More options"
+                )
+            }
+            DropDownMenu(text = stringResource(id = R.string.delete_video_from_device_pop_up_menu_text), isExpanded = isExpanded, onDismissRequest = { isExpanded = false }, onClick = {dropDownMenuClick()})
+
         }
+
     }
 }

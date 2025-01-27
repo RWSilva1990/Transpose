@@ -1,5 +1,6 @@
 package com.example.transpose.ui.screen.library.my_local_item
 
+import android.app.RecoverableSecurityException
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.transpose.data.model.local_file.LocalFileData
@@ -26,6 +27,11 @@ class LibraryMyLocalItemViewModel @Inject constructor(
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage
 
+    private val _recoverableDeleteEvent = MutableStateFlow<RecoverableSecurityException?>(null)
+    val recoverableDeleteEvent: StateFlow<RecoverableSecurityException?> = _recoverableDeleteEvent
+
+
+    private val _pendingDeleteFile = MutableStateFlow<LocalFileData?>(null)
 
     fun loadAudioFiles() = viewModelScope.launch(Dispatchers.IO) {
         localFileRepositoryImpl.getAudioFiles()
@@ -50,21 +56,50 @@ class LibraryMyLocalItemViewModel @Inject constructor(
 
     }
 
-    fun deleteFile(file: LocalFileData) = viewModelScope.launch(Dispatchers.IO) {
+    /**
+     * 실제 파일 삭제 시도
+     */
+    fun deleteFile(file: LocalFileData) = viewModelScope.launch {
+        // 어떤 파일을 삭제하려 하는지 기록
+        _pendingDeleteFile.value = file
+
         localFileRepositoryImpl.deleteFile(file)
             .onSuccess { isDeleted ->
                 if (isDeleted) {
-                    // 파일 삭제 성공 처리
+                    // 삭제 성공 -> 목록 갱신
                     _audioFiles.value = _audioFiles.value.filter { it.id != file.id }
                     _videoFiles.value = _videoFiles.value.filter { it.id != file.id }
                 } else {
-                    _errorMessage.value = "파일 삭제 실패"
+                    _errorMessage.value = "파일을 삭제하지 못했습니다."
                 }
             }
-            .onFailure { error ->
-                _errorMessage.value = "파일 삭제 중 오류 발생: ${error.message}"
+            .onFailure { e ->
+                // 안드로이드 10+ 에서 외부 파일 삭제시 보안 예외 가능
+                if (e is RecoverableSecurityException) {
+                    _recoverableDeleteEvent.value = e
+                } else {
+                    _errorMessage.value = e.message
+                }
             }
+    }
 
+    /**
+     * 사용자가 시스템 다이얼로그에서 '허용'을 누른 뒤 재시도
+     */
+    fun retryDeleteAfterPermission() = viewModelScope.launch {
+        // 이미 이벤트 사용 -> null로 초기화
+        _recoverableDeleteEvent.value = null
+
+        val file = _pendingDeleteFile.value ?: return@launch
+        // 다시 삭제 시도
+        deleteFile(file)
+    }
+
+    /**
+     * 사용자가 거부했거나, 이벤트를 클리어해야 하는 경우
+     */
+    fun clearRecoverableDeleteEvent() {
+        _recoverableDeleteEvent.value = null
     }
 
 }
