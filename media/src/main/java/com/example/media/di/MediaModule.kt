@@ -9,8 +9,10 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
+import com.example.media.manager.AudioEffectsManager
 import com.example.media.CustomMediaSourceFactory
-import com.example.media.MediaPlaybackManager
+import com.example.media.manager.MediaControllerProvider
+import com.example.media.manager.MediaPlaybackManager
 import com.example.media.audio_effect.AudioEffectHandlerImpl
 import dagger.Module
 import dagger.Provides
@@ -70,12 +72,28 @@ class MediaModule {
     fun provideAudioEffectHandler(player: Player): AudioEffectHandlerImpl =
         AudioEffectHandlerImpl(player as ExoPlayer)
 
+    @Provides
+    @Singleton
+    fun provideMediaControllerProvider(
+        @ApplicationContext context: Context
+    ): MediaControllerProvider {
+        return MediaControllerProvider(context)
+    }
+
     @Singleton
     @Provides
     fun provideMediaPlaybackManager(
-        @ApplicationContext context: Context
+        mediaControllerProvider: MediaControllerProvider
     ): MediaPlaybackManager {
-        return MediaPlaybackManager(context)
+        return MediaPlaybackManager(mediaControllerProvider)
+    }
+
+    @Singleton
+    @Provides
+    fun provideAudioEffectsManager(
+        mediaControllerProvider: MediaControllerProvider
+    ): AudioEffectsManager {
+        return AudioEffectsManager(mediaControllerProvider)
     }
 
 }

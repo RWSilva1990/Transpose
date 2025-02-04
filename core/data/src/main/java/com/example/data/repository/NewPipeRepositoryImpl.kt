@@ -2,11 +2,12 @@ package com.example.data.repository
 
 import com.example.data.newpipe.downloader.NewPipeDownloader
 import com.example.data.newpipe.exception.NewPipeException
-import com.example.data.newpipe.extractor.PlaylistPager
 import com.example.data.newpipe.extractor.ContentPager
+import com.example.data.newpipe.extractor.PlaylistItemPager
+import com.example.data.newpipe.extractor.PlaylistPager
 import com.example.data.newpipe.mapper.InfoItemMapper
-import com.example.domain.model.youtube.playlist.Playlist
-import com.example.domain.model.youtube.playlist.PlaylistItem
+import com.example.domain.model.youtube.playlist.PlaylistData
+import com.example.domain.model.youtube.playlist.PlaylistItemData
 import com.example.domain.model.youtube.search.SearchResult
 import com.example.domain.model.youtube.video_detail.VideoDetailData
 import com.example.domain.repository.NewPipeRepository
@@ -24,6 +25,10 @@ class NewPipeRepositoryImpl : NewPipeRepository {
     private val youtubeService: YoutubeService = ServiceList.YouTube
 
     private var currentContentPager: ContentPager? = null
+
+    private var playlistPager: PlaylistPager? = null
+
+    private var playlistItemPager: PlaylistItemPager? = null
 
     init {
         NewPipe.init(NewPipeDownloader())
@@ -55,27 +60,42 @@ class NewPipeRepositoryImpl : NewPipeRepository {
         return currentContentPager?.isHasNextPage() == true
     }
 
-    override suspend fun fetchPlaylistResult(playlistId: String): Result<Playlist> {
+    override suspend fun fetchPlaylistResult(playlistId: String): Result<PlaylistData> {
         return try {
             val linkHandler = getPlaylistHandler(playlistId)
             val playlistExtractor = youtubeService.getPlaylistExtractor(linkHandler)
             playlistExtractor.fetchPage()
-            Result.success(InfoItemMapper.playlistExtractorToDomain(playlistExtractor))
+            Result.success(InfoItemMapper.playlistExtractorToPlaylistData(playlistExtractor))
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
 
-    override suspend fun fetchPlaylistItemsResult(playlistId: String): Result<List<PlaylistItem>> {
+    override suspend fun fetchPlaylistItemsResult(playlistId: String): Result<List<PlaylistItemData>> {
         return try {
             val linkHandler = getPlaylistHandler(playlistId)
             val playlistExtractor = youtubeService.getPlaylistExtractor(linkHandler)
             playlistExtractor.fetchPage()
-            val pager = PlaylistPager(youtubeService, playlistExtractor)
+            val pager = PlaylistItemPager(youtubeService, playlistExtractor)
+            playlistItemPager = pager
             Result.success(pager.getNextPage())
         } catch (e: Exception) {
             Result.failure(e)
         }
+    }
+
+    override suspend fun loadMorePlaylistItems(): Result<List<PlaylistItemData>> {
+        val pager = playlistItemPager
+            ?: return Result.failure(IllegalStateException("No PlaylistItemData initiated"))
+        return try {
+            Result.success(pager.getNextPage())
+        } catch (e: Exception) {
+            Result.failure(e)
+        }    }
+
+
+    override fun canLoadMorePlaylistItems(): Boolean {
+        return playlistItemPager?.isHasNextPage() == true
     }
 
 
@@ -120,28 +140,28 @@ class NewPipeRepositoryImpl : NewPipeRepository {
         }
     }
 
-//    override suspend fun fetchPlaylistWithChannelId(channelId: String): Result<List<Playlist>?> {
-//        try {
-//            val channelLinkHandler = getChannelLinkHandler(channelId)
-//
-//            val channelExtractor = getChannelExtractor(channelLinkHandler)
-//
-//            channelExtractor.fetchPage()
-//
-//            val playlistsTabLinkHandler = channelExtractor.tabs.find { it.contentFilters.contains("playlists") }
-//
-//            if (playlistsTabLinkHandler != null) {
-//                val channelTabExtractor = getChannelTabExtractor(playlistsTabLinkHandler)
-//                val pager = ContentPager(youtubeService, channelTabExtractor)
-//
-//                return Result.success(pager.getNextPage())
-//            }
-//            return Result.failure(Exception("No playlist in that channel Id"))
-//
-//        }catch (e: Exception){
-//            return Result.failure(e)
-//        }
-//    }
+    override suspend fun fetchPlaylistWithChannelId(channelId: String): Result<List<PlaylistData>?> {
+        try {
+            val channelLinkHandler = getChannelLinkHandler(channelId)
+
+            val channelExtractor = getChannelExtractor(channelLinkHandler)
+
+            channelExtractor.fetchPage()
+
+            val playlistsTabLinkHandler = channelExtractor.tabs.find { it.contentFilters.contains("playlists") }
+
+            if (playlistsTabLinkHandler != null) {
+                val channelTabExtractor = getChannelTabExtractor(playlistsTabLinkHandler)
+                val pager = PlaylistPager(youtubeService, channelTabExtractor)
+
+                return Result.success(pager.getNextPage())
+            }
+            return Result.failure(Exception("No playlist in that channel Id"))
+
+        }catch (e: Exception){
+            return Result.failure(e)
+        }
+    }
 
 
     override suspend fun fetchVideoDetail(videoId: String): Result<VideoDetailData> {

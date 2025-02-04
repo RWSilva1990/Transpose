@@ -1,4 +1,4 @@
-package com.example.transpose.ui.components.items
+package com.example.ui.components.items
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
@@ -20,23 +20,24 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
-import com.example.transpose.R
-import com.example.transpose.data.model.newpipe.NewPipeChannelData
-import com.example.transpose.ui.components.bottomsheet.item.rememberStringArrayResource
-import com.example.transpose.utils.TextFormatUtil
-import com.example.transpose.utils.ToastUtil
+import com.example.domain.model.youtube.search.SearchResult
+import com.example.transpose.core.ui.R
+import com.example.util.TextFormatUtil
+import com.example.util.ToastUtil
+
 
 @Composable
 fun ChannelItem(
-    channel: NewPipeChannelData,
-    onClick: (NewPipeChannelData) -> Unit
+    channel: SearchResult.Channel,
+    onClick: (SearchResult.Channel) -> Unit
 ) {
-    val subscriberCountFormats = rememberStringArrayResource(R.array.subscriber_count_formats)
+    val subscriberCountFormats = stringArrayResource(R.array.subscriber_count_formats)
     val context = LocalContext.current
     Column(
         modifier = Modifier
@@ -74,7 +75,7 @@ fun ChannelItem(
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = "@${channel.infoType}",
+                    text = "@${channel}",
                     fontSize = 14.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1

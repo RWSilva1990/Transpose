@@ -1,23 +1,23 @@
-package com.example.transpose.ui.screen.convert.audio_edit.components.loudness_enhancer
+package com.example.convert.audio_edit.components.loudness_enhancer
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import com.example.transpose.MediaViewModel
-import com.example.transpose.ui.screen.convert.audio_edit.components.SliderSection
+import com.example.convert.audio_edit.ConvertAudioEditViewModel
+import com.example.convert.audio_edit.components.SliderSection
 
 @Composable
 fun LoudnessEnhancerSection(
-    mediaViewModel: MediaViewModel
+    convertAudioEditViewModel: ConvertAudioEditViewModel
 ) {
-    val loudnessEnhancerValue by mediaViewModel.loudnessEnhancerValue.collectAsState()
+    val loudnessEnhancerValue by convertAudioEditViewModel.loudnessEnhancerValue.collectAsState()
 
     SliderSection(
         title = "Loudness Enhancer",
         displayValueText = "+$loudnessEnhancerValue",
-        onValueChange = {mediaViewModel.updateLoudnessEnhancerValue(it)},
-        onValueChangeFinished = {mediaViewModel.setLoudnessEnhancer()},
-        onReset = { mediaViewModel.initLoudnessEnhancerValue() },
+        onValueChange = { convertAudioEditViewModel.updateLoudnessEnhancerValue(it) },
+        onValueChangeFinished = { convertAudioEditViewModel.setLoudnessEnhancer() },
+        onReset = { convertAudioEditViewModel.initLoudnessEnhancerValue() },
         currentValue = loudnessEnhancerValue,
         valueRange = 0f..6000f
     )

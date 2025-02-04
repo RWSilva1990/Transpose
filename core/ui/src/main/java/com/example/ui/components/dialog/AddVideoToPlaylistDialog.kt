@@ -6,13 +6,13 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
-import com.example.transpose.R
-import com.example.transpose.data.database.entity.PlaylistEntity
-import com.example.transpose.ui.screen.library.my_playlist.items.PlaylistItem
+import com.example.domain.model.library.MyPlaylist
+import com.example.transpose.core.ui.R
+import com.example.ui.components.items.MyPlaylistItem
 
 @Composable
 fun AddVideoToPlaylistDialog(
-    playlists: List<PlaylistEntity>,
+    playlists: List<MyPlaylist>,
     onDismiss: () -> Unit,
     onPlaylistSelected: (Long) -> Unit
 ) {
@@ -23,7 +23,7 @@ fun AddVideoToPlaylistDialog(
             LazyColumn {
                 items(playlists.size) { index ->
                     val item = playlists[index]
-                    PlaylistItem(
+                    MyPlaylistItem(
                         title = item.name,
                         onClick = { onPlaylistSelected(item.playlistId)
                                   onDismiss()},

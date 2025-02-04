@@ -1,11 +1,12 @@
-package com.example.transpose.ui.screen.library.my_local_item
+package com.example.library.my_local_item
 
 import android.app.RecoverableSecurityException
+import android.os.Build
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.domain.repository.LocalFileRepository
+import com.example.media.manager.MediaPlaybackManager
 import com.example.transpose.data.model.local_file.LocalFileData
-import com.example.transpose.data.repository.local_file.LocalFileRepositoryImpl
-import com.example.transpose.utils.Logger
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -15,7 +16,8 @@ import javax.inject.Inject
 
 @HiltViewModel
 class LibraryMyLocalItemViewModel @Inject constructor(
-    private val localFileRepositoryImpl: LocalFileRepositoryImpl
+    private val localFileRepository: LocalFileRepository,
+    private val mediaPlaybackManager: MediaPlaybackManager
 ) : ViewModel() {
 
     private val _audioFiles = MutableStateFlow<List<LocalFileData>>(emptyList())
@@ -34,7 +36,7 @@ class LibraryMyLocalItemViewModel @Inject constructor(
     private val _pendingDeleteFile = MutableStateFlow<LocalFileData?>(null)
 
     fun loadAudioFiles() = viewModelScope.launch(Dispatchers.IO) {
-        localFileRepositoryImpl.getAudioFiles()
+        localFileRepository.getAudioFiles()
             .onSuccess { files ->
                 _audioFiles.value = files
             }
@@ -44,13 +46,11 @@ class LibraryMyLocalItemViewModel @Inject constructor(
     }
 
     fun loadVideoFiles() = viewModelScope.launch(Dispatchers.IO) {
-        localFileRepositoryImpl.getVideoFiles()
+        localFileRepository.getVideoFiles()
             .onSuccess { files ->
-                Logger.d("${files}")
                 _videoFiles.value = files
             }
             .onFailure { error ->
-                Logger.d("${error}")
                 _errorMessage.value = "비디오 파일 로딩 실패: ${error.message}"
             }
 
@@ -63,7 +63,7 @@ class LibraryMyLocalItemViewModel @Inject constructor(
         // 어떤 파일을 삭제하려 하는지 기록
         _pendingDeleteFile.value = file
 
-        localFileRepositoryImpl.deleteFile(file)
+        localFileRepository.deleteFile(file)
             .onSuccess { isDeleted ->
                 if (isDeleted) {
                     // 삭제 성공 -> 목록 갱신
@@ -74,10 +74,10 @@ class LibraryMyLocalItemViewModel @Inject constructor(
                 }
             }
             .onFailure { e ->
-                // 안드로이드 10+ 에서 외부 파일 삭제시 보안 예외 가능
-                if (e is RecoverableSecurityException) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && e is RecoverableSecurityException) {
                     _recoverableDeleteEvent.value = e
                 } else {
+                    // 그 외 예외
                     _errorMessage.value = e.message
                 }
             }
@@ -101,5 +101,9 @@ class LibraryMyLocalItemViewModel @Inject constructor(
     fun clearRecoverableDeleteEvent() {
         _recoverableDeleteEvent.value = null
     }
+
+//    fun onMediaItemClick(item: LocalFileData) {
+//        mediaPlaybackManager.onMediaItemClick(item)
+//    }
 
 }

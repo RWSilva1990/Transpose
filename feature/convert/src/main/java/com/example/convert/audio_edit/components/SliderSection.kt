@@ -1,4 +1,4 @@
-package com.example.transpose.ui.screen.convert.audio_edit.components
+package com.example.convert.audio_edit.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -17,7 +17,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.constraintlayout.compose.ConstraintLayout
-import com.example.transpose.utils.constants.AppColors
+import com.example.util.constants.AppColors
 
 @Composable
 fun SliderSection(

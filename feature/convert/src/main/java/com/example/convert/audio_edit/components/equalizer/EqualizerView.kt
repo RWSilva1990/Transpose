@@ -1,4 +1,4 @@
-package com.example.transpose.ui.screen.convert.audio_edit.components.equalizer
+package com.example.convert.audio_edit.components.equalizer
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -31,16 +31,16 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.transpose.MediaViewModel
-import com.example.transpose.utils.constants.AppColors
+import com.example.convert.audio_edit.ConvertAudioEditViewModel
+import com.example.util.constants.AppColors
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun EqualizerView(mediaViewModel: MediaViewModel) {
+fun EqualizerView(convertAudioEditViewModel: ConvertAudioEditViewModel) {
 
-    val equalizerCurrentPreset by mediaViewModel.equalizerCurrentPreset.collectAsState()
-    val equalizerSettings by mediaViewModel.equalizerSettings.collectAsState()
+    val equalizerCurrentPreset by convertAudioEditViewModel.equalizerCurrentPreset.collectAsState()
+    val equalizerSettings by convertAudioEditViewModel.equalizerSettings.collectAsState()
 
     val xAxisLabels = listOf("60Hz", "230Hz", "910Hz", "3kHz", "14kHz")
 
@@ -83,10 +83,10 @@ fun EqualizerView(mediaViewModel: MediaViewModel) {
                         // Bind the slider value to the corresponding gain value from the ViewModel
                         value = equalizerSettings.bandLevels[index],
                         onValueChange = { newValue ->
-                            mediaViewModel.updateEqualizerBandLevel(index, newValue)
+                            convertAudioEditViewModel.updateEqualizerBand(index, newValue)
                         },
                         onValueChangeFinished = {
-                            mediaViewModel.setEqualizerWithCustomValue(index)
+                            convertAudioEditViewModel.setEqualizerWithCustomValue(index)
                         },
                         valueRange = -1500f..1500f,
                         colors = SliderDefaults.colors(
@@ -112,7 +112,7 @@ fun EqualizerView(mediaViewModel: MediaViewModel) {
                     Text(
                         text = if (equalizerSettings.bandLevels[index] >= 0)
                             String.format(Locale.ROOT, "+%.1f", equalizerSettings.bandLevels[index])
-                                    else
+                        else
                             String.format(Locale.ROOT, "%.1f", equalizerSettings.bandLevels[index]),
                         modifier = Modifier
                             .offset(x = 20.dp + sliderWidth)

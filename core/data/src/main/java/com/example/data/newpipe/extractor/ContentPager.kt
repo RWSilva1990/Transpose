@@ -30,16 +30,16 @@ open class ContentPager(
                     val id = getId(streamLinkHandler, infoItem.url)
                     if (!seenVideos.contains(id)) {
                         seenVideos.add(id)
-                        result.add(InfoItemMapper.streamInfoItemToDomain(infoItem, id))
+                        result.add(InfoItemMapper.streamInfoItemToSearchResultVideo(infoItem, id))
                     }
                 }
                 is PlaylistInfoItem -> {
                     val id = getId(playlistLinkHandler, infoItem.url)
-                    result.add(InfoItemMapper.playlistInfoItemToDomain(infoItem, id))
+                    result.add(InfoItemMapper.playlistInfoItemToSearchResultPlaylist(infoItem, id))
                 }
                 is ChannelInfoItem -> {
                     val id = getId(channelLinkHandler, infoItem.url)
-                    result.add(InfoItemMapper.channelInfoItemToDomain(infoItem, id))
+                    result.add(InfoItemMapper.channelInfoItemToSearchResultChannel(infoItem, id))
                 }
             }
         }

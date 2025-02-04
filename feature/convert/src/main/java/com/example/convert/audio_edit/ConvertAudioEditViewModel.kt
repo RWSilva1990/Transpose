@@ -1,67 +1,150 @@
-package com.example.transpose.ui.screen.convert.audio_edit
+package com.example.convert.audio_edit
 
 import androidx.lifecycle.ViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
+import com.example.media.manager.AudioEffectsManager
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 
-class ConvertAudioEditViewModel: ViewModel(){
+@HiltViewModel
+class ConvertAudioEditViewModel @Inject constructor(
+    private val audioEffectsManager: AudioEffectsManager
+) : ViewModel() {
 
-    private val _bassBoostValue = MutableStateFlow(0)
-    val bassBoostValue: StateFlow<Int> get() = _bassBoostValue
+    // ---------------------------------------------------------
+    // Pitch / Tempo
+    // ---------------------------------------------------------
+    val pitchValue = audioEffectsManager.pitchValue
+    fun updatePitchValue(value: Int) = audioEffectsManager.updatePitchValue(value)
+    fun setPitch() = audioEffectsManager.setPitch()
+    fun pitchPlusOne() = audioEffectsManager.pitchPlusOne()
+    fun pitchMinusOne() = audioEffectsManager.pitchMinusOne()
+    fun initPitchValue() = audioEffectsManager.initPitchValue()
 
-    private val _loudnessEnhancerValue = MutableStateFlow(0)
-    val loudnessEnhancerValue: StateFlow<Int> get() = _loudnessEnhancerValue
-
-    private val _virtualizerValue = MutableStateFlow(0)
-    val virtualizerValue: StateFlow<Int> get() = _virtualizerValue
-
-    private val _presetReverbIndexValue = MutableStateFlow(0)
-    val presetReverbIndexValue: StateFlow<Int> get() = _presetReverbIndexValue
-
-    private val _presetReverbSendLevel = MutableStateFlow(0)
-    val presetReverbSendLevel: StateFlow<Int> get() = _presetReverbSendLevel
-
-    private val _equalizerIndexValue = MutableStateFlow(3)
-    val equalizerIndexValue: StateFlow<Int> get() = _equalizerIndexValue
-
-    private val _isEqualizerEnabled = MutableStateFlow(false)
-    val isEqualizerEnabled: StateFlow<Boolean> get() = _isEqualizerEnabled
-
-    private val _isPresetReverbEnabled = MutableStateFlow(false)
-    val isPresetReverbEnabled: StateFlow<Boolean> get() = _isPresetReverbEnabled
+    val tempoValue = audioEffectsManager.tempoValue
+    fun updateTempoValue(value: Int) = audioEffectsManager.updateTempoValue(value)
+    fun setTempo() = audioEffectsManager.setTempo()
+    fun tempoPlusOne() = audioEffectsManager.tempoPlusOne()
+    fun tempoMinusOne() = audioEffectsManager.tempoMinusOne()
+    fun initTempoValue() = audioEffectsManager.initTempoValue()
 
 
+    // ---------------------------------------------------------
+    // Equalizer
+    // ---------------------------------------------------------
+    val isEqualizerEnabled = audioEffectsManager.isEqualizerEnabled
+    val equalizerCurrentPreset = audioEffectsManager.equalizerCurrentPreset
+    val equalizerSettings = audioEffectsManager.equalizerSettings
 
-    fun updateBassBoostValue(value: Int) {
-        _bassBoostValue.value = value
-    }
+    fun updateIsEqualizerEnabled() = audioEffectsManager.updateIsEqualizerEnabled()
 
-    fun updateLoudnessEnhancerValue(value: Int) {
-        _loudnessEnhancerValue.value = value
-    }
+    fun updateEqualizerWithPreset(presetIndex: Int) =
+        audioEffectsManager.updateEqualizerWithPreset(presetIndex)
 
-    fun updateVirtualizerValue(value: Int) {
-        _virtualizerValue.value = value
-    }
+    fun setEqualizerWithCustomValue(bandIndex: Int) =
+        audioEffectsManager.setEqualizerWithCustomValue(bandIndex)
 
-    fun updatePresetReverbIndexValue(value: Int) {
-        _presetReverbIndexValue.value = value
-    }
+    fun updateEqualizerBand(bandIndex: Int, value: Float) =
+        audioEffectsManager.updateEqualizerBandLevel(bandIndex, value)
 
-    fun updatePresetReverbSendLevel(value: Int) {
-        _presetReverbSendLevel.value = value
-    }
+    fun initEqualizerValue() = audioEffectsManager.initEqualizerValue()
 
-    fun updateEqualizerIndexValue(value: Int) {
-        _equalizerIndexValue.value = value
-    }
+    fun disableEqualizer() = audioEffectsManager.disableEqualizer()
 
-    fun updateIsEqualizerEnabled(value: Boolean) {
-        _isEqualizerEnabled.value = value
-    }
 
-    fun updateIsPresetReverbEnabled(value: Boolean) {
-        _isPresetReverbEnabled.value = value
-    }
+    // ---------------------------------------------------------
+    // Reverb (Preset Reverb)
+    // ---------------------------------------------------------
+    val isReverbEnabled = audioEffectsManager.isReverbEnabled
+    val reverbCurrentPreset = audioEffectsManager.reverbCurrentPreset
+    val reverbValue = audioEffectsManager.reverbValue
+
+    fun initReverbValue() = audioEffectsManager.initReverbValue()
+
+    fun updateIsReverbEnabled() = audioEffectsManager.updateIsReverbEnabled()
+
+    fun updateReverbValue(value: Int) = audioEffectsManager.updateReverbValue(value)
+
+    fun setPresetReverb() = audioEffectsManager.setPresetReverb()
+
+    fun updateReverbPreset(presetIndex: Int) = audioEffectsManager.updateReverbCurrentPreset(presetIndex)
+
+    fun disableReverb() = audioEffectsManager.disableReverb()
+
+
+    // ---------------------------------------------------------
+    // Bass Boost
+    // ---------------------------------------------------------
+    val bassBoostValue = audioEffectsManager.bassBoostValue
+    fun updateBassBoostValue(value: Int) = audioEffectsManager.updateBassBoostValue(value)
+    fun setBassBoost() = audioEffectsManager.setBassBoost()
+    fun initBassBoostValue() = audioEffectsManager.initBassBoostValue()
+
+
+    // ---------------------------------------------------------
+    // Loudness Enhancer
+    // ---------------------------------------------------------
+    val loudnessEnhancerValue = audioEffectsManager.loudnessEnhancerValue
+    fun updateLoudnessEnhancerValue(value: Int) = audioEffectsManager.updateLoudnessEnhancerValue(value)
+    fun setLoudnessEnhancer() = audioEffectsManager.setLoudnessEnhancer()
+    fun initLoudnessEnhancerValue() = audioEffectsManager.initLoudnessEnhancerValue()
+
+
+    // ---------------------------------------------------------
+    // Virtualizer
+    // ---------------------------------------------------------
+    val virtualizerValue = audioEffectsManager.virtualizerValue
+    fun updateVirtualizerValue(value: Int) = audioEffectsManager.updateVirtualizerValue(value)
+    fun setVirtualizer() = audioEffectsManager.setVirtualizer()
+    fun initVirtualizerValue() = audioEffectsManager.initVirtualizerValue()
+
+
+    // ---------------------------------------------------------
+    // Haptic Generator
+    // ---------------------------------------------------------
+    val isHapticGeneratorEnabled = audioEffectsManager.isHapticGeneratorEnabled
+    fun updateHapticGeneratorValue() = audioEffectsManager.updateIsHapticGeneratorEnabled()
+
+
+    // ---------------------------------------------------------
+    // Environmental Reverb
+    // ---------------------------------------------------------
+    val isEnvironmentalReverbEnabled = audioEffectsManager.isEnvironmentalReverbEnabled
+    val roomLevel = audioEffectsManager.roomLevel
+    val roomHFLevel = audioEffectsManager.roomHFLevel
+    val decayTime = audioEffectsManager.decayTime
+    val decayHFRatio = audioEffectsManager.decayHFRatio
+    val reflectionsLevel = audioEffectsManager.reflectionsLevel
+    val reflectionsDelay = audioEffectsManager.reflectionsDelay
+    val reverbLevel = audioEffectsManager.reverbLevel
+    val reverbDelay = audioEffectsManager.reverbDelay
+    val diffusion = audioEffectsManager.diffusion
+    val density = audioEffectsManager.density
+
+
+//    fun setEnvironmentalReverb(
+//        isEnabled: Boolean,
+//        roomLevel: Int,
+//        roomHFLevel: Int,
+//        decayTime: Int,
+//        decayHFRatio: Int,
+//        reflectionsLevel: Int,
+//        reflectionsDelay: Int,
+//        reverbLevel: Int,
+//        reverbDelay: Int,
+//        diffusion: Int,
+//        density: Int
+//    ) = audioEffectsManager.setEnvironmentalReverb(
+//        isEnabled,
+//        roomLevel,
+//        roomHFLevel,
+//        decayTime,
+//        decayHFRatio,
+//        reflectionsLevel,
+//        reflectionsDelay,
+//        reverbLevel,
+//        reverbDelay,
+//        diffusion,
+//        density
+//    )
 
 }

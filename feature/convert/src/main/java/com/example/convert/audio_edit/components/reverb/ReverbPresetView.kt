@@ -1,4 +1,4 @@
-package com.example.transpose.ui.screen.convert.audio_edit.components.reverb
+package com.example.convert.audio_edit.components.reverb
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -33,15 +33,15 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
-import com.example.transpose.MediaViewModel
-import com.example.transpose.R
-import com.example.transpose.media.audio_effect.data.reverb.ReverbPresets
-import com.example.transpose.utils.constants.AppColors
+import com.example.convert.audio_edit.ConvertAudioEditViewModel
+import com.example.media.audio_effect.data.reverb.ReverbPresets
+import com.example.transpose.core.ui.R
+import com.example.util.constants.AppColors
 
 @Composable
-fun ReverbPresetView(mediaViewModel: MediaViewModel) {
+fun ReverbPresetView(convertAudioEditViewModel: ConvertAudioEditViewModel) {
     Column {
-        val reverbCurrentPreset by mediaViewModel.reverbCurrentPreset.collectAsState()
+        val reverbCurrentPreset by convertAudioEditViewModel.reverbCurrentPreset.collectAsState()
         val effectType = ReverbPresets.effectTypes
         val groupedList = effectType.chunked(3)
         Row(
@@ -119,11 +119,12 @@ fun ReverbPresetView(mediaViewModel: MediaViewModel) {
                                 )
                                 .clip(RoundedCornerShape(40.dp))
                                 .clickable {
-                                    mediaViewModel.updateReverbCurrentPreset(index)
+                                    convertAudioEditViewModel.updateReverbPreset(index)
                                 }
                                 .background(if (index == reverbCurrentPreset) AppColors.BlueBackground else Color.White),
                             contentAlignment = Alignment.Center
-                        ) { val size = this.maxWidth
+                        ) {
+                            val size = this.maxWidth
                             Text(
                                 text = item,
                                 style = MaterialTheme.typography.bodySmall,

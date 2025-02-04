@@ -1,64 +1,79 @@
 package com.example.transpose.navigation.navgraph
 
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.SheetState
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavType
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
-import com.example.library.search_result.LibrarySearchResultScreen
-import com.example.transpose.MainViewModel
-import com.example.transpose.MediaViewModel
-import com.example.transpose.navigation.Route
-import com.example.transpose.ui.screen.library.my_local_item.LibraryMyLocalItemScreen
+import com.example.library.my_local_item.LibraryMyLocalItemScreen
 import com.example.library.my_playlist.LibraryMyPlaylistScreen
-import com.example.transpose.ui.screen.library.my_playlist_item.LibraryMyPlaylistItemScreen
+import com.example.library.my_playlist_item.LibraryMyPlaylistItemScreen
+import com.example.transpose.navigation.helper.LibraryNavigationHelper
+import com.example.transpose.navigation.route.LibraryRoutes
+import com.example.ui.screen.search_result.SearchResultScreen
 
+@OptIn(ExperimentalMaterial3Api::class)
 fun NavGraphBuilder.libraryNavGraph(
-    mainViewModel: MainViewModel,
-    mediaViewModel: MediaViewModel,
+    bottomSheetState: SheetState,
+    libraryNavigationHelper: LibraryNavigationHelper
 ) {
-    composable(route = Route.Library.MyPlaylist.route) {
+    composable(route = LibraryRoutes.MyPlaylist.route) {
         LibraryMyPlaylistScreen(
-            mainViewModel = mainViewModel,
-            mediaViewModel = mediaViewModel,
-            libraryMyPlaylistViewModel = hiltViewModel()
+            bottomSheetState = bottomSheetState,
+            libraryMyPlaylistViewModel = hiltViewModel(),
+            navigateToMyPlaylistItemScreen = { itemId ->
+                libraryNavigationHelper.navigateToMyPlaylistItem(itemId)
+            },
+            navigateToSearchResultScreen = { query ->
+                libraryNavigationHelper.navigateToSearchResult(query)
+            },
+            navigateToLocalFileScreen = { type ->
+                libraryNavigationHelper.navigateToMyLocalFileItem(type)
+            }
         )
     }
     composable(
-        route = Route.Library.MyPlaylistItem.route,
-        arguments = listOf(navArgument("itemId") { type = NavType.StringType })
+        route = LibraryRoutes.MyPlaylistItem.route,
+        arguments = listOf(navArgument("itemId") { type = NavType.LongType })
     ) { backStackEntry ->
-        val itemId = backStackEntry.arguments?.getString("itemId")
-
+        val itemId = backStackEntry.arguments?.getLong("itemId")
         LibraryMyPlaylistItemScreen(
-            mainViewModel = mainViewModel,
-            mediaViewModel = mediaViewModel,
+            bottomSheetState = bottomSheetState,
             libraryMyPlaylistItemViewModel = hiltViewModel(),
-            itemId = itemId
+            itemId = itemId,
+            navigateToBack = {
+                libraryNavigationHelper.navigateBack()
+            }
         )
     }
     composable(
-        route = Route.Library.SearchResult.route,
+        route = LibraryRoutes.SearchResult.route,
         arguments = listOf(navArgument("query") { type = NavType.StringType })
     ) { backStackEntry ->
         val query = backStackEntry.arguments?.getString("query")
-        LibrarySearchResultScreen(
-            mainViewModel = mainViewModel,
-            librarySearchResultViewModel = hiltViewModel(),
-            mediaViewModel = mediaViewModel,
-            query = query
+        SearchResultScreen(
+            bottomSheetState = bottomSheetState,
+            searchResultViewModel = hiltViewModel(),
+            query = query,
+            navigateToBack = {
+                libraryNavigationHelper.navigateBack()
+            }
         )
     }
     composable(
-        route = Route.Library.MyLocalFileItem.route,
+        route = LibraryRoutes.MyLocalFileItem.route,
         arguments = listOf(navArgument("type") { type = NavType.StringType })
     ) { backStackEntry ->
         val type = backStackEntry.arguments?.getString("type")
         LibraryMyLocalItemScreen(
-            mainViewModel = mainViewModel,
+            bottomSheetState = bottomSheetState,
             libraryMyLocalItemViewModel = hiltViewModel(),
-            mediaViewModel = mediaViewModel,
-            type = type
+            type = type,
+            navigateToBack = {
+                libraryNavigationHelper.navigateBack()
+            }
         )
     }
 

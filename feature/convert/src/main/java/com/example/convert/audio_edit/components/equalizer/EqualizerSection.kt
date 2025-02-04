@@ -1,4 +1,4 @@
-package com.example.transpose.ui.screen.convert.audio_edit.components.equalizer
+package com.example.convert.audio_edit.components.equalizer
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
@@ -15,17 +15,17 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import com.example.transpose.MediaViewModel
-import com.example.transpose.ui.screen.convert.audio_edit.components.ExpandableSectionTitle
+import com.example.convert.audio_edit.ConvertAudioEditViewModel
+import com.example.convert.audio_edit.components.ExpandableSectionTitle
 
 
 @Composable
 fun EqualizerSection(
     modifier: Modifier = Modifier,
     title: String,
-    mediaViewModel: MediaViewModel,
+    convertAudioEditViewModel: ConvertAudioEditViewModel
 ) {
-    val isEnabled by mediaViewModel.isEqualizerEnabled.collectAsState()
+    val isEnabled by convertAudioEditViewModel.isEqualizerEnabled.collectAsState()
     var isExpanded by rememberSaveable { mutableStateOf(false) }
 
     Column(
@@ -38,10 +38,10 @@ fun EqualizerSection(
             title = title,
             isEnabled = isEnabled,
             onSwitchChange = {
-                mediaViewModel.updateIsEqualizerEnabled()
-                mediaViewModel.disableEqualizer()
+                convertAudioEditViewModel.updateIsEqualizerEnabled()
+                convertAudioEditViewModel.disableEqualizer()
             },
-            onInitButton = { mediaViewModel.initEqualizerValue() }
+            onInitButton = { convertAudioEditViewModel.initEqualizerValue() }
         )
 
         AnimatedVisibility(
@@ -51,7 +51,7 @@ fun EqualizerSection(
             visible = isExpanded,
         ) {
             Box(modifier = Modifier.fillMaxWidth()) {
-                EqualizerView(mediaViewModel = mediaViewModel)
+                EqualizerView(convertAudioEditViewModel = convertAudioEditViewModel)
             }
         }
         AnimatedVisibility(
@@ -61,7 +61,7 @@ fun EqualizerSection(
             visible = isExpanded,
         ) {
             Box(modifier = Modifier.fillMaxWidth()) {
-                EqualizerPresetView(mediaViewModel = mediaViewModel)
+                EqualizerPresetView(convertAudioEditViewModel = convertAudioEditViewModel)
             }
         }
     }

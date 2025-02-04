@@ -1,29 +1,31 @@
-package com.example.ui.navigation.navhost
+package com.example.transpose.navigation.navhost
 
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.SheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
-import com.example.transpose.MainViewModel
-import com.example.transpose.MediaViewModel
+import com.example.transpose.navigation.helper.ConvertNavigationHelper
 import com.example.transpose.navigation.navgraph.convertNavGraph
+import com.example.transpose.navigation.route.ConvertRoutes
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ConvertNavHost(
     navController: NavHostController,
-    startDestination: String,
     modifier: Modifier,
-    mainViewModel: MainViewModel,
-    mediaViewModel: MediaViewModel,
+    convertNavigationHelper: ConvertNavigationHelper,
+    bottomSheetState: SheetState
 ) {
     NavHost(
         navController = navController,
-        startDestination = startDestination,
+        startDestination = ConvertRoutes.AudioEdit.route,
         modifier = modifier
     ) {
         convertNavGraph(
-            mainViewModel = mainViewModel,
-            mediaViewModel = mediaViewModel,
+            bottomSheetState = bottomSheetState,
+            convertNavigationHelper = convertNavigationHelper
         )
     }
 }

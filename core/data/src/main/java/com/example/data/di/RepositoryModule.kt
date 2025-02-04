@@ -1,7 +1,7 @@
 package com.example.data.di
 
 import android.content.Context
-import com.example.data.newpipe.repository.NewPipeRepositoryImpl
+import com.example.data.repository.NewPipeRepositoryImpl
 import com.example.domain.repository.LocalFileRepository
 import com.example.domain.repository.NewPipeRepository
 import com.example.transpose.data.repository.local_file.LocalFileRepositoryImpl

@@ -1,4 +1,4 @@
-package com.example.transpose.ui.screen.library.my_playlist_item.items
+package com.example.library.my_playlist_item.items
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -32,13 +32,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import com.example.transpose.data.database.entity.VideoEntity
+import com.example.domain.model.youtube.video.BasicVideoData
 import com.example.transpose.ui.components.dropdown_menu.DropDownMenu
 
 @Composable
 fun PlaylistVideoItem(
-    item: VideoEntity,
-    onClick: (VideoEntity) -> Unit,
+    item: BasicVideoData,
+    onClick: (BasicVideoData) -> Unit,
     dropDownMenuClick: () -> Unit
 ){
     var isExpanded by remember {

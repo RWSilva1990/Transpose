@@ -1,37 +1,36 @@
-package com.example.transpose.ui.screen.library.my_playlist_item
+package com.example.library.my_playlist_item
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.SheetState
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import com.example.transpose.MainViewModel
-import com.example.transpose.MediaViewModel
-import com.example.transpose.R
-import com.example.transpose.navigation.viewmodel.NavigationViewModel
-import com.example.transpose.ui.screen.library.my_playlist_item.items.PlaylistVideoItem
+import com.example.library.my_playlist_item.items.PlaylistVideoItem
+import kotlinx.coroutines.launch
+import com.example.transpose.core.ui.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LibraryMyPlaylistItemScreen(
-    mainViewModel: MainViewModel,
-    mediaViewModel: MediaViewModel,
+    bottomSheetState: SheetState,
     libraryMyPlaylistItemViewModel: LibraryMyPlaylistItemViewModel,
-    itemId: String?
+    itemId: Long?,
+    navigateToBack: () -> Unit
 ) {
 
-    val bottomSheetState by mainViewModel.bottomSheetState.collectAsState()
     val myPlaylistItems by libraryMyPlaylistItemViewModel.myPlaylistItems.collectAsState()
-
+    val coroutineScope = rememberCoroutineScope()
     LaunchedEffect(itemId) {
         itemId?.let {
             libraryMyPlaylistItemViewModel.getVideosForPlaylist(itemId.toLong())
@@ -39,9 +38,11 @@ fun LibraryMyPlaylistItemScreen(
     }
 
     BackHandler(
-        enabled = bottomSheetState == SheetValue.Expanded
+        enabled = bottomSheetState.currentValue == SheetValue.Expanded
     ) {
-        mainViewModel.partialExpandBottomSheet()
+        coroutineScope.launch {
+            bottomSheetState.partialExpand()
+        }
     }
     if (myPlaylistItems.isEmpty()) {
         Box(
@@ -64,8 +65,10 @@ fun LibraryMyPlaylistItemScreen(
         items(myPlaylistItems.size) { index ->
             val item = myPlaylistItems[index]
             PlaylistVideoItem(item = item, onClick = {
-                mediaViewModel.onMediaItemClick(item)
-                mainViewModel.expandBottomSheet()
+                libraryMyPlaylistItemViewModel.onMediaItemClicked(item, index)
+                coroutineScope.launch {
+                    bottomSheetState.expand()
+                }
 
             }, dropDownMenuClick = {
                 itemId?.let {

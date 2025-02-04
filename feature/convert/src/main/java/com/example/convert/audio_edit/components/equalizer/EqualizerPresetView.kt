@@ -1,4 +1,4 @@
-package com.example.transpose.ui.screen.convert.audio_edit.components.equalizer
+package com.example.convert.audio_edit.components.equalizer
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -34,14 +34,14 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
-import com.example.transpose.MediaViewModel
-import com.example.transpose.R
-import com.example.transpose.utils.constants.AppColors
+import com.example.convert.audio_edit.ConvertAudioEditViewModel
+import com.example.transpose.core.ui.R
+import com.example.util.constants.AppColors
 
 @Composable
-fun EqualizerPresetView(mediaViewModel: MediaViewModel) {
+fun EqualizerPresetView(convertAudioEditViewModel: ConvertAudioEditViewModel) {
     Column {
-        val equalizerCurrentPreset by mediaViewModel.equalizerCurrentPreset.collectAsState()
+        val equalizerCurrentPreset by convertAudioEditViewModel.equalizerCurrentPreset.collectAsState()
         val effectType = stringArrayResource(id = R.array.equalizer_label).toList()
         val groupedList = effectType.chunked(3)
         Row(
@@ -120,11 +120,12 @@ fun EqualizerPresetView(mediaViewModel: MediaViewModel) {
                                 .clip(RoundedCornerShape(40.dp))
                                 .clickable {
                                     // Notify the ViewModel when a preset is selected
-                                    mediaViewModel.updateEqualizerWithPreset(index)
+                                    convertAudioEditViewModel.updateEqualizerWithPreset(index)
                                 }
                                 .background(if (index == equalizerCurrentPreset) AppColors.BlueBackground else Color.White),
                             contentAlignment = Alignment.Center
-                        ) { val size = this.maxWidth
+                        ) {
+                            val size = this.maxWidth
                             Text(
                                 text = item,
                                 style = MaterialTheme.typography.bodySmall,

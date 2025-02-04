@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.SheetState
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -17,29 +18,30 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import com.example.transpose.MainViewModel
-import com.example.transpose.MediaViewModel
-import com.example.transpose.navigation.Route
-import com.example.transpose.ui.screen.library.my_playlist.LibraryMyPlaylistViewModel
+import com.example.library.my_playlist.items.PlaylistItem
 import com.example.transpose.ui.screen.library.my_playlist.items.AddPlaylistItem
 import com.example.transpose.ui.screen.library.my_playlist.items.AudioStorageItem
-import com.example.transpose.ui.screen.library.my_playlist.items.PlaylistItem
 import com.example.transpose.ui.screen.library.my_playlist.items.VideoStorageItem
-import com.example.transpose.utils.PermissionUtils
+import com.example.util.PermissionUtils
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LibraryMyPlaylistScreen(
-    mainViewModel: MainViewModel,
-    mediaViewModel: MediaViewModel,
-    libraryMyPlaylistViewModel: LibraryMyPlaylistViewModel
+    bottomSheetState: SheetState,
+    libraryMyPlaylistViewModel: LibraryMyPlaylistViewModel,
+    navigateToMyPlaylistItemScreen: (Long) -> Unit,
+    navigateToSearchResultScreen: (String) -> Unit,
+    navigateToLocalFileScreen: (String) -> Unit,
 ) {
 
-    val bottomSheetState by mainViewModel.bottomSheetState.collectAsState()
     val myPlaylists by libraryMyPlaylistViewModel.myPlaylists.collectAsState()
+
+    val coroutineScope = rememberCoroutineScope()
 
     val context = LocalContext.current
     var showRationaleDialog by remember { mutableStateOf(false) }
@@ -52,7 +54,7 @@ fun LibraryMyPlaylistScreen(
         val allGranted = permissions.values.all { it }
         if (allGranted) {
             pendingRoute?.let { route ->
-                navigationViewModel.changeLibraryCurrentRoute(route)
+                navigateToLocalFileScreen(route)
                 pendingRoute = null
             }
         } else {
@@ -65,15 +67,17 @@ fun LibraryMyPlaylistScreen(
     }
 
     BackHandler(
-        enabled = bottomSheetState == SheetValue.Expanded
+        enabled = bottomSheetState.currentValue == SheetValue.Expanded
     ) {
-        mainViewModel.partialExpandBottomSheet()
+        coroutineScope.launch {
+            bottomSheetState.partialExpand()
+        }
     }
 
 
     fun handleItemClick(route: String) {
         if (PermissionUtils.checkPermissions(context)) {
-            navigationViewModel.changeLibraryCurrentRoute(route)
+            navigateToLocalFileScreen(route)
         } else {
             pendingRoute = route
             PermissionUtils.requestPermissions(permissionLauncher::launch)
@@ -93,13 +97,13 @@ fun LibraryMyPlaylistScreen(
 
         item {
             AudioStorageItem(onClick = {
-                handleItemClick(Route.Library.MyLocalFileItem.createRoute("audio"))
+                handleItemClick("audio")
             })
 
         }
         item {
             VideoStorageItem(onClick = {
-                handleItemClick(Route.Library.MyLocalFileItem.createRoute("video"))
+                handleItemClick("video")
 
             })
 
@@ -108,8 +112,8 @@ fun LibraryMyPlaylistScreen(
             val item = myPlaylists[index]
             PlaylistItem(
                 title = item.name,
-                onClick = { navigationViewModel.changeLibraryCurrentRoute(Route.Library.MyPlaylistItem.createRoute(item.playlistId.toString())) },
-                dropDownMenuClick = {libraryMyPlaylistViewModel.deleteMyPlaylist(item)}
+                onClick = { navigateToMyPlaylistItemScreen(item.playlistId) },
+                dropDownMenuClick = { libraryMyPlaylistViewModel.deleteMyPlaylist(item) }
             )
         }
     }
