@@ -1,4 +1,4 @@
-package com.example.transpose.ui.screen.convert.audio_edit.components.haptic_generator
+package com.example.convert.audio_edit.components.haptic_generator
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
@@ -14,14 +14,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.transpose.MediaViewModel
 
 @Composable
 fun HapticGeneratorSection(
-    mediaViewModel: MediaViewModel
+
 ) {
 
-    val isEnabled by mediaViewModel.isHapticGeneratorEnabled.collectAsState()
 
     Row(
         modifier = Modifier
@@ -37,13 +35,13 @@ fun HapticGeneratorSection(
             Text(text = "HapticGenerator", fontSize = 16.sp, fontWeight = FontWeight.Bold)
         }
 
-        Row{
-            Switch(
-                checked = isEnabled,
-                onCheckedChange = { mediaViewModel.updateIsHapticGenerator() }
-            )
-
-        }
+//        Row{
+//            Switch(
+//                checked = isEnabled,
+//                onCheckedChange = { mediaViewModel.updateIsHapticGenerator() }
+//            )
+//
+//        }
 
 
 

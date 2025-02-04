@@ -4,3 +4,7 @@ plugins {
     alias(libs.plugins.android.network)
 }
 
+android{
+    namespace = "com.example.transpose.core.domain"
+}
+

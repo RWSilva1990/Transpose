@@ -12,7 +12,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import com.example.transpose.R
+import com.example.transpose.core.ui.R
 
 private val DarkColorScheme = darkColorScheme(
     primary = Purple80,

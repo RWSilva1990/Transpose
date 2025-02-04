@@ -1,4 +1,4 @@
-package com.example.transpose.ui.components.items
+package com.example.ui.components.items
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -34,15 +34,15 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import com.example.transpose.R
-import com.example.transpose.data.model.newpipe.NewPipeVideoData
+import com.example.domain.model.youtube.video.BasicVideoData
+import com.example.transpose.core.ui.R
 import com.example.transpose.ui.components.dropdown_menu.DropDownMenu
 
 @Composable
 fun CommonVideoItem(
-    item: NewPipeVideoData,
+    item: BasicVideoData,
     currentIndex: Int,
-    onClick: (NewPipeVideoData) -> Unit,
+    onClick: (BasicVideoData) -> Unit,
     dropDownMenuClick: () -> Unit,
 ) {
     var isExpanded by remember {

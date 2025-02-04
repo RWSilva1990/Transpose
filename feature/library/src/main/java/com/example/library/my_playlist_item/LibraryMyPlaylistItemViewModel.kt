@@ -1,10 +1,11 @@
-package com.example.transpose.ui.screen.library.my_playlist_item
+package com.example.library.my_playlist_item
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.transpose.data.database.entity.VideoEntity
-import com.example.transpose.data.repository.database.MyPlaylistDBRepositoryImpl
-import com.example.transpose.utils.Logger
+import com.example.domain.model.youtube.video.BasicVideoData
+import com.example.domain.repository.MyPlaylistDBRepository
+import com.example.media.manager.MediaPlaybackManager
+import com.example.util.Logger
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -13,28 +14,33 @@ import javax.inject.Inject
 
 @HiltViewModel
 class LibraryMyPlaylistItemViewModel @Inject constructor(
-    private val myPlaylistDBRepositoryImpl: MyPlaylistDBRepositoryImpl
+    private val myPlaylistDBRepository: MyPlaylistDBRepository,
+    private val mediaPlaybackManager: MediaPlaybackManager
 ): ViewModel() {
 
 
-    private val _myPlaylistItems = MutableStateFlow<List<VideoEntity>>(emptyList())
+    private val _myPlaylistItems = MutableStateFlow<List<BasicVideoData>>(emptyList())
     val myPlaylistItems = _myPlaylistItems.asStateFlow()
 
     fun getVideosForPlaylist(playlistId: Long) = viewModelScope.launch {
         try {
-            _myPlaylistItems.value = myPlaylistDBRepositoryImpl.getVideosForPlaylist(playlistId)
+            _myPlaylistItems.value = myPlaylistDBRepository.getVideosForPlaylist(playlistId)
 
         }catch (e: Exception){
             Logger.d("getVideosForPlaylist $e")
         }
     }
 
-    fun deleteVideo(playlistId: Long, videoEntity: VideoEntity) = viewModelScope.launch {
+    fun deleteVideo(playlistId: Long, basicVideoData: BasicVideoData) = viewModelScope.launch {
         try {
-            myPlaylistDBRepositoryImpl.deleteVideo(videoEntity)
+            myPlaylistDBRepository.deleteVideoFromPlaylist(playlistId, basicVideoData)
             getVideosForPlaylist(playlistId)
         }catch (e: Exception){
             Logger.d("deleteVideo")
         }
+    }
+
+    fun onMediaItemClicked(basicVideoData: BasicVideoData, clickedIndex: Int){
+        mediaPlaybackManager.onMediaItemClick(basicVideoData, playlistItems = myPlaylistItems.value, clickedIndex)
     }
 }

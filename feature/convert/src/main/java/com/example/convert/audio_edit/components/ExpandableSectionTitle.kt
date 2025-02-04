@@ -1,4 +1,4 @@
-package com.example.transpose.ui.screen.convert.audio_edit.components
+package com.example.convert.audio_edit.components
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
@@ -20,7 +20,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.transpose.utils.constants.AppColors
+import com.example.util.constants.AppColors
 
 @Composable
 fun ExpandableSectionTitle(

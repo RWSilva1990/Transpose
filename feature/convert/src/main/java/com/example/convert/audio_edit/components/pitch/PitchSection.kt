@@ -1,15 +1,17 @@
-package com.example.transpose.ui.screen.convert.audio_edit.components.pitch
+package com.example.convert.audio_edit.components.pitch
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import com.example.transpose.MediaViewModel
-import com.example.transpose.ui.screen.convert.audio_edit.components.SliderSection
+import com.example.convert.audio_edit.ConvertAudioEditViewModel
+import com.example.convert.audio_edit.components.SliderSection
 import java.util.Locale
 
 @Composable
-fun PitchSection(mediaViewModel: MediaViewModel) {
-    val pitchValue by mediaViewModel.pitchValue.collectAsState()
+fun PitchSection(
+    convertAudioEditViewModel: ConvertAudioEditViewModel
+) {
+    val pitchValue by convertAudioEditViewModel.pitchValue.collectAsState()
 
     val actualValue = (pitchValue * 0.1) - 10.0
 
@@ -21,9 +23,9 @@ fun PitchSection(mediaViewModel: MediaViewModel) {
     SliderSection(
         title = "Pitch",
         displayValueText = displayText,
-        onValueChange = { mediaViewModel.updatePitchValue(it) },
-        onValueChangeFinished = {mediaViewModel.setPitch()},
-        onReset = { mediaViewModel.initPitchValue() },
+        onValueChange = { convertAudioEditViewModel.updatePitchValue(it) },
+        onValueChangeFinished = {convertAudioEditViewModel.setPitch()},
+        onReset = { convertAudioEditViewModel.initPitchValue() },
         currentValue = pitchValue,
         valueRange = 0f..200f
     )

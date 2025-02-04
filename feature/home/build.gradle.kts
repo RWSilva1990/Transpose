@@ -5,12 +5,13 @@ plugins {
 }
 
 android {
-    namespace = "com.example.home"
+    namespace = "com.example.transpose.feature.home"
 }
 
 dependencies {
     implementation(project(":core:domain"))
     implementation(project(":core:ui"))
-    implementation(project(":core:util"))
+    implementation(project(":core:utils"))
+    implementation(project(":media"))
 
 }

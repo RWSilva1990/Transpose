@@ -37,11 +37,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
-import com.example.transpose.ui.components.items.SearchSuggestionItem
+import com.example.transpose.R
+import com.example.ui.components.items.SearchSuggestionItem
 import com.example.transpose.utils.Logger
 import com.example.transpose.utils.ToastUtil
 import com.example.transpose.utils.constants.AppColors
-import com.example.ui.R
 
 
 @OptIn(ExperimentalMaterial3Api::class)

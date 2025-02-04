@@ -1,4 +1,4 @@
-package com.example.transpose.ui.components.items
+package com.example.ui.components.items
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
@@ -18,7 +18,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.transpose.R
+import com.example.transpose.core.ui.R
 
 @Composable
 fun SearchSuggestionItem(

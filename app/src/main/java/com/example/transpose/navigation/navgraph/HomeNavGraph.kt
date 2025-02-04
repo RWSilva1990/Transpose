@@ -1,50 +1,65 @@
 package com.example.transpose.navigation.navgraph
 
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.SheetState
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavType
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.example.home.home_playlist.HomePlaylistScreen
-import com.example.home.playlist_info.HomePlaylistItemScreen
-import com.example.home.search_result.HomeSearchResultScreen
-import com.example.transpose.MainViewModel
-import com.example.transpose.MediaViewModel
-import com.example.transpose.navigation.Route
+import com.example.home.playlist_item.HomePlaylistItemScreen
+import com.example.transpose.navigation.helper.HomeNavigationHelper
+import com.example.transpose.navigation.route.HomeRoutes
+import com.example.ui.screen.search_result.SearchResultScreen
 
+@OptIn(ExperimentalMaterial3Api::class)
 fun NavGraphBuilder.homeNavGraph(
-    mainViewModel: MainViewModel,
-    mediaViewModel: MediaViewModel,
+    bottomSheetState: SheetState,
+    homeNavigationHelper: HomeNavigationHelper
 ) {
 
-    composable(Route.Home.Playlist.route) {
+    composable(HomeRoutes.Playlist.route) {
         HomePlaylistScreen(
-            mainViewModel = mainViewModel,
-            homePlaylistViewModel = hiltViewModel()
+            bottomSheetState = bottomSheetState,
+            homePlaylistViewModel = hiltViewModel(),
+            navigateToPlaylistItemScreen = { itemId ->
+                homeNavigationHelper.navigateToPlaylistItem(itemId)
+            },
+            navigateToSearchResultScreen = { query ->
+                homeNavigationHelper.navigateToSearchResult(query)
+            },
+            navigateToBack = {
+                homeNavigationHelper.navigateBack()
+            },
         )
     }
     composable(
-        route = Route.Home.PlaylistItem.route,
+        route = HomeRoutes.PlaylistItem.route,
         arguments = listOf(navArgument("itemId") { type = NavType.StringType })
     ) { backStackEntry ->
         val itemId = backStackEntry.arguments?.getString("itemId")
         HomePlaylistItemScreen(
-            mainViewModel = mainViewModel,
+            bottomSheetState = bottomSheetState,
             homePlaylistItemViewModel = hiltViewModel(),
-            mediaViewModel = mediaViewModel,
-            itemId = itemId
+            itemId = itemId,
+            navigateToBack = {
+                homeNavigationHelper.navigateBack()
+            },
         )
     }
     composable(
-        route = Route.Home.SearchResult.route,
+        route = HomeRoutes.SearchResult.route,
         arguments = listOf(navArgument("query") { type = NavType.StringType })
     ) { backStackEntry ->
         val query = backStackEntry.arguments?.getString("query")
-        HomeSearchResultScreen(
-            mainViewModel = mainViewModel,
-            homeSearchResultViewModel = hiltViewModel(),
-            mediaViewModel = mediaViewModel,
-            query = query
+        SearchResultScreen(
+            bottomSheetState = bottomSheetState,
+            searchResultViewModel = hiltViewModel(),
+            query = query,
+            navigateToBack = {
+                homeNavigationHelper.navigateBack()
+            },
         )
     }
 }

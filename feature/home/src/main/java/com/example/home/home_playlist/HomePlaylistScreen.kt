@@ -20,7 +20,6 @@ import androidx.compose.material3.SheetState
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
@@ -30,8 +29,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.domain.model.youtube.playlist.PlaylistData
 import com.example.home.home_playlist.items.NationalPlaylistItem
-import com.example.transpose.navigation.Route
+import com.example.home.home_playlist.items.RegularPlaylistItem
+import com.example.ui.common.UiState
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -39,11 +40,14 @@ import kotlinx.coroutines.launch
 fun HomePlaylistScreen(
     bottomSheetState: SheetState,
     homePlaylistViewModel: HomePlaylistViewModel,
+    navigateToSearchResultScreen: (String) -> Unit,
+    navigateToPlaylistItemScreen: (String) -> Unit,
     modifier: Modifier = Modifier,
+    navigateToBack: () -> Unit
 ) {
-    val nationalPlaylistState by homePlaylistViewModel.nationalPlaylistState.collectAsState()
-    val recommendedPlaylistState by homePlaylistViewModel.recommendedPlaylistState.collectAsState()
-    val typedPlaylistState by homePlaylistViewModel.typedPlaylistState.collectAsState()
+    val nationalPlaylistState by homePlaylistViewModel.nationalPlaylistDataState.collectAsState()
+    val recommendedPlaylistState by homePlaylistViewModel.recommendedPlaylistDataState.collectAsState()
+    val typedPlaylistState by homePlaylistViewModel.typedPlaylistDataState.collectAsState()
     val coroutineScope = rememberCoroutineScope()
 
     BackHandler(
@@ -69,34 +73,34 @@ fun HomePlaylistScreen(
     ) {
         item {
             PlaylistSection(
-                title = stringResource(id = ),
+                title = stringResource(id = com.example.transpose.core.ui.R.string.Global_popular_Top100_playlist_text),
                 playlistState = nationalPlaylistState
             ) { playlist ->
                 NationalPlaylistItem(
                     playlistData = playlist,
-                    onClick = { navigationViewModel.changeHomeCurrentRoute(Route.Home.PlaylistItem.createRoute(it)) }
+                    onClick = { navigateToPlaylistItemScreen(it) }
                 )
             }
         }
         item {
             PlaylistSection(
-                title = stringResource(id = R.string.Recommended_playlist_text),
+                title = stringResource(id = com.example.transpose.core.ui.R.string.Recommended_playlist_text),
                 playlistState = recommendedPlaylistState
             ) { playlist ->
                 RegularPlaylistItem(
                     playlistData = playlist,
-                    onClick = { navigationViewModel.changeHomeCurrentRoute(Route.Home.PlaylistItem.createRoute(it)) }
+                    onClick = { navigateToPlaylistItemScreen(it) }
                 )
             }
         }
         item {
             PlaylistSection(
-                title = stringResource(id = R.string.Type_based_playlist_text),
+                title = stringResource(id = com.example.transpose.core.ui.R.string.Type_based_playlist_text),
                 playlistState = typedPlaylistState
             ) { playlist ->
                 RegularPlaylistItem(
                     playlistData = playlist,
-                    onClick = { navigationViewModel.changeHomeCurrentRoute(Route.Home.PlaylistItem.createRoute(it)) }
+                    onClick = { navigateToPlaylistItemScreen(it) }
                 )
             }
         }
@@ -106,10 +110,10 @@ fun HomePlaylistScreen(
 @Composable
 fun PlaylistSection(
     title: String,
-    playlistState: UiState<List<NewPipePlaylistData>>,
-    itemContent: @Composable (NewPipePlaylistData) -> Unit
+    playlistState: UiState<List<PlaylistData>>,
+    itemContent: @Composable (PlaylistData) -> Unit
 ) {
-    Column{
+    Column {
         Text(
             text = title,
             fontSize = 20.sp,
@@ -127,6 +131,7 @@ fun PlaylistSection(
                     CircularProgressIndicator()
                 }
             }
+
             is UiState.Error -> {
                 ErrorMessage(
                     isVisible = true,
@@ -134,6 +139,7 @@ fun PlaylistSection(
                     onRefresh = {}
                 )
             }
+
             is UiState.Success -> {
                 if (playlistState.data.isEmpty()) {
                     Text(
@@ -154,6 +160,7 @@ fun PlaylistSection(
                     }
                 }
             }
+
             is UiState.Initial -> {
                 Text(
                     text = "Ready to load playlists",

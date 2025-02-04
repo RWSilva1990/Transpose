@@ -9,6 +9,7 @@ android {
 }
 
 dependencies {
-    implementation(project(":app"))
     implementation(project(":core:ui"))
+    implementation(project(":core:utils"))
+    implementation(project(":media"))
 }

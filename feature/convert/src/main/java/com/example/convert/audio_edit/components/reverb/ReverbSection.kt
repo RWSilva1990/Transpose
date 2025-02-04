@@ -1,4 +1,4 @@
-package com.example.transpose.ui.screen.convert.audio_edit.components.reverb
+package com.example.convert.audio_edit.components.reverb
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
@@ -20,20 +20,21 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.transpose.MediaViewModel
-import com.example.transpose.R
-import com.example.transpose.ui.screen.convert.audio_edit.components.ExpandableSectionTitle
-import com.example.transpose.ui.screen.convert.audio_edit.components.SliderSection
-import com.example.transpose.utils.constants.AppColors
+import com.example.convert.audio_edit.ConvertAudioEditViewModel
+import com.example.transpose.core.ui.R
+
+import com.example.convert.audio_edit.components.ExpandableSectionTitle
+import com.example.convert.audio_edit.components.SliderSection
+import com.example.util.constants.AppColors
 
 @Composable
 fun ReverbSection(
     modifier: Modifier = Modifier,
     title: String,
-    mediaViewModel: MediaViewModel,
+    convertAudioEditViewModel: ConvertAudioEditViewModel,
 ) {
-    val reverbValue by mediaViewModel.reverbValue.collectAsState()
-    val isEnabled by mediaViewModel.isReverbEnabled.collectAsState()
+    val reverbValue by convertAudioEditViewModel.reverbValue.collectAsState()
+    val isEnabled by convertAudioEditViewModel.isReverbEnabled.collectAsState()
     var isExpanded by rememberSaveable { mutableStateOf(false) }
 
     Column(
@@ -46,10 +47,9 @@ fun ReverbSection(
             title = title,
             isEnabled = isEnabled,
             onSwitchChange = {
-                mediaViewModel.updateIsReverbEnabled()
-                mediaViewModel.disablePreset()
+                convertAudioEditViewModel.updateIsReverbEnabled()
             },
-            onInitButton = { mediaViewModel.initEqualizerValue() }
+            onInitButton = { convertAudioEditViewModel.initReverbValue() }
         )
 
         AnimatedVisibility(
@@ -68,9 +68,9 @@ fun ReverbSection(
                 SliderSection(
                     title = "Reverb",
                     displayValueText = "+$reverbValue",
-                    onValueChange = { mediaViewModel.updateReverbValue(it) },
-                    onValueChangeFinished = { mediaViewModel.setPresetReverb() },
-                    onReset = { mediaViewModel.initReverbValue() },
+                    onValueChange = { convertAudioEditViewModel.updateReverbValue(it) },
+                    onValueChangeFinished = { convertAudioEditViewModel.setPresetReverb() },
+                    onReset = { convertAudioEditViewModel.initReverbValue() },
                     currentValue = reverbValue,
                     valueRange = 0f..1000f
                 )
@@ -83,7 +83,7 @@ fun ReverbSection(
             visible = isExpanded,
         ) {
             Box(modifier = Modifier.fillMaxWidth()) {
-                ReverbPresetView(mediaViewModel = mediaViewModel)
+                ReverbPresetView(convertAudioEditViewModel = convertAudioEditViewModel)
             }
         }
     }

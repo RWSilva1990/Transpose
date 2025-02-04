@@ -9,7 +9,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import com.example.transpose.ui.components.items.LoadingIndicator
+import com.example.ui.components.items.LoadingIndicator
 
 
 @Composable
