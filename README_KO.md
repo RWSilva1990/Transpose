@@ -16,7 +16,7 @@ Transpose의 최신 베타 버전을 지금 바로 이용해보세요!
 [![GitHub release (최신 날짜 기준 사전 릴리스 포함)](https://img.shields.io/github/v/release/joh9911/Transpose?include_prereleases)](https://github.com/joh9911/Transpose/releases/latest) ![GitHub all releases](https://img.shields.io/github/downloads/joh9911/Transpose/total)
 
 
-[GitHub Releases 페이지](https://github.com/joh9911/Transpose/releases/tag/v0.1.0-beta)에서 최신 APK를 다운로드할 수 있습니다.
+[GitHub Releases 페이지](https://github.com/joh9911/Transpose/releases/tag/v0.1.1-beta)에서 최신 APK를 다운로드할 수 있습니다.
 
 베타 버전이라 일부 버그가 있을 수 있습니다. Transpose를 더 좋게 만들기 위해 여러분의 소중한 의견을 기다리고 있습니다!
 
