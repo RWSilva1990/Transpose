@@ -1,11 +1,14 @@
 package com.example.home.playlist_item
 
+import androidx.compose.runtime.collectAsState
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.domain.model.youtube.playlist.PlaylistData
-import com.example.domain.model.youtube.playlist.PlaylistItemData
-import com.example.domain.model.youtube.video.BasicVideoData
-import com.example.domain.repository.NewPipeRepository
+import com.example.domain.model.library.MyPlaylist
+import com.example.domain.model.youtube.playlist.Playlist
+import com.example.domain.model.youtube.playlist.PlaylistItem
+import com.example.domain.model.youtube.video.Video
+import com.example.domain.repository.MyPlaylistDBRepository
+import com.example.domain.repository.PlaylistRepository
 import com.example.media.manager.MediaPlaybackManager
 import com.example.ui.common.PaginatedState
 import com.example.util.Logger
@@ -18,36 +21,38 @@ import javax.inject.Inject
 
 @HiltViewModel
 class HomePlaylistItemViewModel @Inject constructor(
-    private val newPipeRepository: NewPipeRepository,
-    private val mediaPlaybackManager: MediaPlaybackManager
+    private val playlistRepository: PlaylistRepository,
+    private val mediaPlaybackManager: MediaPlaybackManager,
+    private val myPlaylistDBRepository: MyPlaylistDBRepository
 ) : ViewModel() {
 
     private val _playlistItemsState =
-        MutableStateFlow<PaginatedState<PlaylistItemData>>(PaginatedState.Initial)
+        MutableStateFlow<PaginatedState<PlaylistItem>>(PaginatedState.Initial)
     val playlistItemsState = _playlistItemsState.asStateFlow()
 
-    private val _playlistInfo = MutableStateFlow<PlaylistData?>(null)
-    val playlistInfo = _playlistInfo.asStateFlow()
+    val currentPlaylistInfo = mediaPlaybackManager.currentPlaylistInfo
 
     fun initializePlaylistPager(playlistId: String) = viewModelScope.launch(Dispatchers.IO) {
-        _playlistItemsState.value = PaginatedState.Loading
-        try {
-            val result = newPipeRepository.fetchPlaylistItemsResult(playlistId)
-            if (result.isSuccess) {
-                val items = result.getOrElse { emptyList() }
-                _playlistItemsState.value = PaginatedState.Success(
-                    items = items,
-                    hasMore = newPipeRepository.canLoadMorePlaylistItems(),
-                    isLoadingMore = false
-                )
-            } else {
-                val exception = result.exceptionOrNull()
-                _playlistItemsState.value = PaginatedState.Error(
-                    exception?.message ?: "Unknown error occurred"
-                )
+        if (playlistItemsState.value == PaginatedState.Initial) {
+            _playlistItemsState.value = PaginatedState.Loading
+            try {
+                val result = playlistRepository.fetchPlaylistItemsResult(playlistId)
+                if (result.isSuccess) {
+                    val items = result.getOrElse { emptyList() }
+                    _playlistItemsState.value = PaginatedState.Success(
+                        items = items,
+                        hasMore = playlistRepository.canLoadMorePlaylistItems(),
+                        isLoadingMore = false
+                    )
+                } else {
+                    val exception = result.exceptionOrNull()
+                    _playlistItemsState.value = PaginatedState.Error(
+                        exception?.message ?: "Unknown error occurred"
+                    )
+                }
+            } catch (e: Exception) {
+                _playlistItemsState.value = PaginatedState.Error(e.toString())
             }
-        } catch (e: Exception) {
-            _playlistItemsState.value = PaginatedState.Error(e.toString())
         }
     }
 
@@ -59,12 +64,12 @@ class HomePlaylistItemViewModel @Inject constructor(
         _playlistItemsState.value = currentState.copy(isLoadingMore = true)
 
         try {
-            val result = newPipeRepository.loadMorePlaylistItems()
+            val result = playlistRepository.loadMorePlaylistItems()
             if (result.isSuccess) {
                 val newItems = result.getOrElse { emptyList() }
                 _playlistItemsState.value = currentState.copy(
                     items = currentState.items + newItems,
-                    hasMore = newPipeRepository.canLoadMorePlaylistItems(),
+                    hasMore = playlistRepository.canLoadMorePlaylistItems(),
                     isLoadingMore = false
                 )
             } else {
@@ -79,10 +84,22 @@ class HomePlaylistItemViewModel @Inject constructor(
         }
     }
 
+    private val _myPlaylists = MutableStateFlow<List<MyPlaylist>>(emptyList())
+    val myPlaylists = _myPlaylists.asStateFlow()
+
+    fun getAllMyPlaylists() = viewModelScope.launch(Dispatchers.IO) {
+        _myPlaylists.value = myPlaylistDBRepository.getAllPlaylists()
+    }
+
+    fun addVideoToPlaylist(video: Video, playlistId: Long) =
+        viewModelScope.launch(Dispatchers.IO) {
+            myPlaylistDBRepository.addVideoToPlaylist(video, playlistId)
+        }
+
 
     fun onMediaClicked(
-        item: BasicVideoData,
-        playlistItems: List<BasicVideoData>,
+        item: Video,
+        playlistItems: List<Video>,
         clickedIndex: Int
     ) {
         mediaPlaybackManager.onMediaItemClick(item, playlistItems, clickedIndex)

@@ -1,7 +1,6 @@
 pluginManagement {
 
     includeBuild("build-logic")
-
     repositories {
         google {
             content {
@@ -14,6 +13,8 @@ pluginManagement {
         gradlePluginPortal()
     }
 }
+gradle.startParameter.excludedTaskNames.addAll(listOf(":build-logic:convention:testClasses"))
+
 enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
 
 dependencyResolutionManagement {
@@ -29,10 +30,11 @@ dependencyResolutionManagement {
 rootProject.name = "Transpose"
 include(":app")
 include(":feature:home")
-include(":core:ui")
 include(":feature:convert")
 include(":feature:library")
+include(":core:ui")
 include(":core:utils")
 include(":core:data")
 include(":core:domain")
 include(":media")
+include(":feature:main")

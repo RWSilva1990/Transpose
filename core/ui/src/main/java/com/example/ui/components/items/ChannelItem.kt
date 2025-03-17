@@ -34,8 +34,8 @@ import com.example.util.ToastUtil
 
 @Composable
 fun ChannelItem(
-    channel: SearchResult.Channel,
-    onClick: (SearchResult.Channel) -> Unit
+    channel: SearchResult.ChannelResult,
+    onClick: (SearchResult.ChannelResult) -> Unit
 ) {
     val subscriberCountFormats = stringArrayResource(R.array.subscriber_count_formats)
     val context = LocalContext.current
@@ -52,7 +52,7 @@ fun ChannelItem(
             Spacer(modifier = Modifier.width(20.dp))
             AsyncImage(
                 model = ImageRequest.Builder(context)
-                    .data(channel.thumbnailUrl)
+                    .data(channel.channel.thumbnailUrl)
                     .crossfade(true)
                     .build(),
                 contentDescription = "Channel Avatar",
@@ -68,7 +68,7 @@ fun ChannelItem(
             // Channel Info
             Column {
                 Text(
-                    text = channel.title,
+                    text = channel.channel.title,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1
@@ -84,7 +84,7 @@ fun ChannelItem(
                 Text(
                     text = "구독자 ${
                         TextFormatUtil.subscriberCountConverter(
-                            channel.subscriberCount.toString(),
+                            channel.channel.subscriberCount.toString(),
                             subscriberCountFormats
                         )
                     }명",

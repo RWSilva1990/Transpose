@@ -1,6 +1,6 @@
 package com.example.domain.repository
 
-import com.example.transpose.data.model.local_file.LocalFileData
+import com.example.domain.model.local_file.LocalFileData
 
 interface LocalFileRepository {
     fun getAudioFiles(): Result<List<LocalFileData>>

@@ -25,6 +25,7 @@
     <string name="library_icon">Library</string>
     <string name="network_error_message">Please check the Internet connection</string>
     <string name="add_playlist_text">New playlist</string>
+    <string name="notify_video_added_to_playlist">The Video has been added to the playlist</string>
     <string name="title_hint">title</string>
     <string name="dialog_create_text">create</string>
     <string name="dialog_cancel_text">cancel</string>
@@ -56,12 +57,12 @@
     <string name="quota_error_message">App has exceeded the daily limit for accessing YouTube.\n
     We are sorry for the inconvenience and we kindly ask you to try again tomorrow.</string>
     <string name="refresh_text">Refresh</string>
-    <string name="pitch_plus_text">Increase pitch. Current state: %1.1f</string>
-    <string name="pitch_minus_text">Decrease pitch. Current state: %1.1f</string>
-    <string name="pitch_initialize_text">Reset pitch. Current state: %1.1f</string>
-    <string name="tempo_plus_text">Increase tempo. Current state: %1.1f</string>
-    <string name="tempo_minus_text">Decrease tempo. Current state: %1.1f</string>
-    <string name="tempo_init_text">Reset tempo. Current state: %1.1f</string>
+    <string name="pitch_plus_text">Increase pitch. Current state: %1$.1f</string>
+    <string name="pitch_minus_text">Decrease pitch. Current state: %1$.1f</string>
+    <string name="pitch_initialize_text">Reset pitch. Current state: %1$.1f</string>
+    <string name="tempo_plus_text">Increase tempo. Current state: %1$.1f</string>
+    <string name="tempo_minus_text">Decrease tempo. Current state: %1$.1f</string>
+    <string name="tempo_init_text">Reset tempo. Current state: %1$.1f</string>
     <string name="load_fail_message">failed to load</string>
     <string name="network_error_text">A network connection error has occurred.\n Please verify your connection and press the refresh button.</string>
     <string name="notification">I\'m currently facing issues with retrieving YouTube search data in the app. \n\nI have reached out to the YouTube team for help, but I\'m not sure when I\'ll get a response. \n\nRest assured, I\'ll provide an update as soon as this issue is resolved. \n\nI apologize for any inconvenience caused."</string>
@@ -119,6 +120,15 @@
 
     </string-array>
 
+    <string-array name="tab_titles">
+        <item>@string/tab_title_home</item>
+        <item>@string/tab_title_videos</item>
+        <item>@string/tab_title_shorts</item>
+        <item>@string/tab_title_live</item>
+        <item>@string/tab_title_playlists</item>
+        <item>@string/tab_title_community</item>
+    </string-array>
+
 
     <string name="paste_youtube_link_dialog_title">Share Link</string>
     <string name="paste_youtube_link_dialog_input_button_text">enter</string>
@@ -171,6 +181,33 @@
     <string name="delete_confirmation_dialog_confirm_text">Yes</string>
     <string name="delete_confirmation_dialog_cancel_text">No</string>
     <string name="feature_not_implemented">This feature is not yet implemented.</string>
+
+
+    <string name="tab_title_home">Home</string>
+    <string name="tab_title_videos">Videos</string>
+    <string name="tab_title_shorts">Shorts</string>
+    <string name="tab_title_live">Live</string>
+    <string name="tab_title_playlists">Playlists</string>
+    <string name="tab_title_community">Community</string>
+    
+    <string name="main_playlist_title">Current Playlist</string>
+    <string name="playlist_items_count">%d items</string>
+
+    <string name="duration_format_seconds">0:%02d</string>
+    <string name="duration_format_minutes_seconds">%1$d:%2$02d</string>
+    <string name="duration_format_hours_minutes_seconds">%1$d:%2$02d:%3$02d</string>
+    <string name="video_count_format">%d videos</string>
+
+
+    <string name="create_playlist_dialog_title">Create playlist</string>
+    <string name="playlist_name_label">Playlist name</string>
+    <string name="confirm_button">Confirm</string>
+    <string name="cancel_button">Cancel</string>
+    <string name="permission_required_title">Permission Required</string>
+    <string name="storage_permission_message">Storage access permission is needed to use this feature.</string>
+    <string name="request_permission_button">Request Permission</string>
+    <string name="settings_permission_message">Please allow storage access permission in settings.</string>
+    <string name="go_to_settings_button">Go to Settings</string>
 
 
     <string name="patch_title">Patch Notes</string>

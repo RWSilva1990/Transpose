@@ -8,3 +8,7 @@ android{
     namespace = "com.example.transpose.core.domain"
 }
 
+dependencies{
+    implementation(project(":core:utils"))
+}
+

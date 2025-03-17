@@ -1,27 +1,21 @@
 package com.example.domain.model.youtube.search
 
-import com.example.domain.model.youtube.playlist.PlaylistData
-import com.example.domain.model.youtube.video.BasicVideoData
+
+import com.example.domain.model.youtube.channel.Channel
+import com.example.domain.model.youtube.playlist.Playlist
+import com.example.domain.model.youtube.video.Video
 import org.schabi.newpipe.extractor.InfoItem
 
 sealed class SearchResult {
-    data class Video(
-        val basicVideoData: BasicVideoData
+    data class VideoResult(
+        val video: Video
     ): SearchResult()
 
-    data class Channel(
-        val id: String,
-        val title: String,
-        val description: String,
-        val publishTimestamp: Long?,
-        val thumbnailUrl: String?,
-        val infoType: InfoItem.InfoType,
-        val subscriberCount: Long,
-        val streamCount: Long,
-        val verified: Boolean
+    data class ChannelResult(
+        val channel: Channel
     ) : SearchResult()
 
-    data class Playlist(
-        val playlist: PlaylistData
+    data class PlaylistResult(
+        val playlist: Playlist
     ) : SearchResult()
 }

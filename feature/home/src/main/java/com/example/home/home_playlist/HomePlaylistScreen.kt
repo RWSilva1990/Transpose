@@ -29,7 +29,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.domain.model.youtube.playlist.PlaylistData
+import com.example.domain.model.youtube.playlist.Playlist
 import com.example.home.home_playlist.items.NationalPlaylistItem
 import com.example.home.home_playlist.items.RegularPlaylistItem
 import com.example.ui.common.UiState
@@ -40,8 +40,8 @@ import kotlinx.coroutines.launch
 fun HomePlaylistScreen(
     bottomSheetState: SheetState,
     homePlaylistViewModel: HomePlaylistViewModel,
-    navigateToSearchResultScreen: (String) -> Unit,
     navigateToPlaylistItemScreen: (String) -> Unit,
+    canGoBack: () -> Boolean,
     modifier: Modifier = Modifier,
     navigateToBack: () -> Unit
 ) {
@@ -58,16 +58,6 @@ fun HomePlaylistScreen(
         }
     }
 
-//    LaunchedEffect(key1 = true) {
-//        navigationViewModel.changeHomeCurrentRoute(Route.Home.Playlist.route)
-//        if (nationalPlaylistState == UiState.Initial)
-//            homePlaylistViewModel.fetchNationalPlaylists()
-//        if (recommendedPlaylistState == UiState.Initial)
-//            homePlaylistViewModel.fetchRecommendedPlaylists()
-//        if (typedPlaylistState == UiState.Initial)
-//            homePlaylistViewModel.fetchTypedPlaylists()
-//    }
-
     LazyColumn(
         modifier = modifier.fillMaxSize(),
     ) {
@@ -78,7 +68,10 @@ fun HomePlaylistScreen(
             ) { playlist ->
                 NationalPlaylistItem(
                     playlistData = playlist,
-                    onClick = { navigateToPlaylistItemScreen(it) }
+                    onClick = {
+                        navigateToPlaylistItemScreen(it)
+                        homePlaylistViewModel.setCurrentPlaylistInfo(playlist)
+                    }
                 )
             }
         }
@@ -89,7 +82,10 @@ fun HomePlaylistScreen(
             ) { playlist ->
                 RegularPlaylistItem(
                     playlistData = playlist,
-                    onClick = { navigateToPlaylistItemScreen(it) }
+                    onClick = {
+                        navigateToPlaylistItemScreen(it)
+                        homePlaylistViewModel.setCurrentPlaylistInfo(playlist)
+                    }
                 )
             }
         }
@@ -100,7 +96,10 @@ fun HomePlaylistScreen(
             ) { playlist ->
                 RegularPlaylistItem(
                     playlistData = playlist,
-                    onClick = { navigateToPlaylistItemScreen(it) }
+                    onClick = {
+                        navigateToPlaylistItemScreen(it)
+                        homePlaylistViewModel.setCurrentPlaylistInfo(playlist)
+                    }
                 )
             }
         }
@@ -110,8 +109,8 @@ fun HomePlaylistScreen(
 @Composable
 fun PlaylistSection(
     title: String,
-    playlistState: UiState<List<PlaylistData>>,
-    itemContent: @Composable (PlaylistData) -> Unit
+    playlistState: UiState<List<Playlist>>,
+    itemContent: @Composable (Playlist) -> Unit
 ) {
     Column {
         Text(

@@ -4,9 +4,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.domain.model.library.MyPlaylist
 import com.example.domain.model.youtube.search.SearchResult
-import com.example.domain.model.youtube.video.BasicVideoData
+import com.example.domain.model.youtube.video.Video
 import com.example.domain.repository.MyPlaylistDBRepository
-import com.example.domain.repository.NewPipeRepository
+import com.example.domain.repository.SearchRepository
 import com.example.media.manager.MediaPlaybackManager
 import com.example.ui.common.PaginatedState
 import com.example.util.Logger
@@ -19,35 +19,37 @@ import javax.inject.Inject
 
 @HiltViewModel
 class SearchResultViewModel @Inject constructor(
-    private val newPipeRepository: NewPipeRepository,
+    private val searchRepository: SearchRepository,
     private val mediaPlaybackManager: MediaPlaybackManager,
     private val myPlaylistDBRepository: MyPlaylistDBRepository
 ) : ViewModel() {
 
-    private val _searchResultsState = MutableStateFlow<PaginatedState<SearchResult>>(PaginatedState.Initial)
+    private val _searchResultsState =
+        MutableStateFlow<PaginatedState<SearchResult>>(PaginatedState.Initial)
     val searchResultsState = _searchResultsState.asStateFlow()
 
     fun initializeSearchPager(query: String) = viewModelScope.launch(Dispatchers.IO) {
-        // 로딩 시작
-        _searchResultsState.value = PaginatedState.Loading
-        try {
-            val result = newPipeRepository.search(query)
-            if (result.isSuccess) {
-                val items = result.getOrElse { emptyList() }
-                _searchResultsState.value = PaginatedState.Success(
-                    items = items,
-                    hasMore = newPipeRepository.canLoadMoreSearchResults(),
-                    isLoadingMore = false
-                )
-            } else {
-                val exception = result.exceptionOrNull()
-                _searchResultsState.value = PaginatedState.Error(
-                    exception?.message ?: "Unknown error occurred"
-                )
+        if (searchResultsState.value == PaginatedState.Initial){
+            _searchResultsState.value = PaginatedState.Loading
+            try {
+                val result = searchRepository.search(query)
+                if (result.isSuccess) {
+                    val items = result.getOrElse { emptyList() }
+                    _searchResultsState.value = PaginatedState.Success(
+                        items = items,
+                        hasMore = searchRepository.canLoadMoreSearchResults(),
+                        isLoadingMore = false
+                    )
+                } else {
+                    val exception = result.exceptionOrNull()
+                    _searchResultsState.value = PaginatedState.Error(
+                        exception?.message ?: "Unknown error occurred"
+                    )
+                }
+            } catch (e: Exception) {
+                Logger.e("Error initializing search pager", e)
+                _searchResultsState.value = PaginatedState.Error(e.message ?: "Unknown error")
             }
-        } catch (e: Exception) {
-            Logger.e("Error initializing search pager", e)
-            _searchResultsState.value = PaginatedState.Error(e.message ?: "Unknown error")
         }
     }
 
@@ -62,13 +64,13 @@ class SearchResultViewModel @Inject constructor(
         _searchResultsState.value = currentState.copy(isLoadingMore = true)
 
         try {
-            val result = newPipeRepository.loadMoreSearchResults()
+            val result = searchRepository.loadMoreSearchResults()
             if (result.isSuccess) {
                 val newItems = result.getOrElse { emptyList() }
                 // 기존 리스트에 새로 불러온 항목들 추가
                 _searchResultsState.value = currentState.copy(
                     items = currentState.items + newItems,
-                    hasMore = newPipeRepository.canLoadMoreSearchResults(),
+                    hasMore = searchRepository.canLoadMoreSearchResults(),
                     isLoadingMore = false
                 )
             } else {
@@ -83,19 +85,20 @@ class SearchResultViewModel @Inject constructor(
         }
     }
 
-    fun onMediaClicked(basicVideoData: BasicVideoData) {
-        mediaPlaybackManager.onMediaItemClick(basicVideoData)
+    fun onMediaClicked(video: Video) {
+        mediaPlaybackManager.onMediaItemClick(video)
     }
 
     private val _myPlaylists = MutableStateFlow<List<MyPlaylist>>(emptyList())
     val myPlaylists = _myPlaylists.asStateFlow()
 
-    fun getAllMyPlaylists () = viewModelScope.launch(Dispatchers.IO) {
-        _myPlaylists.value =  myPlaylistDBRepository.getAllPlaylists()
+    fun getAllMyPlaylists() = viewModelScope.launch(Dispatchers.IO) {
+        _myPlaylists.value = myPlaylistDBRepository.getAllPlaylists()
     }
 
-    fun addVideoToPlaylist(video: BasicVideoData, playlistId: Long) = viewModelScope.launch(Dispatchers.IO) {
-        myPlaylistDBRepository.addVideoToPlaylist(video, playlistId)
-    }
+    fun addVideoToPlaylist(video: Video, playlistId: Long) =
+        viewModelScope.launch(Dispatchers.IO) {
+            myPlaylistDBRepository.addVideoToPlaylist(video, playlistId)
+        }
 
 }

@@ -2,7 +2,7 @@ package com.example.library.my_playlist_item
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.domain.model.youtube.video.BasicVideoData
+import com.example.domain.model.youtube.video.Video
 import com.example.domain.repository.MyPlaylistDBRepository
 import com.example.media.manager.MediaPlaybackManager
 import com.example.util.Logger
@@ -19,7 +19,7 @@ class LibraryMyPlaylistItemViewModel @Inject constructor(
 ): ViewModel() {
 
 
-    private val _myPlaylistItems = MutableStateFlow<List<BasicVideoData>>(emptyList())
+    private val _myPlaylistItems = MutableStateFlow<List<Video>>(emptyList())
     val myPlaylistItems = _myPlaylistItems.asStateFlow()
 
     fun getVideosForPlaylist(playlistId: Long) = viewModelScope.launch {
@@ -31,16 +31,16 @@ class LibraryMyPlaylistItemViewModel @Inject constructor(
         }
     }
 
-    fun deleteVideo(playlistId: Long, basicVideoData: BasicVideoData) = viewModelScope.launch {
+    fun deleteVideo(playlistId: Long, video: Video) = viewModelScope.launch {
         try {
-            myPlaylistDBRepository.deleteVideoFromPlaylist(playlistId, basicVideoData)
+            myPlaylistDBRepository.deleteVideoFromPlaylist(playlistId, video)
             getVideosForPlaylist(playlistId)
         }catch (e: Exception){
             Logger.d("deleteVideo")
         }
     }
 
-    fun onMediaItemClicked(basicVideoData: BasicVideoData, clickedIndex: Int){
-        mediaPlaybackManager.onMediaItemClick(basicVideoData, playlistItems = myPlaylistItems.value, clickedIndex)
+    fun onMediaItemClicked(video: Video, clickedIndex: Int){
+        mediaPlaybackManager.onMediaItemClick(video, playlistItems = myPlaylistItems.value, clickedIndex)
     }
 }

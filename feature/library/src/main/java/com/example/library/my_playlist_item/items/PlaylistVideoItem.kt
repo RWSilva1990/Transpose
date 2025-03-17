@@ -32,13 +32,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import com.example.domain.model.youtube.video.BasicVideoData
-import com.example.transpose.ui.components.dropdown_menu.DropDownMenu
+import com.example.domain.model.youtube.video.Video
+import com.example.ui.components.dropdown_menu.DropDownMenu
 
 @Composable
 fun PlaylistVideoItem(
-    item: BasicVideoData,
-    onClick: (BasicVideoData) -> Unit,
+    item: Video,
+    onClick: (Video) -> Unit,
     dropDownMenuClick: () -> Unit
 ){
     var isExpanded by remember {

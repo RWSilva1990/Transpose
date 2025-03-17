@@ -3,11 +3,8 @@ package com.example.data.local.mapper
 import com.example.data.local.database.entity.PlaylistEntity
 import com.example.data.local.database.entity.VideoEntity
 import com.example.domain.model.library.MyPlaylist
-import com.example.domain.model.youtube.video.BasicVideoData
-import com.example.domain.model.youtube.video_detail.VideoDetailData
-import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
-import org.schabi.newpipe.extractor.Image
+import com.example.domain.model.youtube.video.Video
+import com.example.domain.model.youtube.video_detail.VideoDetail
 import org.schabi.newpipe.extractor.InfoItem.InfoType
 import org.schabi.newpipe.extractor.stream.StreamType
 
@@ -23,11 +20,9 @@ object MyPlaylistMapper {
         return myPlaylistItems
     }
 
-    fun toBasicVideoData(videoEntity: VideoEntity): BasicVideoData {
-        val type = object : TypeToken<List<Image>>() {}.type
-        val uploaderAvatars: List<Image>? = Gson().fromJson(videoEntity.uploaderAvatars, type)
+    fun toBasicVideoData(videoEntity: VideoEntity): Video {
 
-        return BasicVideoData(
+        return Video(
             id = videoEntity.id,
             title = videoEntity.title,
             description = videoEntity.description,
@@ -35,18 +30,18 @@ object MyPlaylistMapper {
             thumbnailUrl = videoEntity.thumbnailUrl,
             uploaderName = videoEntity.uploaderName,
             uploaderUrl = videoEntity.uploaderUrl,
-            uploaderAvatars = uploaderAvatars,
+            uploaderAvatarUrl = videoEntity.uploaderAvatarUrl,
             uploaderVerified = videoEntity.uploaderVerified,
             duration = videoEntity.duration,
             viewCount = videoEntity.viewCount,
             textualUploadDate = videoEntity.textualUploadDate,
-            streamType = StreamType.valueOf(videoEntity.streamType),
+            streamType = StreamType.VIDEO_STREAM.name,
             shortFormContent = videoEntity.shortFormContent,
             infoType = InfoType.STREAM
         )
     }
 
-    fun toVideoEntity(video: BasicVideoData, playlistId: Long): VideoEntity {
+    fun toVideoEntity(video: Video, playlistId: Long): VideoEntity {
         return VideoEntity(
             id = video.id,
             playlistId = playlistId,
@@ -56,17 +51,17 @@ object MyPlaylistMapper {
             thumbnailUrl = video.thumbnailUrl,
             uploaderName = video.uploaderName,
             uploaderUrl = video.uploaderUrl,
-            uploaderAvatars = Gson().toJson(video.uploaderAvatars),
+            uploaderAvatarUrl = video.uploaderAvatarUrl,
             uploaderVerified = video.uploaderVerified ?: false,
             duration = video.duration,
             viewCount = video.viewCount,
             textualUploadDate = video.textualUploadDate,
-            streamType = video.streamType?.name ?: "",
+            streamType = StreamType.VIDEO_STREAM.name,
             shortFormContent = video.shortFormContent
         )
     }
 
-    fun toVideoEntity(video: VideoDetailData, playlistId: Long): VideoEntity {
+    fun toVideoEntity(video: VideoDetail, playlistId: Long): VideoEntity {
         return VideoEntity(
             id = video.id,
             playlistId = playlistId,
@@ -75,13 +70,13 @@ object MyPlaylistMapper {
             publishTimestamp = video.publishTimestamp,
             thumbnailUrl = video.thumbnailUrl,
             uploaderName = video.uploaderName,
-            uploaderUrl = video.uploaderUrl,
-            uploaderAvatars = Gson().toJson(video.uploaderAvatars),
+            uploaderUrl = video.uploaderId,
+            uploaderAvatarUrl = video.uploaderAvatarUrl,
             uploaderVerified = video.uploaderSubscriberCount != null,
             duration = 0,
             viewCount = video.viewCount ?: 0,
             textualUploadDate = video.publishedTimeText,
-            streamType = StreamType.NONE.name,
+            streamType = StreamType.VIDEO_STREAM.name,
             shortFormContent = false
         )
     }

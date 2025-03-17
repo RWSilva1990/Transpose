@@ -1,12 +1,6 @@
 plugins {
-    id("java-library")
     alias(libs.plugins.jetbrains.kotlin.jvm)
     `kotlin-dsl`
-}
-
-java {
-    sourceCompatibility = JavaVersion.VERSION_17
-    targetCompatibility = JavaVersion.VERSION_17
 }
 
 gradlePlugin {
@@ -54,6 +48,11 @@ gradlePlugin {
         register("androidViewModel") {
             id = "transpose.android.viewmodel"
             implementationClass = "ViewModelConventionPlugin"
+        }
+
+        register("androidFirebase") {
+            id = "transpose.android.firebase"
+            implementationClass = "FirebaseConventionPlugin"
         }
     }
 }

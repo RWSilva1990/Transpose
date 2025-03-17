@@ -4,7 +4,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -29,84 +28,91 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.ColorPainter
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import com.example.domain.model.youtube.video.BasicVideoData
+import com.example.domain.model.youtube.video.Video
 import com.example.transpose.core.ui.R
-import com.example.transpose.ui.components.dropdown_menu.DropDownMenu
+import com.example.ui.components.dropdown_menu.DropDownMenu
+import com.example.util.TextFormatUtil
 
 @Composable
 fun CommonVideoItem(
-    item: BasicVideoData,
-    currentIndex: Int,
-    onClick: (BasicVideoData) -> Unit,
+    item: Video,
+    onClick: (Video) -> Unit,
     dropDownMenuClick: () -> Unit,
-) {
+
+    ) {
     var isExpanded by remember {
         mutableStateOf(false)
     }
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(100.dp)
-            .clickable { onClick(item) }
-            .padding(vertical = 10.dp, horizontal = 10.dp)
-    ) {
-        AsyncImage(
-            model = item.thumbnailUrl,
-            contentDescription = "Thumbnail",
+    val myStringArray = stringArrayResource(id = R.array.view_count_formats)
+
+    if (item.id != ""){
+        Row(
             modifier = Modifier
-                .width(150.dp)
-                .fillMaxHeight()
-                .clip(RoundedCornerShape(8.dp)),
-            contentScale = ContentScale.Crop,
-            placeholder = ColorPainter(Color.LightGray),
-            error = ColorPainter(Color.LightGray)
-        )
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .padding(start = 20.dp)
+                .fillMaxWidth()
+                .height(100.dp)
+                .clickable { onClick(item) }
+                .padding(vertical = 10.dp, horizontal = 10.dp)
         ) {
-            Text(
-                text = item.title,
-                fontSize = 13.sp,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
+            AsyncImage(
+                model = item.thumbnailUrl,
+                contentDescription = "Thumbnail",
+                modifier = Modifier
+                    .width(150.dp)
+                    .fillMaxHeight()
+                    .clip(RoundedCornerShape(8.dp)),
+                contentScale = ContentScale.Crop,
+                placeholder = ColorPainter(Color.LightGray),
+                error = ColorPainter(Color.LightGray)
             )
-            Spacer(modifier = Modifier.height(10.dp))
-            Text(
-                text = item.title,
-                fontSize = 10.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1
-            )
-            Spacer(modifier = Modifier.height(5.dp))
-            Text(
-                text = item.uploaderName ?: "",
-                fontSize = 10.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1
-            )
-        }
-        Box(
-            modifier = Modifier.align(Alignment.CenterVertically)
-        ) {
-            IconButton(
-                onClick = { isExpanded = true },
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(start = 20.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Default.MoreVert,
-                    contentDescription = "More options"
+                Text(
+                    text = item.title,
+                    fontSize = 12.sp,
+                    minLines = 2,
+                    maxLines = 2,
+                    lineHeight = 14.sp,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = item.uploaderName ?: "",
+                    fontSize = 10.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = "${TextFormatUtil.viewCountCalculator(myStringArray, item.viewCount.toString())} • ${item.textualUploadDate}",
+                    fontSize = 10.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1
                 )
             }
-            DropDownMenu(text = stringResource(id = R.string.video_pop_up_menu_add_playlist_text), isExpanded = isExpanded, onDismissRequest = { isExpanded = false }, onClick = {dropDownMenuClick()})
-        }
+            Box(
+                modifier = Modifier.align(Alignment.CenterVertically)
+            ) {
+                IconButton(
+                    onClick = { isExpanded = true },
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.MoreVert,
+                        contentDescription = "More options"
+                    )
+                }
+                DropDownMenu(text = stringResource(id = R.string.video_pop_up_menu_add_playlist_text), isExpanded = isExpanded, onDismissRequest = { isExpanded = false }, onClick = {dropDownMenuClick()})
+            }
 
+        }
+        HorizontalDivider(color = Color.LightGray, thickness = 0.5.dp)
     }
-    HorizontalDivider(color = Color.LightGray, thickness = 0.5.dp)
+
 
 }

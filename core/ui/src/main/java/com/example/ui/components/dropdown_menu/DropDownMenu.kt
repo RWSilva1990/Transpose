@@ -1,4 +1,4 @@
-package com.example.transpose.ui.components.dropdown_menu
+package com.example.ui.components.dropdown_menu
 
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem

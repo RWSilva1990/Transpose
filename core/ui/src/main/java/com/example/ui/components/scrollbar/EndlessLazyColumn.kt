@@ -1,4 +1,4 @@
-package com.example.transpose.ui.components.scrollbar
+package com.example.ui.components.scrollbar
 
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
@@ -10,6 +10,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import com.example.ui.components.items.LoadingIndicator
+import com.example.util.Logger
 
 
 @Composable
@@ -26,11 +27,13 @@ fun <H, T> EndlessLazyColumn(
     loadMore: () -> Unit
 ) {
 
-    val reachedBottom: Boolean by remember { derivedStateOf { listState.reachedBottom() } }
+    val reachedBottom: Boolean by remember(listState) { derivedStateOf { listState.reachedBottom() } }
 
-    // load more if scrolled to bottom
-    LaunchedEffect(reachedBottom) {
-        if (reachedBottom && !loading && hasMoreItems) loadMore()
+    LaunchedEffect(reachedBottom, loading, hasMoreItems, listState) {
+        if (reachedBottom && !loading && hasMoreItems) {
+            Logger.d("바닥 도달: reachedBottom=$reachedBottom, loading=$loading, hasMoreItems=$hasMoreItems")
+            loadMore()
+        }
     }
 
     LazyColumn(modifier = modifier, state = listState) {
@@ -51,5 +54,11 @@ fun <H, T> EndlessLazyColumn(
 
 private fun LazyListState.reachedBottom(): Boolean {
     val lastVisibleItem = this.layoutInfo.visibleItemsInfo.lastOrNull()
-    return lastVisibleItem?.index != 0 && lastVisibleItem?.index == this.layoutInfo.totalItemsCount - 1
+    val totalItems = this.layoutInfo.totalItemsCount
+
+    if (totalItems <= 1) return false
+
+    return lastVisibleItem != null &&
+            lastVisibleItem.index == totalItems - 1 &&
+            lastVisibleItem.offset + lastVisibleItem.size <= this.layoutInfo.viewportEndOffset + 20 // 약간의 여유 추가
 }

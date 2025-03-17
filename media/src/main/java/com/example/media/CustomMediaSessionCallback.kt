@@ -17,6 +17,7 @@ import androidx.media3.session.MediaSession
 import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionResult
 import com.example.media.audio_effect.AudioEffectHandlerImpl
+import com.example.util.Logger
 import com.google.common.util.concurrent.ListenableFuture
 import javax.inject.Inject
 
@@ -58,9 +59,13 @@ class CustomMediaSessionCallback @Inject constructor(
 
         val pitchPlusCommand = SessionCommand(MediaSessionCallback.PITCH_PLUS, Bundle())
 
+        val initPitchCommand = SessionCommand(MediaSessionCallback.INIT_PITCH_VALUE, Bundle())
+
         val pitchMinusCommand = SessionCommand(MediaSessionCallback.PITCH_MINUS, Bundle())
 
         val tempoPlusCommand = SessionCommand(MediaSessionCallback.TEMPO_PLUS, Bundle())
+
+        val initTempoCommand = SessionCommand(MediaSessionCallback.INIT_TEMPO_VALUE, Bundle())
 
         val tempMinusCommand = SessionCommand(MediaSessionCallback.TEMPO_MINUS, Bundle())
 
@@ -81,6 +86,8 @@ class CustomMediaSessionCallback @Inject constructor(
         myCommands.add(tempoPlusCommand)
         myCommands.add(tempMinusCommand)
         myCommands.add(setHapticGenerator)
+        myCommands.add(initPitchCommand)
+        myCommands.add(initTempoCommand)
         return myCommands
     }
 
