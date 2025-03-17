@@ -7,6 +7,7 @@ import com.example.media.MediaSessionCallback
 import com.example.media.audio_effect.data.equalizer.EqualizerPresets
 import com.example.media.audio_effect.data.equalizer.EqualizerSettings
 import com.example.media.audio_effect.data.reverb.ReverbPresets
+import com.example.util.Logger
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -49,12 +50,14 @@ class AudioEffectsManager @Inject constructor(
 
     fun pitchPlusOne() {
         sendSessionAction(MediaSessionCallback.PITCH_PLUS)
-        _pitchValue.value += 1
+        _pitchValue.update { it + 10 }
+
     }
 
     fun pitchMinusOne() {
         sendSessionAction(MediaSessionCallback.PITCH_MINUS)
-        _pitchValue.value -= 1
+        _pitchValue.update { it - 10 }
+
     }
 
     fun setTempo() {
@@ -69,17 +72,17 @@ class AudioEffectsManager @Inject constructor(
 
     fun initTempoValue() {
         sendSessionAction(MediaSessionCallback.INIT_TEMPO_VALUE)
-        _tempoValue.value = 100
+        _tempoValue.update { 100 }
     }
 
     fun tempoPlusOne() {
         sendSessionAction(MediaSessionCallback.TEMPO_PLUS)
-        _tempoValue.value += 1
+        _tempoValue.update { it + 10 }
     }
 
     fun tempoMinusOne() {
         sendSessionAction(MediaSessionCallback.TEMPO_MINUS)
-        _tempoValue.value -= 1
+        _tempoValue.update { it - 10 }
     }
 
 
@@ -488,6 +491,7 @@ class AudioEffectsManager @Inject constructor(
     // =========================
     private fun sendSessionAction(action: String) {
         val ctrl = mediaController ?: return
+        Logger.d("sendSessionAction $action")
         val sessionCommand = SessionCommand(action, Bundle())
         ctrl.sendCustomCommand(sessionCommand, Bundle())
     }

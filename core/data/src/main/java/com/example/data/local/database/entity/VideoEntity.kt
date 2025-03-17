@@ -26,11 +26,11 @@ data class VideoEntity(
     val thumbnailUrl: String?,
     val uploaderName: String?,
     val uploaderUrl: String?,
-    val uploaderAvatars: String, // JSON string
+    val uploaderAvatarUrl: String?,
     val uploaderVerified: Boolean,
     val duration: Long,
     val viewCount: Long,
     val textualUploadDate: String?,
-    val streamType: String,
+    val streamType: String?,
     val shortFormContent: Boolean
 )

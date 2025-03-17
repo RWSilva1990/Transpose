@@ -1,4 +1,4 @@
-package com.example.transpose.data.model.local_file
+package com.example.domain.model.local_file
 
 import android.net.Uri
 

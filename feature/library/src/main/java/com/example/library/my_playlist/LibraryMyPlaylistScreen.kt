@@ -22,12 +22,14 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import com.example.library.my_playlist.items.PlaylistItem
 import com.example.transpose.ui.screen.library.my_playlist.items.AddPlaylistItem
 import com.example.transpose.ui.screen.library.my_playlist.items.AudioStorageItem
 import com.example.transpose.ui.screen.library.my_playlist.items.VideoStorageItem
 import com.example.util.PermissionUtils
 import kotlinx.coroutines.launch
+import com.example.transpose.core.ui.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -40,10 +42,9 @@ fun LibraryMyPlaylistScreen(
 ) {
 
     val myPlaylists by libraryMyPlaylistViewModel.myPlaylists.collectAsState()
-
     val coroutineScope = rememberCoroutineScope()
-
     val context = LocalContext.current
+
     var showRationaleDialog by remember { mutableStateOf(false) }
     var showSettingsDialog by remember { mutableStateOf(false) }
     var pendingRoute by remember { mutableStateOf<String?>(null) }
@@ -74,7 +75,6 @@ fun LibraryMyPlaylistScreen(
         }
     }
 
-
     fun handleItemClick(route: String) {
         if (PermissionUtils.checkPermissions(context)) {
             navigateToLocalFileScreen(route)
@@ -84,35 +84,37 @@ fun LibraryMyPlaylistScreen(
         }
     }
 
-
     var showPlaylistDialog by remember { mutableStateOf(false) }
     var playlistName by remember { mutableStateOf("") }
-
 
     LazyColumn() {
         item {
             AddPlaylistItem(onClick = { showPlaylistDialog = true })
-
         }
 
         item {
             AudioStorageItem(onClick = {
                 handleItemClick("audio")
             })
-
         }
+
         item {
             VideoStorageItem(onClick = {
                 handleItemClick("video")
-
             })
-
         }
-        items(myPlaylists.size) { index ->
+
+        items(
+            count = myPlaylists.size,
+            key = { index -> myPlaylists[index].playlistId }
+        ) { index ->
             val item = myPlaylists[index]
             PlaylistItem(
                 title = item.name,
-                onClick = { navigateToMyPlaylistItemScreen(item.playlistId) },
+                onClick = {
+                    navigateToMyPlaylistItemScreen(item.playlistId)
+                    libraryMyPlaylistViewModel.setCurrentPlaylistInfo(null)
+                },
                 dropDownMenuClick = { libraryMyPlaylistViewModel.deleteMyPlaylist(item) }
             )
         }
@@ -121,12 +123,12 @@ fun LibraryMyPlaylistScreen(
     if (showPlaylistDialog) {
         AlertDialog(
             onDismissRequest = { showPlaylistDialog = false },
-            title = { Text("create playlist") },
+            title = { Text(stringResource(R.string.create_playlist_dialog_title)) },
             text = {
                 TextField(
                     value = playlistName,
                     onValueChange = { playlistName = it },
-                    label = { Text("플레이리스트 이름") },
+                    label = { Text(stringResource(R.string.playlist_name_label)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -141,7 +143,7 @@ fun LibraryMyPlaylistScreen(
                         }
                     }
                 ) {
-                    Text("확인")
+                    Text(stringResource(R.string.confirm_button))
                 }
             },
             dismissButton = {
@@ -151,7 +153,7 @@ fun LibraryMyPlaylistScreen(
                         playlistName = ""
                     }
                 ) {
-                    Text("취소")
+                    Text(stringResource(R.string.cancel_button))
                 }
             }
         )
@@ -160,19 +162,19 @@ fun LibraryMyPlaylistScreen(
     if (showRationaleDialog) {
         AlertDialog(
             onDismissRequest = { showRationaleDialog = false },
-            title = { Text("권한 필요") },
-            text = { Text("이 기능을 사용하려면 저장소 접근 권한이 필요합니다.") },
+            title = { Text(stringResource(R.string.permission_required_title)) },
+            text = { Text(stringResource(R.string.storage_permission_message)) },
             confirmButton = {
                 Button(onClick = {
                     showRationaleDialog = false
                     PermissionUtils.requestPermissions(permissionLauncher::launch)
                 }) {
-                    Text("권한 요청")
+                    Text(stringResource(R.string.request_permission_button))
                 }
             },
             dismissButton = {
                 Button(onClick = { showRationaleDialog = false }) {
-                    Text("취소")
+                    Text(stringResource(R.string.cancel_button))
                 }
             }
         )
@@ -181,24 +183,23 @@ fun LibraryMyPlaylistScreen(
     if (showSettingsDialog) {
         AlertDialog(
             onDismissRequest = { showSettingsDialog = false },
-            title = { Text("권한 필요") },
-            text = { Text("설정에서 저장소 접근 권한을 허용해주세요.") },
+            title = { Text(stringResource(R.string.permission_required_title)) },
+            text = { Text(stringResource(R.string.settings_permission_message)) },
             confirmButton = {
                 Button(onClick = {
                     showSettingsDialog = false
                     PermissionUtils.openAppSettings(context)
                 }) {
-                    Text("설정으로 이동")
+                    Text(stringResource(R.string.go_to_settings_button))
                 }
             },
             dismissButton = {
                 Button(onClick = { showSettingsDialog = false }) {
-                    Text("취소")
+                    Text(stringResource(R.string.cancel_button))
                 }
             }
         )
     }
-
 }
 
 

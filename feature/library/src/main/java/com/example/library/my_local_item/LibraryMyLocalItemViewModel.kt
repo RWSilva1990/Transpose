@@ -5,8 +5,7 @@ import android.os.Build
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.domain.repository.LocalFileRepository
-import com.example.media.manager.MediaPlaybackManager
-import com.example.transpose.data.model.local_file.LocalFileData
+import com.example.domain.model.local_file.LocalFileData
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,8 +15,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class LibraryMyLocalItemViewModel @Inject constructor(
-    private val localFileRepository: LocalFileRepository,
-    private val mediaPlaybackManager: MediaPlaybackManager
+    private val localFileRepository: LocalFileRepository
 ) : ViewModel() {
 
     private val _audioFiles = MutableStateFlow<List<LocalFileData>>(emptyList())

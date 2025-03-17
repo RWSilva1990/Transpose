@@ -8,13 +8,22 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import com.example.domain.model.youtube.playlist.PlaylistItemData
-import com.example.home.playlist_item.items.PlaylistHeaderItem
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
+import com.example.domain.model.youtube.playlist.PlaylistItem
+import com.example.domain.model.youtube.video.Video
+import com.example.ui.screen.playlist_info.items.PlaylistHeaderItem
+import com.example.ui.components.scrollbar.EndlessLazyColumn
+import com.example.ui.common.PaginatedState
+import com.example.ui.components.dialog.AddVideoToPlaylistDialog
 import com.example.ui.components.items.CommonVideoItem
 import com.example.ui.components.items.LoadingIndicator
-import com.example.transpose.ui.components.scrollbar.EndlessLazyColumn
-import com.example.ui.common.PaginatedState
+import com.example.util.Logger
+import com.example.util.ToastUtil
+import com.example.transpose.core.ui.R
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -25,11 +34,18 @@ fun HomePlaylistItemScreen(
     itemId: String?,
     navigateToBack: () -> Unit
 ) {
-    val playlistInfo by homePlaylistItemViewModel.playlistInfo.collectAsState()
+    val playlistInfo by homePlaylistItemViewModel.currentPlaylistInfo.collectAsState()
     val playlistItemsState by homePlaylistItemViewModel.playlistItemsState.collectAsState()
-//    val isShowingPlaylistDialog by mainViewModel.isShowAddVideoToPlaylistDialog.collectAsState()
-//    val myPlaylists by mainViewModel.myPlaylists.collectAsState()
-//    val selectedVideo by mainViewModel.selectedVideo.collectAsState()
+    val context = LocalContext.current
+    var isShowingPlaylistDialog by remember {
+        mutableStateOf(false)
+    }
+    var selectedVideo by remember {
+        mutableStateOf(null as Video?)
+    }
+
+    val myPlaylists by homePlaylistItemViewModel.myPlaylists.collectAsState()
+
     val coroutineScope = rememberCoroutineScope()
     BackHandler(
         enabled = bottomSheetState.currentValue == SheetValue.Expanded
@@ -47,6 +63,7 @@ fun HomePlaylistItemScreen(
 
     when (val state = playlistItemsState) {
         is PaginatedState.Initial -> {
+
         }
 
         is PaginatedState.Loading -> {
@@ -55,28 +72,29 @@ fun HomePlaylistItemScreen(
         }
 
         is PaginatedState.Success -> {
-
             EndlessLazyColumn(
                 items = state.items,
                 headerData = playlistInfo,
-                itemKey = { item: PlaylistItemData -> item.basicVideoData.id },
-                itemContent = { index, item: PlaylistItemData ->
-                    CommonVideoItem(item = item.basicVideoData,
-                        currentIndex = index,
+                itemKey = { item: PlaylistItem -> item.video.id },
+                itemContent = { index, item: PlaylistItem ->
+                    CommonVideoItem(item = item.video,
                         onClick = {
-                            coroutineScope.launch {
-                                bottomSheetState.partialExpand()
-                            }
                             homePlaylistItemViewModel.onMediaClicked(
-                                item = item.basicVideoData,
+                                item = item.video,
                                 playlistItems = state.items.map {
-                                    it.basicVideoData
+                                    it.video
                                 },
                                 clickedIndex = index
                             )
+                            coroutineScope.launch {
+                                bottomSheetState.expand()
+                            }
+
                         },
                         dropDownMenuClick = {
-//                            mainViewModel.showAddToPlaylistDialog(item)
+                            homePlaylistItemViewModel.getAllMyPlaylists()
+                            selectedVideo = item.video
+                            isShowingPlaylistDialog = true
                         })
                 },
                 headerContent = { playlistData ->
@@ -92,20 +110,25 @@ fun HomePlaylistItemScreen(
             ErrorMessage(message = state.message)
         }
     }
-//    if (isShowingPlaylistDialog) {
-//        AddVideoToPlaylistDialog(
-//            playlists = myPlaylists,
-//            onDismiss = { mainViewModel.dismissPlaylistDialog() },
-//            onPlaylistSelected = { playlistId ->
-//                selectedVideo?.let {
-//                    mainViewModel.addVideoToPlaylist(it, playlistId)
-//                }
-//            }
-//        )
-//    }
+    if (isShowingPlaylistDialog) {
+        AddVideoToPlaylistDialog(
+            playlists = myPlaylists,
+            onDismiss = { isShowingPlaylistDialog = false },
+            onPlaylistSelected = { playlistId ->
+                selectedVideo?.let {
+                    homePlaylistItemViewModel.addVideoToPlaylist(it, playlistId)
+                    ToastUtil.showShort(
+                        context = context,
+                        message = context.getString(R.string.notify_video_added_to_playlist)
+                    )                }
+            }
+        )
+    }
 }
+
+
 
 @Composable
 fun ErrorMessage(message: String) {
-    // 에러 메시지 표시 구현
+    Logger.d("ErrorMessage $message")
 }

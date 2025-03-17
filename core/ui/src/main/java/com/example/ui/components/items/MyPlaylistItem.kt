@@ -26,7 +26,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.example.transpose.ui.components.dropdown_menu.DropDownMenu
+import com.example.ui.components.dropdown_menu.DropDownMenu
 import com.example.transpose.core.ui.R
 @Composable
 fun MyPlaylistItem(

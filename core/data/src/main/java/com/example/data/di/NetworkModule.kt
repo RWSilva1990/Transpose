@@ -26,4 +26,5 @@ object NetworkModule {
     fun provideSearchApiService(retrofit: Retrofit): SuggestionKeywordApiService {
         return retrofit.create(SuggestionKeywordApiService::class.java)
     }
+
 }

@@ -1,4 +1,4 @@
-package com.example.transpose.ui.components.dialog
+package com.example.ui.components.dialog
 
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.AlertDialog

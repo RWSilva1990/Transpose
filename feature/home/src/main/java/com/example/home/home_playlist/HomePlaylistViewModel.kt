@@ -3,8 +3,9 @@ package com.example.home.home_playlist
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.domain.constants.MusicCategoryConstants
-import com.example.domain.model.youtube.playlist.PlaylistData
-import com.example.domain.repository.NewPipeRepository
+import com.example.domain.model.youtube.playlist.Playlist
+import com.example.domain.repository.PlaylistRepository
+import com.example.media.manager.MediaPlaybackManager
 import com.example.ui.common.UiState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
@@ -16,36 +17,53 @@ import javax.inject.Inject
 
 @HiltViewModel
 class HomePlaylistViewModel @Inject constructor(
-    private val newPipeRepository: NewPipeRepository
-) : ViewModel(){
+    private val playlistRepository: PlaylistRepository,
+    private val mediaPlaybackManager: MediaPlaybackManager
+) : ViewModel() {
 
 
-    private val _nationalPlaylistDataState = MutableStateFlow<UiState<List<PlaylistData>>>(UiState.Initial)
-    val nationalPlaylistDataState: StateFlow<UiState<List<PlaylistData>>> = _nationalPlaylistDataState.asStateFlow()
+    private val _nationalPlaylistDataState =
+        MutableStateFlow<UiState<List<Playlist>>>(UiState.Initial)
+    val nationalPlaylistDataState: StateFlow<UiState<List<Playlist>>> =
+        _nationalPlaylistDataState.asStateFlow()
 
-    private val _recommendedPlaylistDataState = MutableStateFlow<UiState<List<PlaylistData>>>(UiState.Initial)
-    val recommendedPlaylistDataState: StateFlow<UiState<List<PlaylistData>>> = _recommendedPlaylistDataState.asStateFlow()
+    private val _recommendedPlaylistDataState =
+        MutableStateFlow<UiState<List<Playlist>>>(UiState.Initial)
+    val recommendedPlaylistDataState: StateFlow<UiState<List<Playlist>>> =
+        _recommendedPlaylistDataState.asStateFlow()
 
-    private val _typedPlaylistDataState = MutableStateFlow<UiState<List<PlaylistData>>>(UiState.Initial)
-    val typedPlaylistDataState: StateFlow<UiState<List<PlaylistData>>> = _typedPlaylistDataState.asStateFlow()
+    private val _typedPlaylistDataState = MutableStateFlow<UiState<List<Playlist>>>(UiState.Initial)
+    val typedPlaylistDataState: StateFlow<UiState<List<Playlist>>> =
+        _typedPlaylistDataState.asStateFlow()
+
+    init {
+        fetchNationalPlaylists()
+        fetchRecommendedPlaylists()
+        fetchTypedPlaylists()
+    }
+
+    fun setCurrentPlaylistInfo(playlist: Playlist) {
+        mediaPlaybackManager.setCurrentPlaylistInfo(playlist)
+    }
 
 
-    fun fetchNationalPlaylists() = viewModelScope.launch(Dispatchers.IO) {
+    private fun fetchNationalPlaylists() = viewModelScope.launch(Dispatchers.IO) {
         _nationalPlaylistDataState.value = UiState.Loading
-        val currentList = mutableListOf<PlaylistData>()
+        val currentList = mutableListOf<Playlist>()
         var hasError = false
 
         val nationPlaylistUrls = MusicCategoryConstants().nationalPlaylistUrls
         nationPlaylistUrls.forEach { playlistId ->
-            val result = newPipeRepository.fetchPlaylistResult(playlistId)
+            val result = playlistRepository.fetchPlaylistResult(playlistId)
             when {
                 result.isSuccess -> {
-                    val playlistData = result.getOrNull()
-                    playlistData?.let {
-                        currentList.add(playlistData)
+                    val playlist = result.getOrNull()
+                    playlist?.let {
+                        currentList.add(playlist)
                         _nationalPlaylistDataState.value = UiState.Success(currentList.toList())
                     }
                 }
+
                 result.isFailure -> {
                     hasError = true
                 }
@@ -59,11 +77,11 @@ class HomePlaylistViewModel @Inject constructor(
         }
     }
 
-    fun fetchRecommendedPlaylists() = viewModelScope.launch(Dispatchers.IO) {
+    private fun fetchRecommendedPlaylists() = viewModelScope.launch(Dispatchers.IO) {
         _recommendedPlaylistDataState.value = UiState.Loading
 
         val recommendedId = MusicCategoryConstants().recommendPlaylistChannelId
-        val result = newPipeRepository.fetchPlaylistWithChannelId(recommendedId)
+        val result = playlistRepository.fetchPlaylistWithChannelId(recommendedId)
 
         _recommendedPlaylistDataState.value = when {
             result.isSuccess -> {
@@ -73,17 +91,18 @@ class HomePlaylistViewModel @Inject constructor(
                     else UiState.Error("No playlists found")
                 } ?: UiState.Error("No content found")
             }
+
             result.isFailure -> UiState.Error("${result.exceptionOrNull()}")
             else -> UiState.Error("${result.exceptionOrNull()}")
 
         }
     }
 
-    fun fetchTypedPlaylists() = viewModelScope.launch(Dispatchers.IO) {
+    private fun fetchTypedPlaylists() = viewModelScope.launch(Dispatchers.IO) {
         _typedPlaylistDataState.value = UiState.Loading
 
         val typedPlaylistId = MusicCategoryConstants().typedPlaylistChannelId
-        val result = newPipeRepository.fetchPlaylistWithChannelId(typedPlaylistId)
+        val result = playlistRepository.fetchPlaylistWithChannelId(typedPlaylistId)
 
         _typedPlaylistDataState.value = when {
             result.isSuccess -> {
@@ -93,6 +112,7 @@ class HomePlaylistViewModel @Inject constructor(
                     else UiState.Error("No playlists found")
                 } ?: UiState.Error("No content found")
             }
+
             result.isFailure -> UiState.Error("${result.exceptionOrNull()}")
             else -> UiState.Error("${result.exceptionOrNull()}")
 

@@ -33,8 +33,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import com.example.transpose.data.model.local_file.LocalFileData
-import com.example.transpose.ui.components.dropdown_menu.DropDownMenu
+import com.example.domain.model.local_file.LocalFileData
+import com.example.ui.components.dropdown_menu.DropDownMenu
 import com.example.transpose.core.ui.R
 
 @Composable

@@ -30,7 +30,7 @@ import com.example.util.constants.AppColors
 
 @Composable
 fun SearchResultPlaylistItem(
-    playlist: SearchResult.Playlist,
+    playlist: SearchResult.PlaylistResult,
     onClick: (String) -> Unit
 ) {
     val context = LocalContext.current

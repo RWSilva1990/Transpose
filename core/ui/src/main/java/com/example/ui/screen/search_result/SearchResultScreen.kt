@@ -14,14 +14,17 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import com.example.domain.model.youtube.search.SearchResult
-import com.example.transpose.ui.components.dialog.AddVideoToPlaylistDialog
+import com.example.transpose.core.ui.R
+import com.example.ui.components.dialog.AddVideoToPlaylistDialog
 import com.example.ui.components.items.ChannelItem
 import com.example.ui.components.items.CommonVideoItem
 import com.example.ui.components.items.LoadingIndicator
-import com.example.transpose.ui.components.scrollbar.EndlessLazyColumn
+import com.example.ui.components.scrollbar.EndlessLazyColumn
 import com.example.ui.common.PaginatedState
 import com.example.ui.components.items.SearchResultPlaylistItem
+import com.example.util.ToastUtil
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -34,11 +37,12 @@ fun SearchResultScreen(
 ) {
     val coroutineScope = rememberCoroutineScope()
     val searchResultsState by searchResultViewModel.searchResultsState.collectAsState()
+    val context = LocalContext.current
     var isShowingPlaylistDialog by remember {
         mutableStateOf(false)
     }
     var selectedVideo by remember {
-        mutableStateOf(null as SearchResult.Video?)
+        mutableStateOf(null as SearchResult.VideoResult?)
     }
 
     val myPlaylists by searchResultViewModel.myPlaylists.collectAsState()
@@ -72,23 +76,22 @@ fun SearchResultScreen(
                 headerData = null,
                 itemKey = { item: SearchResult ->
                     when (item) {
-                        is SearchResult.Video -> "video_${item.basicVideoData.id}"
-                        is SearchResult.Channel -> "channel_${item.id}"
-                        is SearchResult.Playlist -> "playlist_${item.playlist}"
+                        is SearchResult.VideoResult -> "video_${item.video.id}"
+                        is SearchResult.ChannelResult -> "channel_${item.channel.id}"
+                        is SearchResult.PlaylistResult -> "playlist_${item.playlist}"
                     }
                 },
                 itemContent = { index, item: SearchResult ->
                     when (item) {
-                        is SearchResult.Video -> {
+                        is SearchResult.VideoResult -> {
                             CommonVideoItem(
-                                item = item.basicVideoData,
-                                currentIndex = index,
+                                item = item.video,
                                 onClick = {
                                     coroutineScope.launch {
                                         bottomSheetState.expand()
                                     }
                                     searchResultViewModel.onMediaClicked(
-                                        item.basicVideoData
+                                        item.video
                                     )
                                 },
                                 dropDownMenuClick = {
@@ -99,7 +102,7 @@ fun SearchResultScreen(
                             )
                         }
 
-                        is SearchResult.Channel -> {
+                        is SearchResult.ChannelResult -> {
                             ChannelItem(
                                 channel = item,
                                 onClick = {
@@ -107,7 +110,7 @@ fun SearchResultScreen(
                             )
                         }
 
-                        is SearchResult.Playlist -> {
+                        is SearchResult.PlaylistResult -> {
                             SearchResultPlaylistItem(playlist = item, onClick = {})
                         }
                     }
@@ -130,8 +133,12 @@ fun SearchResultScreen(
             onPlaylistSelected = { playlistId ->
                 selectedVideo?.let {
                     searchResultViewModel.addVideoToPlaylist(
-                        video = it.basicVideoData,
+                        video = it.video,
                         playlistId = playlistId
+                    )
+                    ToastUtil.showShort(
+                        context = context,
+                        message = context.getString(R.string.notify_video_added_to_playlist)
                     )
                 }
             }

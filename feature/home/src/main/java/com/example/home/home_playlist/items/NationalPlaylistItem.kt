@@ -19,13 +19,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import com.example.domain.model.youtube.playlist.PlaylistData
+import com.example.domain.model.youtube.playlist.Playlist
 import com.example.util.constants.AppColors
 
 
 @Composable
 fun NationalPlaylistItem(
-    playlistData: PlaylistData,
+    playlistData: Playlist,
     onClick: (String) -> Unit
 ) {
     Column(

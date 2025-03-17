@@ -13,6 +13,9 @@ object ToastUtil {
 
     fun showShort(context: Context, message: String) {
         showToast(context, message, Toast.LENGTH_SHORT)
+        handler.postDelayed({
+            toast?.cancel()
+        }, 1000)
     }
 
     fun showShort(context: Context, @StringRes messageResId: Int) {

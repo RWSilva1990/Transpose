@@ -16,8 +16,11 @@ object TextFormatUtil {
         return format(viewCountString.toLong(), viewCountStringArray)
     }
 
-    fun subscriberCountConverter(subscriberCountString: String, subscriberArray: Array<String>): String {
-        return format(subscriberCountString.toLong(), subscriberArray, isSubscriber = true)
+    fun subscriberCountConverter(subscriberCountString: String?, subscriberArray: Array<String>): String {
+        return if (subscriberCountString != null)
+            format(subscriberCountString.toLong(), subscriberArray, isSubscriber = true)
+        else
+            ""
     }
 
 

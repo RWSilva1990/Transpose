@@ -1,10 +1,10 @@
-package com.example.transpose.data.repository.local_file
+package com.example.data.repository
 
 import android.content.Context
 import android.net.Uri
 import android.provider.MediaStore
 import com.example.domain.repository.LocalFileRepository
-import com.example.transpose.data.model.local_file.LocalFileData
+import com.example.domain.model.local_file.LocalFileData
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 

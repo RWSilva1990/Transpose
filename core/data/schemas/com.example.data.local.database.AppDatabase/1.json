@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "8b44cc8414f5c38f4a4cdaaf77a4458c",
+    "identityHash": "da26c71774c688c484c6f6fa660849c7",
     "entities": [
       {
         "tableName": "playlists",
@@ -32,7 +32,7 @@
       },
       {
         "tableName": "videos",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `playlistId` INTEGER NOT NULL, `title` TEXT NOT NULL, `description` TEXT NOT NULL, `publishTimestamp` INTEGER, `thumbnailUrl` TEXT, `uploaderName` TEXT, `uploaderUrl` TEXT, `uploaderAvatars` TEXT NOT NULL, `uploaderVerified` INTEGER NOT NULL, `duration` INTEGER NOT NULL, `viewCount` INTEGER NOT NULL, `textualUploadDate` TEXT, `streamType` TEXT NOT NULL, `shortFormContent` INTEGER NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`playlistId`) REFERENCES `playlists`(`playlistId`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `playlistId` INTEGER NOT NULL, `title` TEXT NOT NULL, `description` TEXT NOT NULL, `publishTimestamp` INTEGER, `thumbnailUrl` TEXT, `uploaderName` TEXT, `uploaderUrl` TEXT, `uploaderAvatarUrl` TEXT, `uploaderVerified` INTEGER NOT NULL, `duration` INTEGER NOT NULL, `viewCount` INTEGER NOT NULL, `textualUploadDate` TEXT, `streamType` TEXT, `shortFormContent` INTEGER NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`playlistId`) REFERENCES `playlists`(`playlistId`) ON UPDATE NO ACTION ON DELETE CASCADE )",
         "fields": [
           {
             "fieldPath": "id",
@@ -83,10 +83,10 @@
             "notNull": false
           },
           {
-            "fieldPath": "uploaderAvatars",
-            "columnName": "uploaderAvatars",
+            "fieldPath": "uploaderAvatarUrl",
+            "columnName": "uploaderAvatarUrl",
             "affinity": "TEXT",
-            "notNull": true
+            "notNull": false
           },
           {
             "fieldPath": "uploaderVerified",
@@ -116,7 +116,7 @@
             "fieldPath": "streamType",
             "columnName": "streamType",
             "affinity": "TEXT",
-            "notNull": true
+            "notNull": false
           },
           {
             "fieldPath": "shortFormContent",
@@ -160,7 +160,7 @@
     "views": [],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '8b44cc8414f5c38f4a4cdaaf77a4458c')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'da26c71774c688c484c6f6fa660849c7')"
     ]
   }
 }

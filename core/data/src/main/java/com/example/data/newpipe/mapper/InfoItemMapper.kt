@@ -1,12 +1,16 @@
 package com.example.data.newpipe.mapper
 
-import com.example.data.newpipe.utils.NewPipeUtils
-import com.example.domain.model.youtube.playlist.PlaylistData
-import com.example.domain.model.youtube.playlist.PlaylistItemData
+import com.example.data.newpipe.mapper.channel.ChannelMapper
+import com.example.data.newpipe.mapper.playlist.PlaylistMapper
+import com.example.data.newpipe.mapper.video.VideoMapper
+import com.example.domain.model.youtube.channel.ChannelDetail
+import com.example.domain.model.youtube.channel.ChannelTab
+import com.example.domain.model.youtube.channel.ChannelTabResult
+import com.example.domain.model.youtube.playlist.Playlist
+import com.example.domain.model.youtube.playlist.PlaylistItem
 import com.example.domain.model.youtube.search.SearchResult
-import com.example.domain.model.youtube.video.BasicVideoData
-import com.example.domain.model.youtube.video_detail.VideoDetailData
-import org.schabi.newpipe.extractor.InfoItem
+import com.example.domain.model.youtube.video_detail.VideoDetail
+import org.schabi.newpipe.extractor.channel.ChannelExtractor
 import org.schabi.newpipe.extractor.channel.ChannelInfoItem
 import org.schabi.newpipe.extractor.playlist.PlaylistExtractor
 import org.schabi.newpipe.extractor.playlist.PlaylistInfoItem
@@ -15,159 +19,52 @@ import org.schabi.newpipe.extractor.stream.StreamInfoItem
 
 object InfoItemMapper {
 
-    // SearchResult.Video
-    fun streamInfoItemToSearchResultVideo(item: StreamInfoItem, id: String): SearchResult.Video {
-        return SearchResult.Video(
-            basicVideoData = BasicVideoData(
-                id = id,
-                title = item.name,
-                description = item.shortDescription ?: "",
-                publishTimestamp = item.uploadDate?.date()?.time?.time,
-                thumbnailUrl = NewPipeUtils.getHighestResolutionThumbnail(item.thumbnails.firstOrNull()?.url),
-                infoType = item.infoType,
-                uploaderName = item.uploaderName,
-                uploaderUrl = item.uploaderUrl,
-                uploaderAvatars = item.uploaderAvatars,
-                uploaderVerified = item.isUploaderVerified,
-                duration = item.duration,
-                viewCount = item.viewCount,
-                textualUploadDate = item.textualUploadDate,
-                streamType = item.streamType,
-                shortFormContent = item.isShortFormContent
-            ),
-        )
+    // 비디오 매핑 메서드
+    fun streamInfoItemToSearchResultVideo(item: StreamInfoItem, videoId: String, uploaderId: String): SearchResult.VideoResult {
+        return VideoMapper.streamInfoItemToSearchResultVideo(item, videoId, uploaderId)
+    }
+
+    // 채널 매핑 메서드
+    fun channelInfoItemToSearchResultChannel(item: ChannelInfoItem, id: String): SearchResult.ChannelResult {
+        return ChannelMapper.channelInfoItemToSearchResultChannel(item, id)
+    }
+
+    // 플레이리스트 매핑 메서드
+    fun playlistInfoItemToSearchResultPlaylist(item: PlaylistInfoItem, id: String): SearchResult.PlaylistResult {
+        return PlaylistMapper.playlistInfoItemToSearchResultPlaylist(item, id)
+    }
+
+    fun streamExtractorToVideoDetail(extractor: StreamExtractor, uploaderId: String): VideoDetail {
+        return VideoMapper.streamExtractorToVideoDetail(extractor, uploaderId)
+    }
+
+    fun playlistInfoItemToPlaylistData(item: PlaylistInfoItem, id: String): Playlist {
+        return PlaylistMapper.playlistInfoItemToPlaylistData(item, id)
+    }
+
+    fun playlistExtractorToPlaylistData(extractor: PlaylistExtractor): Playlist {
+        return PlaylistMapper.playlistExtractorToPlaylistData(extractor)
+    }
+
+    fun streamInfoItemToPlaylistItemData(item: StreamInfoItem, videoId: String, uploaderId: String): PlaylistItem {
+        return PlaylistMapper.streamInfoItemToPlaylistItemData(item, videoId, uploaderId)
+    }
+
+    fun channelExtractorToChannelDetail(extractor: ChannelExtractor, tabs: List<ChannelTab>): ChannelDetail {
+        return ChannelMapper.channelExtractorToChannelDetail(extractor, tabs)
+    }
+
+    fun streamInfoItemToChannelTabResultVideo(item: StreamInfoItem, videoId: String, uploaderId: String): ChannelTabResult.VideoResult {
+        return VideoMapper.streamInfoItemToChannelTabResultVideo(item, videoId, uploaderId)
+    }
+
+    fun streamInfoItemToChannelTabResultShorts(item: StreamInfoItem, videoId: String, uploaderId: String): ChannelTabResult.ShortsResult {
+        return VideoMapper.streamInfoItemToChannelTabResultShorts(item, videoId, uploaderId)
+    }
+
+    fun playlistInfoItemToChannelTabResultPlaylist(item: PlaylistInfoItem, videoId: String): ChannelTabResult.PlaylistResult {
+        return PlaylistMapper.playlistInfoItemToChannelTabResultPlaylist(item, videoId)
     }
 
 
-    // SearchResult.Playlist
-    fun playlistInfoItemToSearchResultPlaylist(item: PlaylistInfoItem, id: String): SearchResult.Playlist {
-        return SearchResult.Playlist(
-            playlist = PlaylistData(
-                id = id,
-                title = item.name,
-                description = item.description.content,
-                publishTimestamp = null,
-                thumbnailUrl = NewPipeUtils.getHighestResolutionThumbnail(item.thumbnails.firstOrNull()?.url),
-                infoType = InfoItem.InfoType.PLAYLIST,
-                uploaderName = item.uploaderName,
-                uploaderUrl = item.uploaderUrl,
-                uploaderVerified = false,
-                streamCount = item.streamCount,
-                playlistType = item.playlistType
-            )
-        )
-    }
-
-    // SearchResult.Channel
-    fun channelInfoItemToSearchResultChannel(item: ChannelInfoItem, id: String): SearchResult.Channel {
-        return SearchResult.Channel(
-            id = id,
-            title = item.name,
-            description = item.description ?: "",
-            publishTimestamp = null,
-            thumbnailUrl = NewPipeUtils.getHighestResolutionThumbnail(item.thumbnails.firstOrNull()?.url),
-            infoType = item.infoType,
-            subscriberCount = item.subscriberCount,
-            streamCount = item.streamCount,
-            verified = item.isVerified
-        )
-    }
-
-    // Playlist
-    fun playlistInfoItemToPlaylistData(item: PlaylistInfoItem, id: String): PlaylistData {
-        return PlaylistData(
-            id = id,
-            title = item.name,
-            description = item.description.content,
-            publishTimestamp = null,
-            thumbnailUrl = NewPipeUtils.getHighestResolutionThumbnail(item.thumbnails.firstOrNull()?.url),
-            infoType = InfoItem.InfoType.PLAYLIST,
-            uploaderName = item.uploaderName,
-            uploaderUrl = item.uploaderUrl,
-            uploaderVerified = false,
-            streamCount = item.streamCount,
-            playlistType = item.playlistType
-        )
-    }
-
-    // Playlist
-    fun playlistExtractorToPlaylistData(extractor: PlaylistExtractor): PlaylistData {
-        return PlaylistData(
-            id = extractor.id,
-            title = extractor.name,
-            description = extractor.description.content,
-            publishTimestamp = null,
-            thumbnailUrl = NewPipeUtils.getHighestResolutionThumbnail(extractor.thumbnails.firstOrNull()?.url),
-            infoType = InfoItem.InfoType.PLAYLIST,
-            uploaderName = extractor.uploaderName,
-            uploaderUrl = extractor.uploaderUrl,
-            uploaderVerified = false,
-            streamCount = extractor.streamCount,
-            playlistType = null
-        )
-    }
-
-    // PlaylistItem
-    fun streamInfoItemToPlaylistItemData(item: StreamInfoItem, id: String): PlaylistItemData {
-        return PlaylistItemData(
-            basicVideoData = BasicVideoData(
-                id = id,
-                title = item.name,
-                description = item.shortDescription ?: "",
-                publishTimestamp = item.uploadDate?.date()?.time?.time,
-                thumbnailUrl = NewPipeUtils.getHighestResolutionThumbnail(item.thumbnails.firstOrNull()?.url),
-                infoType = item.infoType,
-                uploaderName = item.uploaderName,
-                uploaderUrl = item.uploaderUrl,
-                uploaderAvatars = item.uploaderAvatars,
-                uploaderVerified = item.isUploaderVerified,
-                duration = item.duration,
-                viewCount = item.viewCount,
-                textualUploadDate = item.textualUploadDate,
-                streamType = item.streamType,
-                shortFormContent = item.isShortFormContent
-            ),
-        )
-    }
-
-
-    fun streamExtractorToVideoDetail(extractor: StreamExtractor): VideoDetailData {
-        return VideoDetailData(
-            id = extractor.id,
-            title = extractor.name,
-            videoStream = extractor.videoStreams.firstOrNull(),
-            description = extractor.description.content,
-            thumbnailUrl = NewPipeUtils.getHighestResolutionThumbnail(extractor.thumbnails.firstOrNull()?.url),
-            uploaderName = extractor.uploaderName,
-            uploaderUrl = extractor.uploaderUrl,
-            uploaderAvatars = extractor.uploaderAvatars,
-            uploaderSubscriberCount = extractor.uploaderSubscriberCount,
-            publishTimestamp = extractor.uploadDate?.date()?.time?.time,
-            publishedTimeText = extractor.textualUploadDate,
-            viewCount = extractor.viewCount,
-            likeCount = extractor.likeCount,
-            dislikeCount = extractor.dislikeCount,
-            relatedVideos = extractor.relatedItems?.items?.map {
-                val relatedVideo = it as? StreamInfoItem
-                BasicVideoData(
-                    id = relatedVideo?.url ?: "",
-                    title = relatedVideo?.name ?: "",
-                    description = relatedVideo?.shortDescription ?: "",
-                    publishTimestamp = relatedVideo?.uploadDate?.date()?.time?.time,
-                    thumbnailUrl = NewPipeUtils.getHighestResolutionThumbnail(relatedVideo?.thumbnails?.firstOrNull()?.url),
-                    infoType = relatedVideo?.infoType ?: InfoItem.InfoType.STREAM,
-                    uploaderName = relatedVideo?.uploaderName,
-                    uploaderUrl = relatedVideo?.uploaderUrl,
-                    uploaderAvatars = relatedVideo?.uploaderAvatars,
-                    uploaderVerified = relatedVideo?.isUploaderVerified,
-                    duration = relatedVideo?.duration ?: 0,
-                    viewCount = relatedVideo?.viewCount ?: 0,
-                    textualUploadDate = relatedVideo?.textualUploadDate ?: "",
-                    streamType = relatedVideo?.streamType,
-                    shortFormContent = relatedVideo?.isShortFormContent ?: false
-                )
-            } ?: emptyList()
-
-        )
-    }
 }

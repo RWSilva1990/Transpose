@@ -19,6 +19,7 @@ class AndroidPresentationUIConventionPlugin : Plugin<Project> {
                 add("implementation", project.libs.findBundle("compose").get())
                 add("debugImplementation", project.libs.findBundle("compose.debug").get())
                 add("androidTestImplementation", project.libs.findLibrary("androidx.ui.test.junit4").get())
+                add("testImplementation", project.libs.findLibrary("junit").get())
 
                 add("implementation", project.libs.findLibrary("androidx.compose.material").get())
                 add("implementation", project.libs.findLibrary("androidx.material3.android").get())
