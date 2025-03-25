@@ -13,75 +13,64 @@ class ChannelRepositoryImpl @Inject constructor() : BaseNewPipeRepository(), Cha
 
     private val channelTabPagers = mutableMapOf<String, ChannelTabPager>()
 
-    override suspend fun fetchChannelDetail(channelId: String): Result<ChannelDetail> {
-        return try {
-            val channelLinkHandler = getChannelLinkHandler(channelId)
-            val channelExtractor = getChannelExtractor(channelLinkHandler)
+    override suspend fun fetchChannelDetail(channelId: String): Result<ChannelDetail> = kotlin.runCatching {
+        val channelLinkHandler = getChannelLinkHandler(channelId)
+        val channelExtractor = getChannelExtractor(channelLinkHandler)
 
-            channelExtractor.fetchPage()
+        channelExtractor.fetchPage()
 
-            // 채널 탭 정보 추출
-            val tabs = channelExtractor.tabs.map { tab ->
-                ChannelTab(
-                    id = tab.id,
-                    contentType = determineTabContentType(tab.contentFilters),
-                    url = tab.url
-                )
-            }
-            Logger.d("Fetching channel detail - channelId: $channelId")
-            channelExtractor.tabs.forEachIndexed { index, tab ->
-                Logger.d("채널 탭 정보[$index]: ID=${tab.id}, URL=${tab.url}, ContentFilter=${tab.contentFilters}")
-            }
-
-            // 채널 상세 정보 구성
-            val channelDetail = ChannelDetail(
-                id = channelExtractor.id,
-                name = channelExtractor.name,
-                description = channelExtractor.description ?: "",
-                bannerUrl = channelExtractor.banners.firstOrNull()?.url ?: "",
-                avatarUrl = channelExtractor.avatars.firstOrNull()?.url ?: "",
-                subscriberCount = channelExtractor.subscriberCount,
-                verified = channelExtractor.isVerified,
-                tabs = tabs
+        // 채널 탭 정보 추출
+        val tabs = channelExtractor.tabs.map { tab ->
+            ChannelTab(
+                id = tab.id,
+                contentType = determineTabContentType(tab.contentFilters),
+                url = tab.url
             )
-
-            Result.success(channelDetail)
-        } catch (e: Exception) {
-            Logger.e("Error fetching channel detail", e)
-            Result.failure(e)
         }
+        Logger.d("Fetching channel detail - channelId: $channelId")
+        channelExtractor.tabs.forEachIndexed { index, tab ->
+            Logger.d("채널 탭 정보[$index]: ID=${tab.id}, URL=${tab.url}, ContentFilter=${tab.contentFilters}")
+        }
+
+        // 채널 상세 정보 구성
+        val channelDetail = ChannelDetail(
+            id = channelExtractor.id,
+            name = channelExtractor.name,
+            description = channelExtractor.description ?: "",
+            bannerUrl = channelExtractor.banners.firstOrNull()?.url ?: "",
+            avatarUrl = channelExtractor.avatars.firstOrNull()?.url ?: "",
+            subscriberCount = channelExtractor.subscriberCount,
+            verified = channelExtractor.isVerified,
+            tabs = tabs
+        )
+
+        channelDetail
     }
 
     override suspend fun fetchChannelTabContent(
         channelId: String,
         contentType: String?
-    ): Result<List<ChannelTabResult>> {
-        if (contentType == null) {
-            return Result.failure(IllegalArgumentException("tabId or contentType is null"))
-        }
-        return try {
-            val channelLinkHandler = getChannelLinkHandler(channelId)
-            val channelExtractor = getChannelExtractor(channelLinkHandler)
-            channelExtractor.fetchPage()
+    ): Result<List<ChannelTabResult>> = kotlin.runCatching {
+        if (contentType == null) throw IllegalArgumentException("tabId or contentType is null")
 
-            // 콘텐츠 유형으로 탭 찾기
-            val targetTab = channelExtractor.tabs.find {
-                determineTabContentType(it.contentFilters) == contentType
-            } ?: throw IllegalArgumentException("Tab with content type $contentType not found")
+        val channelLinkHandler = getChannelLinkHandler(channelId)
+        val channelExtractor = getChannelExtractor(channelLinkHandler)
+        channelExtractor.fetchPage()
 
-            Logger.d("Fetching channel tab content - channelId: $channelId, tabContentType: $contentType")
+        // 콘텐츠 유형으로 탭 찾기
+        val targetTab = channelExtractor.tabs.find {
+            determineTabContentType(it.contentFilters) == contentType
+        } ?: throw IllegalArgumentException("Tab with content type $contentType not found")
 
-            val tabExtractor = getChannelTabExtractor(targetTab)
-            tabExtractor.fetchPage()
+        Logger.d("Fetching channel tab content - channelId: $channelId, tabContentType: $contentType")
 
-            val pager = ChannelTabPager(youtubeService, tabExtractor, contentType)
-            channelTabPagers[contentType] = pager
+        val tabExtractor = getChannelTabExtractor(targetTab)
+        tabExtractor.fetchPage()
 
-            Result.success(pager.getNextPage())
-        } catch (e: Exception) {
-            Logger.e("Error fetching channel tab content", e)
-            Result.failure(e)
-        }
+        val pager = ChannelTabPager(youtubeService, tabExtractor, contentType)
+        channelTabPagers[contentType] = pager
+
+        pager.getNextPage()
     }
 
     override suspend fun loadMoreChannelTabContent(contentType: String): Result<List<ChannelTabResult>> {

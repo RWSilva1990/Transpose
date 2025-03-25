@@ -39,7 +39,7 @@ import coil.compose.AsyncImage
 import com.example.domain.model.youtube.video.Video
 import com.example.domain.model.youtube.video_detail.VideoDetail
 import com.example.main.MainViewModel
-import com.example.transpose.core.ui.R
+import com.example.main.R
 import com.example.ui.components.dialog.AddVideoToPlaylistDialog
 import com.example.util.TextFormatUtil
 import com.example.util.ToastUtil

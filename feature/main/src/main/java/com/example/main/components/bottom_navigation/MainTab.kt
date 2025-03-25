@@ -1,7 +1,7 @@
 package com.example.main.components.bottom_navigation
 
 import androidx.annotation.DrawableRes
-import com.example.transpose.core.ui.R
+import com.example.main.R
 
 sealed class MainTab(
     val route: String,

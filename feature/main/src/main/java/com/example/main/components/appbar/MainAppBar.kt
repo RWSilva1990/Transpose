@@ -37,11 +37,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import com.example.main.R
 import com.example.ui.components.items.SearchSuggestionItem
 import com.example.util.Logger
 import com.example.util.ToastUtil
 import com.example.util.constants.AppColors
-import com.example.transpose.core.ui.R
 
 
 
@@ -79,7 +79,7 @@ fun MainAppBar(
                 CustomSearchAppBar(
                     searchWidgetState = searchWidgetState,
                     searchTextState = searchTextState,
-                    onTextChange = { onTextChange(it) },
+                    onTextChange = onTextChange,
                     onTextClearClicked = { onTextClearClicked() },
                     onCloseClicked = { onCloseClicked() },
                     onSearchClicked = { onSearchClicked(it) },

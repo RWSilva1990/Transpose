@@ -44,12 +44,12 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import com.example.main.MainViewModel
+import com.example.main.R
 import com.example.main.components.bottomsheet.GraphicsLayerConstants.PEEK_HEIGHT
 import com.example.main.components.bottomsheet.item.PlayerLoadingIndicator
 import com.example.main.components.bottomsheet.item.PlayerThumbnailView
 import com.example.main.components.bottomsheet.item.PlaylistFloatingButton
 import com.example.main.components.bottomsheet.item.VideoDetailPanel
-import com.example.transpose.core.ui.R
 import com.example.util.constants.AppColors
 import kotlinx.coroutines.launch
 import kotlin.math.pow

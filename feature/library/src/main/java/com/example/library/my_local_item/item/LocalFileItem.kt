@@ -1,4 +1,4 @@
-package com.example.transpose.ui.screen.library.my_local_item.item
+package com.example.library.my_local_item.item
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -34,8 +34,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.domain.model.local_file.LocalFileData
+import com.example.library.R
 import com.example.ui.components.dropdown_menu.DropDownMenu
-import com.example.transpose.core.ui.R
 
 @Composable
 fun LocalFileData(

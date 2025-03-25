@@ -18,7 +18,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.domain.model.youtube.video.Video
-import com.example.transpose.core.ui.R
+import com.example.main.R
 import com.example.util.TextFormatUtil
 import com.valentinilk.shimmer.shimmer
 

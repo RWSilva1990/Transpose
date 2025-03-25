@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.sp
 import com.example.domain.model.youtube.playlist.Playlist
 import com.example.home.home_playlist.items.NationalPlaylistItem
 import com.example.home.home_playlist.items.RegularPlaylistItem
+import com.example.transpose.feature.home.R
 import com.example.ui.common.UiState
 import kotlinx.coroutines.launch
 
@@ -63,7 +64,7 @@ fun HomePlaylistScreen(
     ) {
         item {
             PlaylistSection(
-                title = stringResource(id = com.example.transpose.core.ui.R.string.Global_popular_Top100_playlist_text),
+                title = stringResource(id = R.string.Global_popular_Top100_playlist_text),
                 playlistState = nationalPlaylistState
             ) { playlist ->
                 NationalPlaylistItem(
@@ -77,7 +78,7 @@ fun HomePlaylistScreen(
         }
         item {
             PlaylistSection(
-                title = stringResource(id = com.example.transpose.core.ui.R.string.Recommended_playlist_text),
+                title = stringResource(id = R.string.Recommended_playlist_text),
                 playlistState = recommendedPlaylistState
             ) { playlist ->
                 RegularPlaylistItem(
@@ -91,7 +92,7 @@ fun HomePlaylistScreen(
         }
         item {
             PlaylistSection(
-                title = stringResource(id = com.example.transpose.core.ui.R.string.Type_based_playlist_text),
+                title = stringResource(id = R.string.Type_based_playlist_text),
                 playlistState = typedPlaylistState
             ) { playlist ->
                 RegularPlaylistItem(

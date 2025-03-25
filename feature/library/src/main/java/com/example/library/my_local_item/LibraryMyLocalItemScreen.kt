@@ -16,7 +16,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 
-import com.example.transpose.ui.screen.library.my_local_item.item.LocalFileData
+import com.example.library.my_local_item.item.LocalFileData
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)

@@ -15,6 +15,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import com.example.domain.model.youtube.playlist.PlaylistItem
 import com.example.domain.model.youtube.video.Video
+import com.example.transpose.feature.home.R
 import com.example.ui.screen.playlist_info.items.PlaylistHeaderItem
 import com.example.ui.components.scrollbar.EndlessLazyColumn
 import com.example.ui.common.PaginatedState
@@ -23,7 +24,6 @@ import com.example.ui.components.items.CommonVideoItem
 import com.example.ui.components.items.LoadingIndicator
 import com.example.util.Logger
 import com.example.util.ToastUtil
-import com.example.transpose.core.ui.R
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)

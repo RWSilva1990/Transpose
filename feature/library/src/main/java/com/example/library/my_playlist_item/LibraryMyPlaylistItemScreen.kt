@@ -16,9 +16,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import com.example.library.R
 import com.example.library.my_playlist_item.items.PlaylistVideoItem
 import kotlinx.coroutines.launch
-import com.example.transpose.core.ui.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
