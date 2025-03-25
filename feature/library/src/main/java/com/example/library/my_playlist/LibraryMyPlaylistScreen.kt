@@ -23,13 +23,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import com.example.library.R
 import com.example.library.my_playlist.items.PlaylistItem
-import com.example.transpose.ui.screen.library.my_playlist.items.AddPlaylistItem
-import com.example.transpose.ui.screen.library.my_playlist.items.AudioStorageItem
-import com.example.transpose.ui.screen.library.my_playlist.items.VideoStorageItem
+import com.example.library.my_playlist.items.AddPlaylistItem
+import com.example.library.my_playlist.items.AudioStorageItem
+import com.example.library.my_playlist.items.VideoStorageItem
 import com.example.util.PermissionUtils
 import kotlinx.coroutines.launch
-import com.example.transpose.core.ui.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

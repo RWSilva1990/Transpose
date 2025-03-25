@@ -31,6 +31,7 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.rememberNavController
 import com.example.convert.navigation.ConvertNavHost
 import com.example.convert.navigation.ConvertRoutes
@@ -77,9 +78,7 @@ fun MainScreen(
     val (searchWidgetState, setSearchWidgetState) = remember {
         mutableStateOf(SearchWidgetState.CLOSED)
     }
-    val (searchTextState, setSearchTextState) = remember {
-        mutableStateOf("")
-    }
+    val searchTextState by mainViewModel.searchQuery.collectAsStateWithLifecycle()
     val (isSearchBarActive, setIsSearchBarActive) = remember {
         mutableStateOf(true)
     }
@@ -179,17 +178,13 @@ fun MainScreen(
                 MainAppBar(
                     searchWidgetState = searchWidgetState,
                     searchTextState = searchTextState,
-                    onTextChange = {
-                        setSearchTextState(it)
-                        mainViewModel.getSuggestionKeyword(it)
-                    },
+                    onTextChange = mainViewModel::storeSearchQuery,
                     onTextClearClicked = {
-                        mainViewModel.clearSuggestionKeywords()
-                        setSearchTextState("")
+                        mainViewModel.storeSearchQuery("")
                     },
                     onCloseClicked = {
                         setSearchWidgetState(SearchWidgetState.CLOSED)
-                        setSearchTextState("")
+                        mainViewModel.storeSearchQuery("")
                     },
                     onSearchClicked = {
                         when (selectedTab) {

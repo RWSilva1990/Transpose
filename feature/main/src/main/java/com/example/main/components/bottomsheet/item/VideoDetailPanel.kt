@@ -11,7 +11,6 @@ import androidx.compose.ui.Modifier
 import com.example.domain.model.youtube.video.Video
 import com.example.domain.model.youtube.video_detail.VideoDetail
 import com.example.main.MainViewModel
-import com.example.transpose.ui.components.bottomsheet.item.RelatedVideoShimmerItem
 import com.example.ui.components.items.CommonVideoItem
 import kotlinx.coroutines.launch
 

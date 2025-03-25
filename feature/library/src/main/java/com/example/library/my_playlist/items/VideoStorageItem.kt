@@ -1,4 +1,4 @@
-package com.example.transpose.ui.screen.library.my_playlist.items
+package com.example.library.my_playlist.items
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
@@ -17,7 +17,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.example.transpose.core.ui.R
+import com.example.library.R
 
 @Composable
 fun VideoStorageItem(onClick: () -> Unit) {

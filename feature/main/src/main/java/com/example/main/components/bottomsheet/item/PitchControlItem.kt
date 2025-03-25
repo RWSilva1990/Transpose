@@ -26,7 +26,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.example.main.MainViewModel
-import com.example.transpose.core.ui.R
+import com.example.main.R
 import com.example.util.ToastUtil
 
 @Composable

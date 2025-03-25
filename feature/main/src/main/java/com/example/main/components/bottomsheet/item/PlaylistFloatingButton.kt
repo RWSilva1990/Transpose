@@ -24,7 +24,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.main.MainViewModel
-import com.example.transpose.core.ui.R
+import com.example.main.R
 
 @Composable
 fun PlaylistFloatingButton(

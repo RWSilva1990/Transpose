@@ -1,4 +1,4 @@
-package com.example.transpose.ui.components.bottomsheet.item
+package com.example.main.components.bottomsheet.item
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box

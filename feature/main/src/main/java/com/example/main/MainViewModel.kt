@@ -2,6 +2,7 @@ package com.example.main
 
 import android.content.Context
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.session.MediaController
@@ -21,19 +22,27 @@ import com.example.util.PermissionUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-@OptIn(ExperimentalMaterial3Api::class)
+private const val SEARCH_QUERY = "search_query"
+
+@OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class MainViewModel @Inject constructor(
+    private val savedStateHandle: SavedStateHandle,
     private val mediaPlaybackManager: MediaPlaybackManager,
     private val audioEffectsManager: AudioEffectsManager,
     private val suggestionKeywordRepository: SuggestionKeywordRepository,
@@ -43,6 +52,24 @@ class MainViewModel @Inject constructor(
     private val playbackPreferencesRepository: PlaybackPreferencesRepository,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
+
+    val searchQuery: StateFlow<String> = savedStateHandle.getStateFlow(SEARCH_QUERY, "")
+
+    @OptIn(FlowPreview::class)
+    val suggestionKeywords = searchQuery
+        .debounce(50L)
+        .flatMapLatest { query ->
+            if (query.isEmpty()) {
+                flowOf(emptyList<String>())
+            } else {
+                flowOf(suggestionKeywordRepository.getSuggestionKeywords(query)
+                    .getOrNull() ?: emptyList())
+            }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
 
     private val _permissionGranted = MutableStateFlow(false)
     val permissionGranted: StateFlow<Boolean> = _permissionGranted.asStateFlow()
@@ -180,24 +207,10 @@ class MainViewModel @Inject constructor(
         audioEffectsManager.tempoMinusOne()
     }
 
-
-    private val _suggestionKeywords: MutableStateFlow<List<String>> = MutableStateFlow(
-        listOf()
-    )
-    val suggestionKeywords = _suggestionKeywords.asStateFlow()
-
-    fun clearSuggestionKeywords() {
-        _suggestionKeywords.value = arrayListOf()
-    }
-
-    fun getSuggestionKeyword(query: String) = viewModelScope.launch {
-        suggestionKeywordRepository.getSuggestionKeywords(query)
-            .onSuccess { list ->
-                _suggestionKeywords.value = list
-            }
-            .onFailure {
-                // 에러 처리
-            }
+    fun storeSearchQuery(query: String) {
+        viewModelScope.launch {
+            savedStateHandle[SEARCH_QUERY] = query
+        }
     }
 
     fun fetchChannelInfo(channelId: String) = viewModelScope.launch(Dispatchers.IO) {

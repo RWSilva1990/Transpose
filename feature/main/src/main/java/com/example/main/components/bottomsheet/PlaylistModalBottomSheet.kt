@@ -38,8 +38,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.domain.model.preferences.RepeatMode
 import com.example.main.MainViewModel
+import com.example.main.R
 import com.example.main.components.bottomsheet.item.PlaylistBottomSheetItem
-import com.example.transpose.core.ui.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

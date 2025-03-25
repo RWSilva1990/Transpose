@@ -17,8 +17,8 @@ abstract class BaseNewPipeRepository {
 
     init {
         NewPipe.init(NewPipeDownloader())
-    }
 
+    }
     protected fun getVideoUrl(videoId: String): String {
         return if (videoId.startsWith("https")) videoId else youtubeService.streamLHFactory.getUrl(
             videoId

@@ -26,7 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.domain.model.youtube.video.Video
-import com.example.transpose.core.ui.R
+import com.example.main.R
 import com.example.util.TextFormatUtil
 
 @Composable

@@ -15,6 +15,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.example.convert.R
 import com.example.convert.audio_edit.ConvertAudioEditViewModel
 import com.example.convert.audio_edit.components.bassboost.BassBoostSection
 import com.example.convert.audio_edit.components.equalizer.EqualizerSection
@@ -23,7 +24,6 @@ import com.example.convert.audio_edit.components.pitch.PitchSection
 import com.example.convert.audio_edit.components.reverb.ReverbSection
 import com.example.convert.audio_edit.components.tempo.TempoSection
 import com.example.convert.audio_edit.components.virtualizer.VirtualizerSection
-import com.example.transpose.core.ui.R
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
