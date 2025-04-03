@@ -122,8 +122,7 @@ fun CustomSearchAppBar(
     SearchBar(
         modifier = Modifier
             .fillMaxWidth()
-            .focusRequester(focusRequester)
-            .zIndex(0f),
+            .focusRequester(focusRequester),
         query = searchTextState,
         onQueryChange = onTextChange,
         onSearch = {

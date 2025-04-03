@@ -127,7 +127,6 @@ fun PlayerBottomSheet(
     ConstraintLayout(
         modifier = Modifier
             .fillMaxSize()
-            .zIndex(2f)
             .nestedScroll(object : NestedScrollConnection {
                 override fun onPostScroll(
                     consumed: Offset,

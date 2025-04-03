@@ -213,7 +213,6 @@ fun MainScreen(
                     isSearchBarExpanded = isSearchBarActive,
                     onSearchBarActiveChanged = { setIsSearchBarActive(it) },
                     scrollBehavior = scrollBehavior,
-
                     )
             },
             innerPadding = innerPadding,
@@ -285,6 +284,8 @@ fun MainScreen(
                     )
                 }
             }
+
+            playerBottomSheetScaffoldPadding.calculateBottomPadding()
         }
 
     }
