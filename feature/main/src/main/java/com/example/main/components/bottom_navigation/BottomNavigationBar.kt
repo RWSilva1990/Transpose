@@ -27,7 +27,6 @@ fun BottomNavigationBar(
     normalizedOffset: Float
 ) {
 
-    // BottomSheet에 의한 오프셋 계산
     val totalOffset = remember(normalizedOffset, searchWidgetState) {
         derivedStateOf {
             // BottomSheet에 의한 오프셋 계산
