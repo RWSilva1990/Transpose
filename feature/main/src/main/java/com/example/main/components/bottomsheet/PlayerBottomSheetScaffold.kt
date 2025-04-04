@@ -2,8 +2,6 @@ package com.example.main.components.bottomsheet
 
 import android.graphics.Rect
 import android.view.ViewTreeObserver
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.navigationBars
@@ -27,7 +25,6 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
@@ -66,7 +63,8 @@ fun PlayerBottomSheetScaffold(
     val searchBarOpenedSheetPeekHeight = remember {
         navigationBarHeight + 56.dp
     }
-    val navBarHeightPx = with(density) { WindowInsets.navigationBars.getBottom(density).toDp().toPx() }
+    val navBarHeightPx =
+        with(density) { WindowInsets.navigationBars.getBottom(density).toDp().toPx() }
     val partiallyExpandedOffsetPx = remember { mutableFloatStateOf(0f) }
 
     val coroutineScope = rememberCoroutineScope()
@@ -93,16 +91,99 @@ fun PlayerBottomSheetScaffold(
         bottomSheetState = bottomSheetState
     )
 
-// 단순화된 offsetObserver - 터치 기반으로만 판단
-    val offsetObserver = remember(bottomSheetState, navBarHeightPx, screenHeightPx, isKeyboardVisible) {
-        object : ViewTreeObserver.OnDrawListener {
-            private var lastProgress = 0f
-            private var hasInitializedPartialOffset = false
 
-            override fun onDraw() {
+    val offsetObserver =
+        remember(bottomSheetState, navBarHeightPx, screenHeightPx, isKeyboardVisible) {
+            object : ViewTreeObserver.OnDrawListener {
+                private var lastProgress = 0f
+                private var hasInitializedPartialOffset = false
+
+                override fun onDraw() {
+                    try {
+                        val currentOffset = bottomSheetState.requireOffset()
+
+                        // 기준점 설정
+                        val expandedOffset = 0f
+                        val hiddenOffset = screenHeightPx
+
+                        // PartiallyExpanded 상태의 오프셋 초기화
+                        if (!hasInitializedPartialOffset &&
+                            bottomSheetState.currentValue == SheetValue.PartiallyExpanded &&
+                            currentOffset > 0
+                        ) {
+                            partiallyExpandedOffsetPx.floatValue = currentOffset
+                            hasInitializedPartialOffset = true
+                        }
+
+                        // 안정적인 partiallyExpandedOffset 유지
+                        var partiallyExpandedOffset = partiallyExpandedOffsetPx.floatValue
+                        if (partiallyExpandedOffset <= 0 || partiallyExpandedOffset >= hiddenOffset) {
+                            // 기본값 계산
+                            val sheetPeekHeightPx = with(density) {
+                                (innerPadding.calculateBottomPadding() + 56.dp).toPx()
+                            }
+                            partiallyExpandedOffset = screenHeightPx - sheetPeekHeightPx
+
+                            // 범위 체크
+                            if (partiallyExpandedOffset <= 0 || partiallyExpandedOffset >= hiddenOffset) {
+                                partiallyExpandedOffset = hiddenOffset / 2
+                            }
+                        }
+
+                        // 키보드 표시 여부에 따라 progress 계산 방식 결정
+                        var finalProgress = if (isKeyboardVisible) {
+                            // 키보드가 표시된 경우 현재 상태에 맞는 고정값 사용
+                            when (bottomSheetState.currentValue) {
+                                SheetValue.Expanded -> 1f
+                                SheetValue.PartiallyExpanded -> 0f
+                                SheetValue.Hidden -> -1f
+                            }
+                        } else {
+                            // 키보드가 없을 때는 실제 오프셋 기반으로 계산
+                            calculateDragProgress(
+                                currentOffset,
+                                expandedOffset,
+                                partiallyExpandedOffset,
+                                hiddenOffset
+                            )
+                        }
+
+                        // searchWidgetState가 열려있고 PartiallyExpanded 상태일 때 강제로 0으로 설정
+                        if (searchWidgetState == SearchWidgetState.OPENED &&
+                            bottomSheetState.currentValue == SheetValue.PartiallyExpanded
+                        ) {
+                            finalProgress = 0f
+                        }
+
+                        // 변화가 있을 때만 업데이트
+                        val threshold = 0.001f
+
+                        if (abs(finalProgress - lastProgress) > threshold) {
+                            setNormalizedOffset(finalProgress)
+                            lastProgress = finalProgress
+
+                            if (BuildConfig.DEBUG) {
+//                            Logger.d("✅ ✅ Progress: $finalProgress | 상태: ${bottomSheetState.currentValue} | 키보드: $isKeyboardVisible | 검색바: ${searchWidgetState == SearchWidgetState.OPENED}")
+                            }
+                        }
+                    } catch (e: Exception) {
+                        if (BuildConfig.DEBUG) {
+                            Logger.d("BottomSheet error: ${e.message}")
+                        }
+                    }
+                }
+            }
+        }// 더 정확한 터치 감지를 위한 Modifier
+
+
+    // offsetObserver 대신 LaunchedEffect를 사용한 구현
+    LaunchedEffect(bottomSheetState, isKeyboardVisible, searchWidgetState) {
+        // PartiallyExpanded 상태의 오프셋을 초기화하기 위한 변수
+        var hasInitializedPartialOffset = false
+
+        snapshotFlow { bottomSheetState.requireOffset() }
+            .collect { currentOffset ->
                 try {
-                    val currentOffset = bottomSheetState.requireOffset()
-
                     // 기준점 설정
                     val expandedOffset = 0f
                     val hiddenOffset = screenHeightPx
@@ -110,7 +191,8 @@ fun PlayerBottomSheetScaffold(
                     // PartiallyExpanded 상태의 오프셋 초기화
                     if (!hasInitializedPartialOffset &&
                         bottomSheetState.currentValue == SheetValue.PartiallyExpanded &&
-                        currentOffset > 0) {
+                        currentOffset > 0
+                    ) {
                         partiallyExpandedOffsetPx.floatValue = currentOffset
                         hasInitializedPartialOffset = true
                     }
@@ -150,20 +232,16 @@ fun PlayerBottomSheetScaffold(
 
                     // searchWidgetState가 열려있고 PartiallyExpanded 상태일 때 강제로 0으로 설정
                     if (searchWidgetState == SearchWidgetState.OPENED &&
-                        bottomSheetState.currentValue == SheetValue.PartiallyExpanded) {
+                        bottomSheetState.currentValue == SheetValue.PartiallyExpanded
+                    ) {
                         finalProgress = 0f
                     }
 
                     // 변화가 있을 때만 업데이트
                     val threshold = 0.001f
-
-                    if (abs(finalProgress - lastProgress) > threshold) {
+                    if (abs(finalProgress - lastProgressState.floatValue) > threshold) {
                         setNormalizedOffset(finalProgress)
-                        lastProgress = finalProgress
-
-                        if (BuildConfig.DEBUG) {
-//                            Logger.d("✅ ✅ Progress: $finalProgress | 상태: ${bottomSheetState.currentValue} | 키보드: $isKeyboardVisible | 검색바: ${searchWidgetState == SearchWidgetState.OPENED}")
-                        }
+                        lastProgressState.floatValue = finalProgress
                     }
                 } catch (e: Exception) {
                     if (BuildConfig.DEBUG) {
@@ -171,34 +249,16 @@ fun PlayerBottomSheetScaffold(
                     }
                 }
             }
-        }
-    }// 더 정확한 터치 감지를 위한 Modifier
-    val touchDetector = Modifier.pointerInput(Unit) {
-        awaitEachGesture {
-            // 첫 번째 터치 다운 이벤트 대기
-            awaitFirstDown(requireUnconsumed = false)
-            userIsTouching = true
-
-            // 모든 포인터 이벤트를 처리하며 터치 유지
-            do {
-                val event = awaitPointerEvent()
-            } while (event.changes.any { it.pressed })
-
-            // 터치 종료
-            userIsTouching = false
-
-        }
     }
-
     // 뷰 트리에 드로우 리스너 부착
     val view = LocalView.current
-    DisposableEffect(view, bottomSheetState) {
-        val observer = view.viewTreeObserver
-        observer.addOnDrawListener(offsetObserver)
-        onDispose {
-            observer.removeOnDrawListener(offsetObserver)
-        }
-    }
+//    DisposableEffect(view, bottomSheetState) {
+//        val observer = view.viewTreeObserver
+//        observer.addOnDrawListener(offsetObserver)
+//        onDispose {
+//            observer.removeOnDrawListener(offsetObserver)
+//        }
+//    }
 
     val sheetPeekHeight = remember(bottomSheetState.currentValue, searchWidgetState) {
         when (bottomSheetState.currentValue) {
@@ -241,6 +301,7 @@ fun PlayerBottomSheetScaffold(
                 SheetValue.Hidden -> {
                     mainViewModel.stopPlayback()
                 }
+
                 SheetValue.Expanded -> {}
                 SheetValue.PartiallyExpanded -> {}
             }
@@ -251,8 +312,7 @@ fun PlayerBottomSheetScaffold(
         sheetContainerColor = Color.White,
         scaffoldState = scaffoldState,
         modifier = Modifier
-            .padding(bottom = scaffoldBottomPadding)
-            .then(touchDetector),
+            .padding(bottom = scaffoldBottomPadding),
         sheetContent = {
             PlayerBottomSheet(
                 mainViewModel = mainViewModel,
@@ -280,10 +340,8 @@ private fun calculateDragProgress(
     hiddenOffset: Float
 ): Float {
     return when {
-        // Expanded 상태 (또는 그 이상으로 당길 때)
         currentOffset <= expandedOffset -> 1f
 
-        // Expanded와 PartiallyExpanded 사이
         currentOffset < partiallyExpandedOffset -> {
             val range = partiallyExpandedOffset - expandedOffset
             if (range > 0) {
@@ -291,11 +349,10 @@ private fun calculateDragProgress(
                 val ratio = (position / range).coerceIn(0f, 1f)
                 1f - ratio
             } else {
-                0f  // 안전장치
+                0f
             }
         }
 
-        // PartiallyExpanded와 Hidden 사이
         currentOffset <= hiddenOffset -> {
             val range = hiddenOffset - partiallyExpandedOffset
             if (range > 0) {
@@ -303,11 +360,10 @@ private fun calculateDragProgress(
                 val ratio = (position / range).coerceIn(0f, 1f)
                 -ratio
             } else {
-                0f  // 안전장치
+                0f
             }
         }
 
-        // Hidden 상태 초과
         else -> -1f
     }
 }

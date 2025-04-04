@@ -250,7 +250,6 @@ fun PlayerBottomSheet(
                     transformOrigin = TransformOrigin(0f, 0f)
                 )
         ) {
-
             AndroidView(
                 factory = { ctx ->
                     PlayerView(ctx).apply {
