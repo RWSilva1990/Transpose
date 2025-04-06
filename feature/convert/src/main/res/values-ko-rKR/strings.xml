@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="pitch_text">피치</string>
+    <string name="tempo_text">템포</string>
+    <string name="pitch_minus_text">음정 1 내림. 현재 상태: %1$.1f</string>
+    <string name="pitch_initialize_text">음정 초기화. 현재 상태: %1$.1f</string>
+    <string name="pitch_plus_text">음정 1 올림. 현재 상태: %1$.1f</string>
+    <string name="tempo_plus_text">템포 1 올림. 현재 상태: %1$.1f</string>
+    <string name="tempo_minus_text">템포 1 내림. 현재 상태: %1$.1f</string>
+    <string name="tempo_init_text">템포 초기화. 현재 상태: %1$.1f</string>
+    <string name="equalizer_normal">보통</string>
+    <string name="equalizer_classic">클래식</string>
+    <string name="equalizer_dance">댄스곡</string>
+    <string name="equalizer_flat">플랫(기본)</string>
+    <string name="equalizer_folk">포크</string>
+    <string name="equalizer_heavy_metal">헤비 메탈</string>
+    <string name="equalizer_hiphop">힙합</string>
+    <string name="equalizer_jazz">재즈</string>
+    <string name="equalizer_pop">팝</string>
+    <string name="equalizer_preset">프리셋</string>
+    <string name="bass_text">베이스</string>
+    <string name="loudness_enhancer_text">볼륨 강화</string>
+    <string name="virtualizer_text">3D 사운드 효과</string>
+    <string name="equalizer_text">이퀼라이저</string>
+    <string name="preset_reverb_none">없음</string>
+    <string name="preset_reverb_plate">플레이트</string>
+    <string name="preset_reverb_medium_hall">중간 홀</string>
+    <string name="preset_reverb_large_hall">큰 홀</string>
+    <string name="preset_reverb_large_room">큰 방</string>
+    <string name="preset_reverb_medium_room">중간 방</string>
+    <string name="preset_reverb_small_room">작은 방</string>
+    <string name="preset_reverb_text">리버브</string>
+    <string name="preset_reverb_send_level_text">강도</string>
+    <string name="preset_reverb_waring_text">주의: 스피커 모드에서는 음량이 높아질 수 있습니다</string>
+    <string name="equalizer_rock">락</string>
+</resources>
