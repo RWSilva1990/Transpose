@@ -21,7 +21,6 @@ class HomePlaylistViewModel @Inject constructor(
     private val mediaPlaybackManager: MediaPlaybackManager
 ) : ViewModel() {
 
-
     private val _nationalPlaylistDataState =
         MutableStateFlow<UiState<List<Playlist>>>(UiState.Initial)
     val nationalPlaylistDataState: StateFlow<UiState<List<Playlist>>> =
