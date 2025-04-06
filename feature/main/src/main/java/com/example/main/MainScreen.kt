@@ -78,7 +78,9 @@ fun MainScreen(
     val (searchWidgetState, setSearchWidgetState) = remember {
         mutableStateOf(SearchWidgetState.CLOSED)
     }
+
     val searchTextState by mainViewModel.searchQuery.collectAsStateWithLifecycle()
+
     val (isSearchBarActive, setIsSearchBarActive) = remember {
         mutableStateOf(true)
     }

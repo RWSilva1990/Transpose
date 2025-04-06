@@ -348,6 +348,9 @@ private fun DisplayTabContent(
                     is ChannelTabResult.VideoResult -> "video_${item.video.id}"
                     is ChannelTabResult.PlaylistResult -> "playlist_${item.playlist.id}"
                     is ChannelTabResult.ShortsResult -> "short_${item.video.id}"
+                    else -> {
+
+                    }
                 }
             },
             headerContent = { channel ->
@@ -400,6 +403,9 @@ private fun DisplayTabContent(
                                     item.video
                                 )
                             })
+                    }
+                    else ->{
+
                     }
                 }
             },
