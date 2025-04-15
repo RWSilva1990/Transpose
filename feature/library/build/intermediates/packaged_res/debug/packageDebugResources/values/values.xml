@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="add_playlist_text">New playlist</string>
+    <string name="cancel_button">Cancel</string>
+    <string name="confirm_button">Confirm</string>
+    <string name="create_playlist_dialog_title">Create playlist</string>
+    <string name="delete_video_from_device_pop_up_menu_text">Delete from device</string>
+    <string name="go_to_settings_button">Go to Settings</string>
+    <string name="my_audio_file_searchView_hint">My Audio File Search</string>
+    <string name="my_playlist_pop_up_menu_delete_playlist_text">Delete playlist</string>
+    <string name="my_video_file_searchView_hint">My Video File Search</string>
+    <string name="permission_required_title">Permission Required</string>
+    <string name="playlist_item_empty_text">Empty</string>
+    <string name="playlist_name_label">Playlist name</string>
+    <string name="request_permission_button">Request Permission</string>
+    <string name="settings_permission_message">Please allow storage access permission in settings.</string>
+    <string name="storage_permission_message">Storage access permission is needed to use this feature.</string>
+</resources>

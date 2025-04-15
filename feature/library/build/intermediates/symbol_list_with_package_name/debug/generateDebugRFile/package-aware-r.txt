@@ -1,0 +1,19 @@
+com.example.library
+drawable baseline_library_music_24_blue
+drawable baseline_music_video_24
+drawable baseline_ondemand_video_24
+string add_playlist_text
+string cancel_button
+string confirm_button
+string create_playlist_dialog_title
+string delete_video_from_device_pop_up_menu_text
+string go_to_settings_button
+string my_audio_file_searchView_hint
+string my_playlist_pop_up_menu_delete_playlist_text
+string my_video_file_searchView_hint
+string permission_required_title
+string playlist_item_empty_text
+string playlist_name_label
+string request_permission_button
+string settings_permission_message
+string storage_permission_message

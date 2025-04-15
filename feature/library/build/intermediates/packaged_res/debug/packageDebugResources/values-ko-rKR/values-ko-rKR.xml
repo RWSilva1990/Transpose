@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="add_playlist_text">새 재생목록</string>
+    <string name="cancel_button">취소</string>
+    <string name="confirm_button">확인</string>
+    <string name="create_playlist_dialog_title">재생목록 생성</string>
+    <string name="delete_video_from_device_pop_up_menu_text">장치에서 삭제</string>
+    <string name="go_to_settings_button">설정으로 이동</string>
+    <string name="my_audio_file_searchView_hint">내 음악 검색</string>
+    <string name="my_playlist_pop_up_menu_delete_playlist_text">재생목록 제거</string>
+    <string name="my_video_file_searchView_hint">내 비디오 검색</string>
+    <string name="permission_required_title">권한 필요</string>
+    <string name="playlist_item_empty_text">비어 있음</string>
+    <string name="playlist_name_label">재생목록 이름</string>
+    <string name="request_permission_button">권한 요청</string>
+    <string name="settings_permission_message">설정에서 저장소 접근 권한을 허용해주세요.</string>
+    <string name="storage_permission_message">이 기능을 사용하려면 저장소 접근 권한이 필요합니다.</string>
+</resources>

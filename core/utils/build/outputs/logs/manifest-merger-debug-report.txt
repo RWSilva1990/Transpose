@@ -1,0 +1,16 @@
+-- Merging decision tree log ---
+manifest
+ADDED from /Users/joh/Desktop/joh9911/MyProject/Transpose/Transpose/core/utils/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest15009593136390964648.xml:2:13-83
+INJECTED from /Users/joh/Desktop/joh9911/MyProject/Transpose/Transpose/core/utils/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest15009593136390964648.xml:2:13-83
+	package
+		INJECTED from /Users/joh/Desktop/joh9911/MyProject/Transpose/Transpose/core/utils/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest15009593136390964648.xml
+	xmlns:android
+		ADDED from /Users/joh/Desktop/joh9911/MyProject/Transpose/Transpose/core/utils/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest15009593136390964648.xml:2:23-81
+uses-sdk
+INJECTED from /Users/joh/Desktop/joh9911/MyProject/Transpose/Transpose/core/utils/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest15009593136390964648.xml reason: use-sdk injection requested
+INJECTED from /Users/joh/Desktop/joh9911/MyProject/Transpose/Transpose/core/utils/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest15009593136390964648.xml
+INJECTED from /Users/joh/Desktop/joh9911/MyProject/Transpose/Transpose/core/utils/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest15009593136390964648.xml
+	android:targetSdkVersion
+		INJECTED from /Users/joh/Desktop/joh9911/MyProject/Transpose/Transpose/core/utils/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest15009593136390964648.xml
+	android:minSdkVersion
+		INJECTED from /Users/joh/Desktop/joh9911/MyProject/Transpose/Transpose/core/utils/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest15009593136390964648.xml
