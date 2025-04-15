@@ -1,0 +1,5 @@
+com.example.transpose.feature.home
+string Global_popular_Top100_playlist_text
+string Recommended_playlist_text
+string Type_based_playlist_text
+string notify_video_added_to_playlist
