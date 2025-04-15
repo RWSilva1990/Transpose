@@ -18,3 +18,4 @@ dependencies {
     implementation(project(":feature:main"))
 
 }
+
