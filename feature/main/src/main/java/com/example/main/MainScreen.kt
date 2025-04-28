@@ -29,6 +29,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -44,6 +45,7 @@ import com.example.main.components.appbar.SearchWidgetState
 import com.example.main.components.bottom_navigation.BottomNavigationBar
 import com.example.main.components.bottom_navigation.MainTab
 import com.example.main.components.bottomsheet.PlayerBottomSheetScaffold
+import com.example.util.Logger
 import com.example.util.constants.AppColors
 import com.google.accompanist.systemuicontroller.rememberSystemUiController
 import kotlinx.coroutines.launch
@@ -102,6 +104,9 @@ fun MainScreen(
 
     var selectedTab by remember { mutableStateOf<MainTab>(MainTab.Home) }
 
+    var parentScaffoldHeightPx by remember {
+        mutableFloatStateOf(0f)
+    }
 
     val nestedScrollConnection = remember {
         object : NestedScrollConnection {
@@ -167,15 +172,22 @@ fun MainScreen(
         }
     }
 
-    Scaffold(containerColor = Color.White, bottomBar = {
+    Scaffold(containerColor = Color.White,
+        modifier = Modifier
+            .onGloballyPositioned { coordinates ->
+                parentScaffoldHeightPx = coordinates.size.height.toFloat()
+            },
+        bottomBar = {
         BottomNavigationBar(
             selectedTab = selectedTab,
             onTabSelected = { tab -> selectedTab = tab },
             searchWidgetState = searchWidgetState,
             normalizedOffset = normalizedOffset
         )
-    }) { innerPadding ->
+    }
+    ) { innerPadding ->
         PlayerBottomSheetScaffold(
+            parentScaffoldHeightPx = parentScaffoldHeightPx,
             topAppBar = {
                 MainAppBar(
                     searchWidgetState = searchWidgetState,
