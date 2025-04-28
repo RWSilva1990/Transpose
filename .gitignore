@@ -63,3 +63,66 @@ lint/generated/
 lint/outputs/
 lint/tmp/
 
+# Compiled class files
+*.class
+
+# Dex files
+*.dex
+
+# Kotlin compiler generated files
+*.tab
+*.tab.*
+*.keystream
+*.len
+*.bin
+
+# Kotlin incremental compilation
+.kotlin/
+
+# Specifically ignore PlayerBottomSheetScaffold generated files
+*PlayerBottomSheetScaffoldKt$*.class
+*PlayerBottomSheetScaffoldKt$*.dex
+
+# Kapt generated files
+kapt_*
+
+# Build intermediate files
+feature/*/build/
+app/*/build/
+
+
+# More compiled and generated files
+*.jar
+*.tab
+*.at
+*.dex
+
+# Java compiled classes
+*.java.class
+
+# Temporary and cache files
+*.tmp
+*.bak
+*.swp
+
+# Intermediate files
+intermediate/
+temp/
+tmp/
+
+# Java bytecode
+*.jar.cache
+
+# More Kotlin compiler files
+*.kotlin_module
+*.kotlin_builtins
+
+# More IDE generated files
+*.hprof
+.DS_Store
+thumbs.db
+*.stackdump
+
+# Generated Java source files (e.g. from annotation processors)
+**/generated/source/
+**/generated/ap_generated_sources/
