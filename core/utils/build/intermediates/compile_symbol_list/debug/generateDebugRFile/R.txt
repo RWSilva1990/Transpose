@@ -1,2 +1,0 @@
-int string app_name 0x0
-int string feature_not_implemented 0x0

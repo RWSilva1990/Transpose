@@ -1,4 +1,0 @@
-R_DEF: Internal format may change without notice
-local
-drawable baseline_exposure_neg_1_24
-drawable baseline_exposure_plus_1_24

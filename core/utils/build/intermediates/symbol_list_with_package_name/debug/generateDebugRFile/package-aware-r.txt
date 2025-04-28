@@ -1,3 +1,0 @@
-com.example.transpose.core.utils
-string app_name
-string feature_not_implemented

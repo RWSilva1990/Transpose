@@ -1,2 +1,0 @@
-int drawable baseline_exposure_neg_1_24 0x0
-int drawable baseline_exposure_plus_1_24 0x0
