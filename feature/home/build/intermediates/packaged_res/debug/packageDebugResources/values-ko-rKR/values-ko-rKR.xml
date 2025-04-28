@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <string name="Global_popular_Top100_playlist_text">글로벌 인기곡</string>
-    <string name="Recommended_playlist_text">추천</string>
-    <string name="Type_based_playlist_text">종류별</string>
-    <string name="notify_video_added_to_playlist">"해당 영상이 플레이리스트에 추가되었습니다."</string>
-</resources>
