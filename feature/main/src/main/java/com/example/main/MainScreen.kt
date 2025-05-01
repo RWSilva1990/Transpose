@@ -178,13 +178,13 @@ fun MainScreen(
                 parentScaffoldHeightPx = coordinates.size.height.toFloat()
             },
         bottomBar = {
-        BottomNavigationBar(
-            selectedTab = selectedTab,
-            onTabSelected = { tab -> selectedTab = tab },
-            searchWidgetState = searchWidgetState,
-            normalizedOffset = normalizedOffset
-        )
-    }
+            BottomNavigationBar(
+                selectedTab = selectedTab,
+                onTabSelected = { tab -> selectedTab = tab },
+                searchWidgetState = searchWidgetState,
+                normalizedOffset = normalizedOffset
+            )
+        }
     ) { innerPadding ->
         PlayerBottomSheetScaffold(
             parentScaffoldHeightPx = parentScaffoldHeightPx,
@@ -222,12 +222,13 @@ fun MainScreen(
                             )
                         }
                     },
-                    onSearchTriggered = { setSearchWidgetState(SearchWidgetState.OPENED) },
+                    onSearchTriggered = {
+                        setSearchWidgetState(SearchWidgetState.OPENED)
+                    },
                     suggestionKeywords = suggestionKeywords,
                     isSearchBarExpanded = isSearchBarActive,
-                    onSearchBarActiveChanged = { setIsSearchBarActive(it) },
                     scrollBehavior = scrollBehavior,
-                    )
+                )
             },
             innerPadding = innerPadding,
             bottomSheetState = sheetState,
