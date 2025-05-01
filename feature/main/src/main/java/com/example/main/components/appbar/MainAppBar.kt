@@ -5,6 +5,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -36,13 +37,11 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.zIndex
 import com.example.main.R
 import com.example.ui.components.items.SearchSuggestionItem
 import com.example.util.Logger
 import com.example.util.ToastUtil
 import com.example.util.constants.AppColors
-
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -57,14 +56,13 @@ fun MainAppBar(
     onSearchTriggered: () -> Unit,
     suggestionKeywords: List<String>,
     isSearchBarExpanded: Boolean,
-    onSearchBarActiveChanged: (Boolean) -> Unit,
     scrollBehavior: TopAppBarScrollBehavior
 ) {
 
     val focusRequester = remember { FocusRequester() }
 
     Box(
-        modifier = Modifier.zIndex(0f)
+        modifier = Modifier
 
     ) {
         when (searchWidgetState) {
@@ -77,17 +75,13 @@ fun MainAppBar(
 
             SearchWidgetState.OPENED -> {
                 CustomSearchAppBar(
-                    searchWidgetState = searchWidgetState,
                     searchTextState = searchTextState,
                     onTextChange = onTextChange,
                     onTextClearClicked = { onTextClearClicked() },
                     onCloseClicked = { onCloseClicked() },
                     onSearchClicked = { onSearchClicked(it) },
-                    onSearchTriggered = { onSearchTriggered() },
                     suggestionKeywords = suggestionKeywords,
-                    isSearchAppBarActive = isSearchBarExpanded,
                     focusRequester = focusRequester,
-                    onSearchBarActiveChanged = onSearchBarActiveChanged
                 )
 
 
@@ -101,18 +95,16 @@ fun MainAppBar(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CustomSearchAppBar(
-    searchWidgetState: SearchWidgetState,
     searchTextState: String,
     onTextChange: (String) -> Unit,
     onTextClearClicked: () -> Unit,
     onCloseClicked: () -> Unit,
     onSearchClicked: (String) -> Unit,
-    onSearchTriggered: () -> Unit,
     suggestionKeywords: List<String>,
-    isSearchAppBarActive: Boolean,
     focusRequester: FocusRequester,
-    onSearchBarActiveChanged: (Boolean) -> Unit
 ) {
+
+    Logger.d("searchTextState: ${searchTextState.isEmpty()}")
 
     val context = LocalContext.current
     SideEffect {
@@ -129,7 +121,7 @@ fun CustomSearchAppBar(
             onSearchClicked(it)
             onCloseClicked()
         },
-        active = isSearchAppBarActive,
+        active = true,
         placeholder = { Text(text = stringResource(id = R.string.searchView_hint)) },
         leadingIcon = {
             IconButton(onClick = onCloseClicked) {
@@ -153,31 +145,32 @@ fun CustomSearchAppBar(
             containerColor = Color.White,
             dividerColor = Color.Black,
         ),
-        onActiveChange = {
-            onSearchBarActiveChanged(it)
-            if (!it)
+        onActiveChange = { isActive ->
+            // active가 false로 변경될 때만 닫기 처리
+            if (!isActive) {
                 onCloseClicked()
+            }
         },
         content = {
-            if (searchTextState.isNotEmpty()) {
-                LazyColumn(modifier = Modifier.zIndex(0f)) {
-                    items(suggestionKeywords.size) { index ->
-                        val suggestionKeyword = suggestionKeywords[index]
-                        SearchSuggestionItem(
-                            suggestionText = suggestionKeyword,
-                            onClick = {
-                                onSearchClicked(suggestionKeyword)
-                                onCloseClicked()
-                            },
-                        )
-                    }
 
+            LazyColumn(modifier = Modifier.fillMaxSize()) {
+                items(suggestionKeywords.size) { index ->
+                    val suggestionKeyword = suggestionKeywords[index]
+                    SearchSuggestionItem(
+                        suggestionText = suggestionKeyword,
+                        onClick = {
+                            onSearchClicked(suggestionKeyword)
+                            onCloseClicked()
+                        },
+                    )
                 }
-                BackHandler {
-                    Logger.d("CustomSearchAppBar BackHandler")
-                    onCloseClicked()
-                }
+
             }
+            BackHandler {
+                Logger.d("CustomSearchAppBar BackHandler")
+                onCloseClicked()
+            }
+
         }
     )
 }
@@ -222,7 +215,7 @@ fun DefaultAppBar(onSearchClicked: () -> Unit, scrollBehavior: TopAppBarScrollBe
                 )
 
             }
-            IconButton(onClick = { ToastUtil.showNotImplemented(context)}) {
+            IconButton(onClick = { ToastUtil.showNotImplemented(context) }) {
                 Icon(
                     imageVector = Icons.Outlined.Settings,
                     contentDescription = "Setting",
