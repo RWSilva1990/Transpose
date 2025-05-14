@@ -20,6 +20,15 @@ internal fun Project.configureBuildTypes(
         when(extensionType){
             ExtensionType.APPLICATION -> {
                 extensions.configure<ApplicationExtension>{
+
+                    signingConfigs {
+                        create("benchmarkDebug") {
+                            storeFile = file("${System.getProperty("user.home")}/.android/debug.keystore")
+                            storePassword = "android"
+                            keyAlias = "androiddebugkey"
+                            keyPassword = "android"
+                        }
+                    }
                     buildTypes{
                         debug {
                             configureDebugBuildType()
@@ -29,6 +38,11 @@ internal fun Project.configureBuildTypes(
                         }
                         release {
                             configureReleaseBuildType(commonExtension)
+                        }
+                        create("benchmarkRelease") {
+                            configureBenchmarkReleaseBuildType(commonExtension)
+                            signingConfig = signingConfigs.getByName("benchmarkDebug")
+
                         }
                     }
                 }
@@ -44,6 +58,9 @@ internal fun Project.configureBuildTypes(
                         }
                         release {
                             configureReleaseBuildType(commonExtension)
+                        }
+                        create("benchmarkRelease") {
+                            configureBenchmarkReleaseBuildType(commonExtension)
                         }
                     }
                 }
@@ -67,10 +84,25 @@ private fun BuildType.configureReleaseBuildType(
 ) {
     buildConfigField("String", "BASE_URL", "\"RELEASE_API_URL\"")
 
-
-    isMinifyEnabled = true
+    isMinifyEnabled = false
     proguardFiles(
     commonExtension.getDefaultProguardFile("proguard-android-optimize.txt"),
     "proguard-rules.pro"
     )
 }
+
+private fun BuildType.configureBenchmarkReleaseBuildType(
+    commonExtension: CommonExtension<*, *, *, *, *>
+) {
+
+    isMinifyEnabled = false
+    matchingFallbacks += listOf("release")
+
+    proguardFiles(
+        commonExtension.getDefaultProguardFile("proguard-android-optimize.txt"),
+        "proguard-rules.pro"
+    )
+
+
+}
+
