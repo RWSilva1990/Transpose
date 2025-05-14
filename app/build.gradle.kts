@@ -2,11 +2,22 @@ plugins {
     alias(libs.plugins.android.application.compose.convention)
     alias(libs.plugins.android.hilt)
     alias(libs.plugins.android.firebase)
+    alias(libs.plugins.android.application)
+    alias(libs.plugins.baselineprofile)
 }
 
 android {
     namespace = "com.example.transpose"
 
+    buildTypes {
+        create("benchmark") {
+            initWith(getByName("release"))
+            signingConfig = signingConfigs.getByName("debug")
+            matchingFallbacks += listOf("release")
+            isDebuggable = false
+            isMinifyEnabled = false  // 코드 축소 비활성화
+        }
+    }
 }
 
 dependencies {
@@ -16,6 +27,9 @@ dependencies {
     implementation(project(":core:ui"))
     implementation(project(":core:utils"))
     implementation(project(":feature:main"))
+    implementation(libs.androidx.profileinstaller)
+    "baselineProfile"(project(":baselineprofile"))
+    implementation("androidx.compose.runtime:runtime-tracing:1.0.0-beta01")
 
 }
 
