@@ -23,7 +23,6 @@ android {
         targetSdk = 34
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        testInstrumentationRunnerArguments["androidx.benchmark.fullTracing.enable"] = "true"
 
     }
 
@@ -45,8 +44,6 @@ dependencies {
 
     coreLibraryDesugaring(libs.desugar.jdk.libs)
 
-    implementation("androidx.tracing:tracing-perfetto:1.0.0")
-    implementation("androidx.tracing:tracing-perfetto-binary:1.0.0")
 }
 
 androidComponents {
@@ -54,7 +51,7 @@ androidComponents {
         val artifactsLoader = v.artifacts.getBuiltArtifactsLoader()
         v.instrumentationRunnerArguments.put(
             "targetAppId",
-            v.testedApks.map { artifactsLoader.load(it)?.applicationId }
+            v.testedApks.map { artifactsLoader.load(it)?.applicationId.toString() }
         )
     }
 }
