@@ -2,6 +2,7 @@ package com.example.main
 
 import android.content.Context
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.SheetState
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -21,6 +22,7 @@ import com.example.util.Logger
 import com.example.util.PermissionUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
@@ -268,6 +270,48 @@ class MainViewModel @Inject constructor(
             mediaPlaybackManager.setShuffleMode(currentShuffleMode)
         }
     }
+
+
+    @OptIn(ExperimentalMaterial3Api::class)
+    fun autoPlayIfBenchmark(bottomSheetState: SheetState, coroutineScope: CoroutineScope) {
+        // instrumentation 환경에서만 동작
+        val args = try {
+            androidx.test.platform.app.InstrumentationRegistry.getArguments()
+        } catch (e: Exception) { null }
+        val autoPlay = args?.getString("autoPlay")?.toBoolean() ?: true
+        if (autoPlay) {
+            // 1. Video 정보 세팅
+            val video = Video(
+                id = "jWQx2f-CErU",
+                title = "aespa 에스파 'Whiplash' MV",
+                thumbnailUrl = "https://i.ytimg.com/vi/jWQx2f-CErU/maxresdefault.jpg",
+                description = "",
+                publishTimestamp = 1731826800000,
+                infoType = null,          // 실제 enum/상수에 맞게 지정
+                uploaderName = "SMTOWN",
+                uploaderUrl = "channel/UCEf_Bc-KVd7onSeifS3py9g",
+                uploaderAvatarUrl = null,             // 프로필 이미지 url이 있다면 문자열로
+                uploaderVerified = false,             // 인증 여부
+                duration = 191,                       // 영상 길이(초)
+                viewCount = 176_000_000,              // 조회수
+                textualUploadDate = "6 months ago",   // 텍스트로 표기
+                streamType = null, // enum 값에 맞게
+                shortFormContent = false              // 쇼츠/짧은영상 여부
+            )
+
+            val playlist = listOf(video) // 또는 원하는 Playlist
+            val clickedIndex = 0
+
+            // 2. 동영상 재생 함수 호출
+            mediaPlaybackManager.onMediaItemClick(video, playlist, clickedIndex)
+
+            // 3. BottomSheet 바로 expand
+            coroutineScope.launch {
+                bottomSheetState.expand()
+            }
+        }
+    }
+
 
 
 }

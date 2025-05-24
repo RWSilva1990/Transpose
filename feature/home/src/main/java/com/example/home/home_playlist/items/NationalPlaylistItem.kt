@@ -14,6 +14,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -30,6 +33,7 @@ fun NationalPlaylistItem(
 ) {
     Column(
         modifier = Modifier
+            .semantics { contentDescription = "NationalPlaylistItem" }
             .width(330.dp)
             .padding(vertical = 10.dp)
             .clip(RoundedCornerShape(8.dp))

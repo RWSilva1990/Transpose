@@ -20,16 +20,27 @@ internal fun Project.configureBuildTypes(
         when(extensionType){
             ExtensionType.APPLICATION -> {
                 extensions.configure<ApplicationExtension>{
+
+                    signingConfigs {
+                        create("benchmarkDebug") {
+                            storeFile = file("${System.getProperty("user.home")}/.android/debug.keystore")
+                            storePassword = "android"
+                            keyAlias = "androiddebugkey"
+                            keyPassword = "android"
+                        }
+                    }
                     buildTypes{
                         debug {
                             configureDebugBuildType()
                         }
-                        create("staging"){
-                            configureStagingBuildType()
-                        }
                         release {
                             configureReleaseBuildType(commonExtension)
                         }
+//                        create ("benchmark") {
+//                            isDebuggable = false
+//                            configureBenchmarkBuildType(commonExtension)
+//                            signingConfig = signingConfigs.getByName("benchmarkDebug")
+//                        }
                     }
                 }
             }
@@ -38,9 +49,6 @@ internal fun Project.configureBuildTypes(
                     buildTypes{
                         debug {
                             configureDebugBuildType()
-                        }
-                        create("staging"){
-                            configureStagingBuildType()
                         }
                         release {
                             configureReleaseBuildType(commonExtension)
@@ -67,10 +75,23 @@ private fun BuildType.configureReleaseBuildType(
 ) {
     buildConfigField("String", "BASE_URL", "\"RELEASE_API_URL\"")
 
-
-    isMinifyEnabled = true
+    isMinifyEnabled = false
     proguardFiles(
     commonExtension.getDefaultProguardFile("proguard-android-optimize.txt"),
     "proguard-rules.pro"
     )
 }
+
+private fun BuildType.configureBenchmarkBuildType(
+    commonExtension: CommonExtension<*, *, *, *, *>
+) {
+
+    isMinifyEnabled = false
+    matchingFallbacks += listOf("release")
+
+    proguardFiles(
+        commonExtension.getDefaultProguardFile("proguard-android-optimize.txt"),
+        "proguard-rules.pro"
+    )
+}
+
