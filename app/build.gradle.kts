@@ -8,16 +8,23 @@ plugins {
 
 android {
     namespace = "com.example.transpose"
-
     buildTypes {
         create("benchmark") {
-            initWith(getByName("release"))
+            initWith(buildTypes.getByName("release"))
             signingConfig = signingConfigs.getByName("debug")
             matchingFallbacks += listOf("release")
             isDebuggable = false
-            isMinifyEnabled = false  // 코드 축소 비활성화
         }
     }
+    //    buildTypes {
+//        create("benchmark") {
+//            initWith(buildTypes.getByName("release"))
+//            signingConfig = signingConfigs.getByName("debug")
+//            matchingFallbacks += listOf("release")
+//            isDebuggable = false
+//        }
+//    }
+
 }
 
 dependencies {

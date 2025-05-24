@@ -16,6 +16,7 @@ dependencies{
     implementation(project(":feature:library"))
     implementation(project(":feature:convert"))
     implementation(project(":media"))
+    implementation(libs.androidx.monitor)
 
 }
 

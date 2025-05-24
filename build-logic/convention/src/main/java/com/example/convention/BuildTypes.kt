@@ -33,17 +33,14 @@ internal fun Project.configureBuildTypes(
                         debug {
                             configureDebugBuildType()
                         }
-                        create("staging"){
-                            configureStagingBuildType()
-                        }
                         release {
                             configureReleaseBuildType(commonExtension)
                         }
-                        create("benchmarkRelease") {
-                            configureBenchmarkReleaseBuildType(commonExtension)
-                            signingConfig = signingConfigs.getByName("benchmarkDebug")
-
-                        }
+//                        create ("benchmark") {
+//                            isDebuggable = false
+//                            configureBenchmarkBuildType(commonExtension)
+//                            signingConfig = signingConfigs.getByName("benchmarkDebug")
+//                        }
                     }
                 }
             }
@@ -53,14 +50,8 @@ internal fun Project.configureBuildTypes(
                         debug {
                             configureDebugBuildType()
                         }
-                        create("staging"){
-                            configureStagingBuildType()
-                        }
                         release {
                             configureReleaseBuildType(commonExtension)
-                        }
-                        create("benchmarkRelease") {
-                            configureBenchmarkReleaseBuildType(commonExtension)
                         }
                     }
                 }
@@ -91,7 +82,7 @@ private fun BuildType.configureReleaseBuildType(
     )
 }
 
-private fun BuildType.configureBenchmarkReleaseBuildType(
+private fun BuildType.configureBenchmarkBuildType(
     commonExtension: CommonExtension<*, *, *, *, *>
 ) {
 
@@ -102,7 +93,5 @@ private fun BuildType.configureBenchmarkReleaseBuildType(
         commonExtension.getDefaultProguardFile("proguard-android-optimize.txt"),
         "proguard-rules.pro"
     )
-
-
 }
 
