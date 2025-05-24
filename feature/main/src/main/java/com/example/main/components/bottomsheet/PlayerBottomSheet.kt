@@ -22,6 +22,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.Offset
@@ -32,10 +33,15 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.lerp
+import androidx.compose.ui.util.trace
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.zIndex
 import androidx.constraintlayout.compose.ConstraintLayout
@@ -66,14 +72,14 @@ object GraphicsLayerConstants {
 
 
 @androidx.annotation.OptIn(UnstableApi::class)
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalComposeUiApi::class)
 @Composable
 fun PlayerBottomSheet(
     mainViewModel: MainViewModel,
     bottomSheetState: SheetState,
     normalizedOffset: Float,
     onNavigateToChannelScreen: (String) -> Unit
-) {
+) = trace("PlayerBottomSheet") {
     val mediaController by mainViewModel.mediaControllerFlow.collectAsState()
     val currentVideoItem by mainViewModel.currentVideoData.collectAsState()
     val currentVideoDetailData by mainViewModel.currentVideoDetailData.collectAsState()
@@ -126,6 +132,7 @@ fun PlayerBottomSheet(
 
     ConstraintLayout(
         modifier = Modifier
+            .semantics { contentDescription = "ConstraintLayout" }
             .fillMaxSize()
             .nestedScroll(object : NestedScrollConnection {
                 override fun onPostScroll(
@@ -141,6 +148,7 @@ fun PlayerBottomSheet(
 
         Box(
             modifier = Modifier
+                .semantics { contentDescription = "MainContainerLayout" }
                 .fillMaxWidth()
                 .height(GraphicsLayerConstants.DEFAULT_HEIGHT)
                 .constrainAs(mainContainerLayout) {
@@ -163,6 +171,8 @@ fun PlayerBottomSheet(
 
         Box(
             modifier = Modifier
+                .semantics { contentDescription = "TempPlayerView" }
+
                 .constrainAs(tempPlayerView) {
                     start.linkTo(parent.start)
                     top.linkTo(centerGuideline)
@@ -198,6 +208,7 @@ fun PlayerBottomSheet(
                 coroutineScope.launch { bottomSheetState.hide() }
             },
             modifier = Modifier
+                .semantics { contentDescription = "BottomPlayerCloseButton" }
                 .constrainAs(bottomPlayerCloseButton) {
                     end.linkTo(parent.end)
                     top.linkTo(centerGuideline)
@@ -233,6 +244,7 @@ fun PlayerBottomSheet(
 
         Box(
             modifier = Modifier
+                .semantics { contentDescription = "PlayerContainer" }
                 .constrainAs(playerContainer) {
                     top.linkTo(mainContainerLayout.top)
                     start.linkTo(mainContainerLayout.start)
@@ -269,17 +281,22 @@ fun PlayerBottomSheet(
                     }
                 },
                 modifier = Modifier.fillMaxSize()
+                    .semantics { contentDescription = "AndroidView" }
             )
             PlayerThumbnailView(
                 currentVideoItem,
                 currentVideoDetailData,
                 isPlaying,
                 modifier = Modifier.fillMaxSize()
+                    .semantics { contentDescription = "PlayerThumbnailView" }
+
             )
             PlayerLoadingIndicator(
                 videoDetail = currentVideoDetailData,
                 isPlaying = isPlaying,
                 modifier = Modifier.align(Alignment.Center)
+                    .semantics { contentDescription = "PlayerLoadingIndicator" }
+
             )
         }
 
@@ -290,6 +307,7 @@ fun PlayerBottomSheet(
             onNavigateToChannelScreen = onNavigateToChannelScreen,
             bottomSheetState = bottomSheetState,
             modifier = Modifier
+                .semantics { contentDescription = "VideoDetailPanel" }
                 .fillMaxSize()
                 .background(Color.White)
                 .constrainAs(videoDetailPanel) {

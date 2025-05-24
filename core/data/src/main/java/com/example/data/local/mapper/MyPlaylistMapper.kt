@@ -37,7 +37,7 @@ object MyPlaylistMapper {
             textualUploadDate = videoEntity.textualUploadDate,
             streamType = StreamType.VIDEO_STREAM.name,
             shortFormContent = videoEntity.shortFormContent,
-            infoType = InfoType.STREAM
+            infoType = "Stream"
         )
     }
 
