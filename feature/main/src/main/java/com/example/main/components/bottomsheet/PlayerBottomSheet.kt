@@ -88,7 +88,6 @@ fun PlayerBottomSheet(
     val currentPlaylistItems by mainViewModel.currentPlaylistItems.collectAsState()
     var showPlaylistModal by remember { mutableStateOf(false) }
 
-
     val scaleY = remember(normalizedOffset) {
         calculateScaleFactorY(normalizedOffset)
     }
@@ -122,224 +121,242 @@ fun PlayerBottomSheet(
 
     var playerViewHeight by remember { mutableStateOf(0) }
 
-    PlaylistModalBottomSheet(
-        showPlaylist = showPlaylistModal,
-        onDismiss = { showPlaylistModal = false },
-        mainViewModel = mainViewModel,
-        playerViewHeight = playerViewHeight
-    )
-
-
-    ConstraintLayout(
-        modifier = Modifier
-            .semantics { contentDescription = "ConstraintLayout" }
-            .fillMaxSize()
-            .nestedScroll(object : NestedScrollConnection {
-                override fun onPostScroll(
-                    consumed: Offset,
-                    available: Offset,
-                    source: NestedScrollSource
-                ) = available
-            })
-
-    ) {
-
-        val (playerContainer, mainContainerLayout, videoDetailPanel, playerView, playerThumbnailView, tempPlayerView, bottomPlayerCloseButton, bottomPlayerPauseButton, bottomTitleTextView, contentLazyColumn, playlistShowButton, playlistBottomSheet) = createRefs()
-
-        Box(
-            modifier = Modifier
-                .semantics { contentDescription = "MainContainerLayout" }
-                .fillMaxWidth()
-                .height(GraphicsLayerConstants.DEFAULT_HEIGHT)
-                .constrainAs(mainContainerLayout) {
-                    top.linkTo(parent.top)
-                }
-                .graphicsLayer(
-                    scaleY = scaleY,
-                    transformOrigin = TransformOrigin(0.5f, 0f)  // pivotY = 0f에 해당
-                )
-                .background(AppColors.BlueBackground)
-                .clickable {
-                    coroutineScope.launch {
-                        bottomSheetState.expand()
-                    }
-                }
-
-        )
-
-        val centerGuideline = createGuidelineFromTop(PEEK_HEIGHT / 2)
-
-        Box(
-            modifier = Modifier
-                .semantics { contentDescription = "TempPlayerView" }
-
-                .constrainAs(tempPlayerView) {
-                    start.linkTo(parent.start)
-                    top.linkTo(centerGuideline)
-                    bottom.linkTo(centerGuideline)
-                    width = Dimension.percent(0.3f)
-                }
-                .height(PEEK_HEIGHT)
-                .background(AppColors.LightGray)
-        )
-
-        // bottomTitleTextView
-        Text(
-            text = currentVideoItem?.title ?: "",
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            color = Color.White,
-            modifier = Modifier
-                .constrainAs(bottomTitleTextView) {
-                    start.linkTo(tempPlayerView.end, margin = 8.dp)
-                    end.linkTo(bottomPlayerPauseButton.start, margin = 12.dp)
-                    top.linkTo(centerGuideline)
-                    bottom.linkTo(centerGuideline)
-                    width = Dimension.fillToConstraints
-                }
-                .bottomSheetAlpha(normalizedOffset)
-        )
-
-
-        // bottomPlayerCloseButton
-        IconButton(
-            onClick = {
-                mainViewModel.stopPlayback()
-                coroutineScope.launch { bottomSheetState.hide() }
-            },
-            modifier = Modifier
-                .semantics { contentDescription = "BottomPlayerCloseButton" }
-                .constrainAs(bottomPlayerCloseButton) {
-                    end.linkTo(parent.end)
-                    top.linkTo(centerGuideline)
-                    bottom.linkTo(centerGuideline)
-                }
-                .bottomSheetAlpha(normalizedOffset)
-        ) {
-            Icon(
-                imageVector = Icons.Default.Close,
-                contentDescription = "Close",
-                tint = Color.White
-            )
-        }
-
-        // bottomPlayerPauseButton
-        IconButton(
-            onClick = { mainViewModel.playPause() },
-            modifier = Modifier
-                .constrainAs(bottomPlayerPauseButton) {
-                    end.linkTo(bottomPlayerCloseButton.start, margin = 5.dp)
-                    top.linkTo(centerGuideline)
-                    bottom.linkTo(centerGuideline)
-
-                }
-                .bottomSheetAlpha(normalizedOffset)
-        ) {
-            Icon(
-                painterResource(id = if (isPlaying) R.drawable.baseline_pause_24 else R.drawable.baseline_play_arrow_24),
-                contentDescription = "Play/Pause",
-                tint = Color.White
-            )
-        }
-
-        Box(
-            modifier = Modifier
-                .semantics { contentDescription = "PlayerContainer" }
-                .constrainAs(playerContainer) {
-                    top.linkTo(mainContainerLayout.top)
-                    start.linkTo(mainContainerLayout.start)
-                    end.linkTo(mainContainerLayout.end)
-                    bottom.linkTo(mainContainerLayout.bottom)
-                    width = Dimension.fillToConstraints
-                    height = Dimension.fillToConstraints
-                }
-                .onGloballyPositioned { coordinates ->
-                    playerViewHeight = coordinates.size.height
-                }
-                .graphicsLayer(
-                    scaleX = scaleX,
-                    scaleY = scaleY,
-                    transformOrigin = TransformOrigin(0f, 0f)
-                )
-        ) {
-            AndroidView(
-                factory = { ctx ->
-                    PlayerView(ctx).apply {
-                        resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FILL
-                        keepScreenOn = true
-                    }
-                },
-                update = { view ->
-                    mediaController?.let { controller ->
-                        view.player = controller
-                    } ?: run {
-                        view.player = null
-                    }
-                    view.useController = when (bottomSheetState.currentValue) {
-                        SheetValue.Expanded -> true
-                        else -> false
-                    }
-                },
-                modifier = Modifier.fillMaxSize()
-                    .semantics { contentDescription = "AndroidView" }
-            )
-            PlayerThumbnailView(
-                currentVideoItem,
-                currentVideoDetailData,
-                isPlaying,
-                modifier = Modifier.fillMaxSize()
-                    .semantics { contentDescription = "PlayerThumbnailView" }
-
-            )
-            PlayerLoadingIndicator(
-                videoDetail = currentVideoDetailData,
-                isPlaying = isPlaying,
-                modifier = Modifier.align(Alignment.Center)
-                    .semantics { contentDescription = "PlayerLoadingIndicator" }
-
-            )
-        }
-
-        VideoDetailPanel(
-            currentVideoData = currentVideoItem,
-            currentVideoDetail = currentVideoDetailData,
+    trace("PlaylistModalBottomSheet") {
+        PlaylistModalBottomSheet(
+            showPlaylist = showPlaylistModal,
+            onDismiss = { showPlaylistModal = false },
             mainViewModel = mainViewModel,
-            onNavigateToChannelScreen = onNavigateToChannelScreen,
-            bottomSheetState = bottomSheetState,
-            modifier = Modifier
-                .semantics { contentDescription = "VideoDetailPanel" }
-                .fillMaxSize()
-                .background(Color.White)
-                .constrainAs(videoDetailPanel) {
-                    top.linkTo(playerContainer.bottom)
-                    start.linkTo(parent.start)
-                    end.linkTo(parent.end)
-                    bottom.linkTo(parent.bottom)
-                    height = Dimension.fillToConstraints
-                }
-                .graphicsLayer(
-                    translationY = -playerViewHeight * (1 - scaleY)
-                )
-                .changeMainBackgroundAlpha(normalizedOffset)
-
+            playerViewHeight = playerViewHeight
         )
+    }
 
-        if (currentPlaylistItems.isNotEmpty() && bottomSheetState.currentValue == SheetValue.Expanded) {
-            PlaylistFloatingButton(
-                playlistSize = currentPlaylistItems.size,
-                onClick = { showPlaylistModal = true },
-                normalizedOffset = normalizedOffset,
-                mainViewModel = mainViewModel,
-                modifier = Modifier.constrainAs(playlistShowButton) {
-                    bottom.linkTo(parent.bottom, margin = 24.dp)
-                    start.linkTo(parent.start)
-                    end.linkTo(parent.end)
+    trace("ConstraintLayout") {
+        ConstraintLayout(
+            modifier = Modifier
+                .semantics { contentDescription = "ConstraintLayout" }
+                .fillMaxSize()
+                .nestedScroll(object : NestedScrollConnection {
+                    override fun onPostScroll(
+                        consumed: Offset,
+                        available: Offset,
+                        source: NestedScrollSource
+                    ) = available
+                })
+        ) {
+
+            val (playerContainer, mainContainerLayout, videoDetailPanel, playerView, playerThumbnailView, tempPlayerView, bottomPlayerCloseButton, bottomPlayerPauseButton, bottomTitleTextView, contentLazyColumn, playlistShowButton, playlistBottomSheet) = createRefs()
+
+            trace("MainContainerLayout") {
+                Box(
+                    modifier = Modifier
+                        .semantics { contentDescription = "MainContainerLayout" }
+                        .fillMaxWidth()
+                        .height(GraphicsLayerConstants.DEFAULT_HEIGHT)
+                        .constrainAs(mainContainerLayout) {
+                            top.linkTo(parent.top)
+                        }
+                        .graphicsLayer(
+                            scaleY = scaleY,
+                            transformOrigin = TransformOrigin(0.5f, 0f)  // pivotY = 0f에 해당
+                        )
+                        .background(AppColors.BlueBackground)
+                        .clickable {
+                            coroutineScope.launch {
+                                bottomSheetState.expand()
+                            }
+                        }
+                )
+            }
+
+            val centerGuideline = createGuidelineFromTop(PEEK_HEIGHT / 2)
+
+            trace("TempPlayerView") {
+                Box(
+                    modifier = Modifier
+                        .semantics { contentDescription = "TempPlayerView" }
+                        .constrainAs(tempPlayerView) {
+                            start.linkTo(parent.start)
+                            top.linkTo(centerGuideline)
+                            bottom.linkTo(centerGuideline)
+                            width = Dimension.percent(0.3f)
+                        }
+                        .height(PEEK_HEIGHT)
+                        .background(AppColors.LightGray)
+                )
+            }
+
+            // bottomTitleTextView
+            trace("BottomTitleTextView") {
+                Text(
+                    text = currentVideoItem?.title ?: "",
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    color = Color.White,
+                    modifier = Modifier
+                        .constrainAs(bottomTitleTextView) {
+                            start.linkTo(tempPlayerView.end, margin = 8.dp)
+                            end.linkTo(bottomPlayerPauseButton.start, margin = 12.dp)
+                            top.linkTo(centerGuideline)
+                            bottom.linkTo(centerGuideline)
+                            width = Dimension.fillToConstraints
+                        }
+                        .bottomSheetAlpha(normalizedOffset)
+                )
+            }
+
+            // bottomPlayerCloseButton
+            trace("BottomPlayerCloseButton") {
+                IconButton(
+                    onClick = {
+                        mainViewModel.stopPlayback()
+                        coroutineScope.launch { bottomSheetState.hide() }
+                    },
+                    modifier = Modifier
+                        .semantics { contentDescription = "BottomPlayerCloseButton" }
+                        .constrainAs(bottomPlayerCloseButton) {
+                            end.linkTo(parent.end)
+                            top.linkTo(centerGuideline)
+                            bottom.linkTo(centerGuideline)
+                        }
+                        .bottomSheetAlpha(normalizedOffset)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Close",
+                        tint = Color.White
+                    )
                 }
-            )
+            }
+
+            // bottomPlayerPauseButton
+            trace("BottomPlayerPauseButton") {
+                IconButton(
+                    onClick = { mainViewModel.playPause() },
+                    modifier = Modifier
+                        .constrainAs(bottomPlayerPauseButton) {
+                            end.linkTo(bottomPlayerCloseButton.start, margin = 5.dp)
+                            top.linkTo(centerGuideline)
+                            bottom.linkTo(centerGuideline)
+                        }
+                        .bottomSheetAlpha(normalizedOffset)
+                ) {
+                    Icon(
+                        painterResource(id = if (isPlaying) R.drawable.baseline_pause_24 else R.drawable.baseline_play_arrow_24),
+                        contentDescription = "Play/Pause",
+                        tint = Color.White
+                    )
+                }
+            }
+
+            trace("PlayerContainer") {
+                Box(
+                    modifier = Modifier
+                        .semantics { contentDescription = "PlayerContainer" }
+                        .constrainAs(playerContainer) {
+                            top.linkTo(mainContainerLayout.top)
+                            start.linkTo(mainContainerLayout.start)
+                            end.linkTo(mainContainerLayout.end)
+                            bottom.linkTo(mainContainerLayout.bottom)
+                            width = Dimension.fillToConstraints
+                            height = Dimension.fillToConstraints
+                        }
+                        .onGloballyPositioned { coordinates ->
+                            playerViewHeight = coordinates.size.height
+                        }
+                        .graphicsLayer(
+                            scaleX = scaleX,
+                            scaleY = scaleY,
+                            transformOrigin = TransformOrigin(0f, 0f)
+                        )
+                ) {
+                    trace("AndroidView") {
+                        AndroidView(
+                            factory = { ctx ->
+                                PlayerView(ctx).apply {
+                                    resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FILL
+                                    keepScreenOn = true
+                                }
+                            },
+                            update = { view ->
+                                mediaController?.let { controller ->
+                                    view.player = controller
+                                } ?: run {
+                                    view.player = null
+                                }
+                                view.useController = when (bottomSheetState.currentValue) {
+                                    SheetValue.Expanded -> true
+                                    else -> false
+                                }
+                            },
+                            modifier = Modifier.fillMaxSize()
+                                .semantics { contentDescription = "AndroidView" }
+                        )
+                    }
+
+                    trace("PlayerThumbnailView") {
+                        PlayerThumbnailView(
+                            currentVideoItem,
+                            currentVideoDetailData,
+                            isPlaying,
+                            modifier = Modifier.fillMaxSize()
+                                .semantics { contentDescription = "PlayerThumbnailView" }
+                        )
+                    }
+
+                    trace("PlayerLoadingIndicator") {
+                        PlayerLoadingIndicator(
+                            videoDetail = currentVideoDetailData,
+                            isPlaying = isPlaying,
+                            modifier = Modifier.align(Alignment.Center)
+                                .semantics { contentDescription = "PlayerLoadingIndicator" }
+                        )
+                    }
+                }
+            }
+
+            trace("VideoDetailPanel") {
+                VideoDetailPanel(
+                    currentVideoData = currentVideoItem,
+                    currentVideoDetail = currentVideoDetailData,
+                    mainViewModel = mainViewModel,
+                    onNavigateToChannelScreen = onNavigateToChannelScreen,
+                    bottomSheetState = bottomSheetState,
+                    modifier = Modifier
+                        .semantics { contentDescription = "VideoDetailPanel" }
+                        .fillMaxSize()
+                        .background(Color.White)
+                        .constrainAs(videoDetailPanel) {
+                            top.linkTo(playerContainer.bottom)
+                            start.linkTo(parent.start)
+                            end.linkTo(parent.end)
+                            bottom.linkTo(parent.bottom)
+                            height = Dimension.fillToConstraints
+                        }
+                        .graphicsLayer(
+                            translationY = -playerViewHeight * (1 - scaleY)
+                        )
+                        .changeMainBackgroundAlpha(normalizedOffset)
+                )
+            }
+
+            if (currentPlaylistItems.isNotEmpty() && bottomSheetState.currentValue == SheetValue.Expanded) {
+                trace("PlaylistFloatingButton") {
+                    PlaylistFloatingButton(
+                        playlistSize = currentPlaylistItems.size,
+                        onClick = { showPlaylistModal = true },
+                        normalizedOffset = normalizedOffset,
+                        mainViewModel = mainViewModel,
+                        modifier = Modifier.constrainAs(playlistShowButton) {
+                            bottom.linkTo(parent.bottom, margin = 24.dp)
+                            start.linkTo(parent.start)
+                            end.linkTo(parent.end)
+                        }
+                    )
+                }
+            }
         }
     }
 }
-
 
 private fun Modifier.bottomSheetAlpha(normalizedOffset: Float): Modifier {
     if (normalizedOffset < 0) return this.alpha(1f)
@@ -377,4 +394,3 @@ private fun calculateScaleFactorY(normalizedOffset: Float): Float {
         else -> lerp(start = minScale, stop = 1f, fraction = normalizedOffset)
     }
 }
-
