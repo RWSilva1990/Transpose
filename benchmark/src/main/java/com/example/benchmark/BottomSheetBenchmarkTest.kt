@@ -1,14 +1,17 @@
 package com.example.benchmark
 
+import androidx.benchmark.macro.ExperimentalMetricApi
 import androidx.benchmark.macro.FrameTimingMetric
 import androidx.benchmark.macro.StartupMode
 import androidx.benchmark.macro.StartupTimingMetric
+import androidx.benchmark.macro.TraceSectionMetric
 import androidx.benchmark.macro.junit4.MacrobenchmarkRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.LargeTest
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiSelector
 import androidx.test.uiautomator.Until
+import androidx.tracing.Trace
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -21,16 +24,18 @@ class BottomSheetBenchmarkTest {
     val benchmarkRule = MacrobenchmarkRule()
 
 
+    @OptIn(ExperimentalMetricApi::class)
     @Test
     fun startupWithAutoPlay() {
         benchmarkRule.measureRepeated(
             packageName = "com.example.transpose",
-            metrics = listOf(StartupTimingMetric(), FrameTimingMetric()),
-            iterations = 10,
+            metrics = listOf(StartupTimingMetric(), FrameTimingMetric(), TraceSectionMetric("*")),
+            iterations = 1,
             startupMode = StartupMode.COLD,
             setupBlock = { pressHome() },
             measureBlock = {
                 startActivityAndWait()
+
 
                 if (device.wait(Until.hasObject(By.desc("NationalPlaylistItem")), 3000)) {
                     val nationalPlaylistItem =
