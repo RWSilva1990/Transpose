@@ -1,5 +1,6 @@
 package com.example.home.home_playlist.items
 
+import android.os.Trace
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -37,7 +38,10 @@ fun NationalPlaylistItem(
             .width(330.dp)
             .padding(vertical = 10.dp)
             .clip(RoundedCornerShape(8.dp))
-            .clickable { onClick(playlistData.id) }
+            .clickable {
+                Trace.beginSection("NationalPlaylistItem_Click")
+                onClick(playlistData.id)
+                Trace.endSection()}
     ) {
         AsyncImage(
             model = playlistData.thumbnailUrl,
