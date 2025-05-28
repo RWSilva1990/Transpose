@@ -34,6 +34,8 @@ import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.lerp
@@ -243,6 +245,7 @@ fun PlayerBottomSheet(
                         currentVideoDetailData,
                         isPlaying,
                         modifier = Modifier.fillMaxSize()
+                            .semantics { contentDescription = "PlayerThumbnailView" }
                     )
                 }
                 trace("PlayerLoadingIndicator"){
