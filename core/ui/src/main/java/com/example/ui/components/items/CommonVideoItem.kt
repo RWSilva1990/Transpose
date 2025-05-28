@@ -1,5 +1,6 @@
 package com.example.ui.components.items
 
+import android.os.Trace
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -60,7 +61,10 @@ fun CommonVideoItem(
                 .semantics { contentDescription = "CommonVideoItem" }
                 .fillMaxWidth()
                 .height(100.dp)
-                .clickable { onClick(item) }
+                .clickable {
+                    Trace.beginSection("CommonVideoItem_Click")
+                    onClick(item)
+                    Trace.endSection()}
                 .padding(vertical = 10.dp, horizontal = 10.dp)
         ) {
             AsyncImage(
