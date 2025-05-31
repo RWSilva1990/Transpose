@@ -9,7 +9,7 @@ import com.example.data.local.database.entity.PlaylistEntity
 @Dao
 interface PlaylistDao {
     @Insert
-    suspend fun insertPlaylist(playlist: PlaylistEntity): Long
+    suspend fun insertPlaylist(playlist: PlaylistEntity)
 
     @Query("SELECT * FROM playlists")
     suspend fun getAllPlaylists(): List<PlaylistEntity>
