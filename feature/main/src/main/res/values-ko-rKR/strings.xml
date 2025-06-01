@@ -11,6 +11,7 @@
     <string name="notify_video_added_to_playlist">해당 영상이 플레이리스트에 추가되었습니다.</string>
     <string name="add_button_text">추가</string>
     <string name="main_playlist_title">현재 재생목록</string>
+    <string name="empty_playlist">재생목록이 비어 있습니다.</string>
 
     <!-- 오디오 편집 관련 -->
     <string name="pitch_text">피치</string>

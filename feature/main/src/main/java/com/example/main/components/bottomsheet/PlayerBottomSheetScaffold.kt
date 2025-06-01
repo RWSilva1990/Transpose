@@ -1,7 +1,5 @@
 package com.example.main.components.bottomsheet
 
-import android.graphics.Rect
-import android.view.ViewTreeObserver
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.navigationBars
@@ -12,22 +10,22 @@ import androidx.compose.material3.SheetState
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.rememberBottomSheetScaffoldState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 import com.example.main.BuildConfig
+import com.example.main.MainDataModel
+import com.example.main.MainPlayerViewModel
+import com.example.main.MainUiStateViewModel
 import com.example.main.MainViewModel
-import com.example.main.components.appbar.SearchWidgetState
+import com.example.main.components.appbar.SearchBarState
 import com.example.util.Logger
 
 @OptIn(
@@ -37,12 +35,11 @@ import com.example.util.Logger
 fun PlayerBottomSheetScaffold(
     parentScaffoldHeightPx: Float,
     topAppBar: @Composable() (() -> Unit)? = null,
-    mainViewModel: MainViewModel,
     bottomSheetState: SheetState,
-    normalizedOffset: Float,
-    setNormalizedOffset: (Float) -> Unit,
-    searchWidgetState: SearchWidgetState,
     innerPadding: PaddingValues,
+    mainUiStateViewModel: MainUiStateViewModel,
+    mainDataModel: MainDataModel,
+    mainPlayerViewModel: MainPlayerViewModel,
     onNavigateToChannelScreen: (String) -> Unit,
     content: @Composable (PaddingValues) -> Unit,
 ) {
@@ -53,7 +50,7 @@ fun PlayerBottomSheetScaffold(
         (innerPadding.calculateBottomPadding() + 56.dp).toPx()
     }
 
-    val sheetPeekHeightPxWhenSearchBarOpened = with(density){
+    val sheetPeekHeightPxWhenSearchBarOpened = with(density) {
         innerPadding.calculateBottomPadding().toPx()
     }
 
@@ -72,23 +69,22 @@ fun PlayerBottomSheetScaffold(
         bottomSheetState = bottomSheetState
     )
 
-    LaunchedEffect(bottomSheetState, searchWidgetState, parentScaffoldHeightPx) {
+    val searchBarState by mainUiStateViewModel.searchBarState.collectAsState()
+    val bottomSheetOffset by mainUiStateViewModel.bottomSheetOffset.collectAsState()
+
+    LaunchedEffect(bottomSheetState, searchBarState, parentScaffoldHeightPx) {
         snapshotFlow { bottomSheetState.requireOffset() }
             .collect { currentOffset ->
                 try {
-
                     //parentScaffoldHeightPx의 값은, keyboardInfo.height 값이 계산되어 적용되어 계산됨.
-
-                    val partiallyExpandedOffset = when (searchWidgetState) {
-                        SearchWidgetState.CLOSED ->
+                    val partiallyExpandedOffset = when (searchBarState) {
+                        SearchBarState.CLOSED ->
                             parentScaffoldHeightPx - sheetPeekHeightPxWhenSearchBarClosed
-                        SearchWidgetState.OPENED -> {
+
+                        SearchBarState.OPENED -> {
                             parentScaffoldHeightPx - sheetPeekHeightPxWhenSearchBarOpened
                         }
                     }
-
-                    Logger.d("currentOffset: $currentOffset, partiallyExpandedOffset: $partiallyExpandedOffset " +
-                            "parentScaffoldHeightPx: $parentScaffoldHeightPx temp: $sheetPeekHeightPxWhenSearchBarOpened ")
 
                     val finalProgress =
                         calculateDragProgress(
@@ -98,7 +94,7 @@ fun PlayerBottomSheetScaffold(
                         )
 
 
-                    setNormalizedOffset(finalProgress)
+                    mainUiStateViewModel.updateBottomSheetOffset(finalProgress)
 
                 } catch (e: Exception) {
                     if (BuildConfig.DEBUG) {
@@ -108,10 +104,10 @@ fun PlayerBottomSheetScaffold(
             }
     }
 
-    val sheetPeekHeight = remember(bottomSheetState.currentValue, searchWidgetState) {
+    val sheetPeekHeight = remember(bottomSheetState.currentValue, searchBarState) {
         when (bottomSheetState.currentValue) {
             SheetValue.Hidden -> 1.dp
-            else -> if (searchWidgetState == SearchWidgetState.CLOSED) {
+            else -> if (searchBarState == SearchBarState.CLOSED) {
                 searchBarClosedSheetPeekHeight
             } else {
                 searchBarOpenedSheetPeekHeight
@@ -119,19 +115,19 @@ fun PlayerBottomSheetScaffold(
         }
     }
 
-    val scaffoldBottomPadding = remember(bottomSheetState.currentValue, normalizedOffset) {
+    val scaffoldBottomPadding = remember(bottomSheetState.currentValue, bottomSheetOffset) {
         when {
             bottomSheetState.currentValue == SheetValue.Hidden -> 0.dp
 
-            normalizedOffset >= 1.0f -> 56.dp
+            bottomSheetOffset >= 1.0f -> 56.dp
 
-            normalizedOffset <= 0.0f -> {
-                val progress = (-normalizedOffset * 25).coerceIn(0f, 1f)
+            bottomSheetOffset <= 0.0f -> {
+                val progress = (-bottomSheetOffset * 25).coerceIn(0f, 1f)
                 (56 * (1 - progress)).dp
             }
 
             else -> {
-                val progress = normalizedOffset.coerceIn(0f, 1f)
+                val progress = bottomSheetOffset.coerceIn(0f, 1f)
                 (56 * progress).dp
             }
         }
@@ -141,7 +137,7 @@ fun PlayerBottomSheetScaffold(
         snapshotFlow { bottomSheetState.currentValue }.collect {
             when (it) {
                 SheetValue.Hidden -> {
-                    mainViewModel.stopPlayback()
+                    mainPlayerViewModel.stopPlayback()
                 }
 
                 SheetValue.Expanded -> {}
@@ -157,9 +153,11 @@ fun PlayerBottomSheetScaffold(
             .padding(bottom = scaffoldBottomPadding),
         sheetContent = {
             PlayerBottomSheet(
-                mainViewModel = mainViewModel,
+                mainUiStateViewModel = mainUiStateViewModel,
+                mainDataModel = mainDataModel,
+                mainPlayerViewModel = mainPlayerViewModel,
                 bottomSheetState = bottomSheetState,
-                normalizedOffset = normalizedOffset,
+                normalizedOffset = bottomSheetOffset,
                 onNavigateToChannelScreen = onNavigateToChannelScreen,
             )
         },
@@ -180,11 +178,9 @@ private fun calculateDragProgress(
     hiddenOffset: Float
 ): Float {
     val expandedOffset = 0.0f
-//    Logger.d("calculateDragProgress - INPUT: currentOffset=$currentOffset, partiallyExpandedOffset=$partiallyExpandedOffset, hiddenOffset=$hiddenOffset")
 
     val result = when {
         currentOffset <= expandedOffset -> {
-//            Logger.d("Case 1: currentOffset <= expandedOffset, returning 1f")
             1f
         }
 
@@ -193,7 +189,6 @@ private fun calculateDragProgress(
             val position = currentOffset - expandedOffset
             val ratio = (position / range).coerceIn(0f, 1f)
             val result = 1f - ratio
-//            Logger.d("Case 2: Between expanded and partial - range=$range, position=$position, ratio=$ratio, result=$result")
             result
         }
 
@@ -202,51 +197,16 @@ private fun calculateDragProgress(
             val position = currentOffset - partiallyExpandedOffset
             val ratio = (position / range).coerceIn(0f, 1f)
             val result = -ratio
-//            Logger.d("Case 3: Between partial and hidden - range=$range, position=$position, ratio=$ratio, result=$result")
             result
         }
 
         else -> {
-//            Logger.d("Case 4: Beyond hiddenOffset, returning -1f")
             -1f
         }
     }
 
-    Logger.d("calculateDragProgress - FINAL RESULT: $result")
     return result
 }
 
-data class KeyboardInfo(
-    val isVisible: Boolean,
-    val height: Int
-)
 
-@Composable
-fun keyboardInfoAsState(): State<KeyboardInfo> {
-    val keyboardInfo = remember { mutableStateOf(KeyboardInfo(false, 0)) }
-    val view = LocalView.current
-    val viewTreeObserver = view.viewTreeObserver
 
-    DisposableEffect(viewTreeObserver) {
-        val onGlobalListener = ViewTreeObserver.OnGlobalLayoutListener {
-            val rect = Rect()
-            view.getWindowVisibleDisplayFrame(rect)
-            val screenHeight = view.rootView.height
-            val keypadHeight = screenHeight - rect.bottom - 72
-
-            val isKeyboardVisible = keypadHeight > screenHeight * 0.15
-
-            keyboardInfo.value = KeyboardInfo(
-                isVisible = isKeyboardVisible,
-                height = keypadHeight
-            )
-        }
-        viewTreeObserver.addOnGlobalLayoutListener(onGlobalListener)
-
-        onDispose {
-            viewTreeObserver.removeOnGlobalLayoutListener(onGlobalListener)
-        }
-    }
-
-    return keyboardInfo
-}
