@@ -371,7 +371,7 @@ private fun DisplayTabContent(
                                 coroutineScope.launch {
                                     bottomSheetState.expand()
                                 }
-                                channelViewModel.onMediaClicked(
+                                channelViewModel.playSingleVideo(
                                     item.video
                                 )
                             },
@@ -399,7 +399,7 @@ private fun DisplayTabContent(
                                 coroutineScope.launch {
                                     bottomSheetState.expand()
                                 }
-                                channelViewModel.onMediaClicked(
+                                channelViewModel.playSingleVideo(
                                     item.video
                                 )
                             })

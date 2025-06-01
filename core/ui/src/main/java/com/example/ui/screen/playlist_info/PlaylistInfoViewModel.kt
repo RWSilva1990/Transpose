@@ -8,6 +8,7 @@ import com.example.domain.model.youtube.video.Video
 import com.example.domain.repository.MyPlaylistDBRepository
 import com.example.domain.repository.PlaylistRepository
 import com.example.media.manager.MediaPlaybackManager
+import com.example.media.state_holder.NowPlayingStateHolder
 import com.example.ui.common.PaginatedState
 import com.example.util.Logger
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -21,6 +22,7 @@ import javax.inject.Inject
 class PlaylistInfoViewModel @Inject constructor(
     private val playlistRepository: PlaylistRepository,
     private val mediaPlaybackManager: MediaPlaybackManager,
+    private val nowPlayingStateHolder: NowPlayingStateHolder,
     private val myPlaylistDBRepository: MyPlaylistDBRepository
 ) : ViewModel() {
 
@@ -28,7 +30,7 @@ class PlaylistInfoViewModel @Inject constructor(
         MutableStateFlow<PaginatedState<PlaylistItem>>(PaginatedState.Initial)
     val playlistItemsState = _playlistItemsState.asStateFlow()
 
-    val currentPlaylistInfo = mediaPlaybackManager.currentPlaylistInfo
+    val currentPlaylistInfo = nowPlayingStateHolder.currentPlaylistInfo
 
     fun initializePlaylistPager(playlistId: String) = viewModelScope.launch(Dispatchers.IO) {
         if (playlistItemsState.value == PaginatedState.Initial) {
@@ -96,11 +98,10 @@ class PlaylistInfoViewModel @Inject constructor(
 
 
     fun onMediaClicked(
-        item: Video,
         playlistItems: List<Video>,
         clickedIndex: Int
     ) {
-        mediaPlaybackManager.onMediaItemClick(item, playlistItems, clickedIndex)
+        mediaPlaybackManager.playPlaylist(playlistItems, clickedIndex)
     }
 
 }
