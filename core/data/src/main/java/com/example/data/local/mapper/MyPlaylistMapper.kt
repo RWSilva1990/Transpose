@@ -20,7 +20,7 @@ object MyPlaylistMapper {
         return myPlaylistItems
     }
 
-    fun toBasicVideoData(videoEntity: VideoEntity): Video {
+    fun toVideoData(videoEntity: VideoEntity): Video {
 
         return Video(
             id = videoEntity.id,

@@ -90,7 +90,7 @@ fun SearchResultScreen(
                                     coroutineScope.launch {
                                         bottomSheetState.expand()
                                     }
-                                    searchResultViewModel.onMediaClicked(
+                                    searchResultViewModel.playSingleVideo(
                                         item.video
                                     )
                                 },
