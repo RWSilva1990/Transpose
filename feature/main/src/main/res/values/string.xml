@@ -11,6 +11,7 @@
     <string name="notify_video_added_to_playlist">The Video has been added to the playlist</string>
     <string name="add_button_text">Add</string>
     <string name="main_playlist_title">Current Playlist</string>
+    <string name="empty_playlist">Your playlist is empty</string>
 
     <!-- 오디오 편집 관련 -->
     <string name="pitch_text">Pitch</string>
