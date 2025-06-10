@@ -2,6 +2,7 @@ package com.example.media.state_holder
 
 import com.example.domain.model.youtube.playlist.Playlist
 import com.example.domain.model.youtube.video.Video
+import com.example.domain.model.youtube.video_detail.VideoDetail
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -9,7 +10,8 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class NowPlayingStateHolder @Inject constructor() {
+class
+NowPlayingStateHolder @Inject constructor() {
 
     private val _playbackType = MutableStateFlow(PlaybackType.SINGLE)
     val playbackType: StateFlow<PlaybackType> = _playbackType.asStateFlow()
@@ -26,15 +28,21 @@ class NowPlayingStateHolder @Inject constructor() {
     private val _currentPlaylistInfo = MutableStateFlow<Playlist?>(null)
     val currentPlaylistInfo = _currentPlaylistInfo.asStateFlow()
 
-    private val _currentVideoData = MutableStateFlow<Video?>(null)
-    val currentVideoData: StateFlow<Video?> = _currentVideoData.asStateFlow()
+    private val _currentVideo = MutableStateFlow<Video?>(null)
+    val currentVideo: StateFlow<Video?> = _currentVideo.asStateFlow()
 
-    private val _currentPlaylist = MutableStateFlow<List<Video>>(emptyList())
-    val currentPlaylist: StateFlow<List<Video>> = _currentPlaylist.asStateFlow()
+    private val _currentVideoDetail = MutableStateFlow<VideoDetail?>(null)
+    val currentVideoDetail: StateFlow<VideoDetail?> = _currentVideoDetail.asStateFlow()
+
+    private val _currentPlaylistItems = MutableStateFlow<List<Video>>(emptyList())
+    val currentPlaylist: StateFlow<List<Video>> = _currentPlaylistItems.asStateFlow()
 
     private val _currentPlaylistIndex = MutableStateFlow(-1)
     val currentPlaylistIndex: StateFlow<Int> = _currentPlaylistIndex.asStateFlow()
 
+    fun setCurrentVideoDetail(videoDetail: VideoDetail?) {
+        _currentVideoDetail.value = videoDetail
+    }
 
     fun setIsPlaying(isPlaying: Boolean) {
         _isPlaying.value = isPlaying
@@ -53,11 +61,11 @@ class NowPlayingStateHolder @Inject constructor() {
     }
 
     fun setCurrentVideoData(video: Video?) {
-        _currentVideoData.value = video
+        _currentVideo.value = video
     }
 
     fun setCurrentPlaylist(playlist: List<Video>) {
-        _currentPlaylist.value = playlist
+        _currentPlaylistItems.value = playlist
     }
 
     fun setCurrentPlaylistIndex(index: Int) {
@@ -70,15 +78,21 @@ class NowPlayingStateHolder @Inject constructor() {
 
     fun clearAll() {
         _isPlaying.value = false
+        _currentVideoDetail.value = null
         _currentPosition.value = 0L
         _duration.value = 0L
         _currentPlaylistInfo.value = null
-        _currentVideoData.value = null
-        _currentPlaylist.value = emptyList()
+        _currentVideo.value = null
+        _currentPlaylistItems.value = emptyList()
         _currentPlaylistIndex.value = -1
     }
 
-    fun updatePlaybackState(isPlaying: Boolean, position: Long, duration: Long, playlistIndex: Int) {
+    fun updatePlaybackState(
+        isPlaying: Boolean,
+        position: Long,
+        duration: Long,
+        playlistIndex: Int
+    ) {
         _isPlaying.value = isPlaying
         _currentPosition.value = position
         _duration.value = duration
@@ -86,19 +100,19 @@ class NowPlayingStateHolder @Inject constructor() {
     }
 
     fun updatePlaylistTrack(video: Video?, playlist: List<Video>, index: Int) {
-        _currentVideoData.value = video
-        _currentPlaylist.value = playlist
+        _currentVideo.value = video
+        _currentPlaylistItems.value = playlist
         _currentPlaylistIndex.value = index
     }
 
-    fun updateSingleTrack(video: Video?){
-        _currentVideoData.value = video
-        _currentPlaylist.value = emptyList()
+    fun updateSingleTrack(video: Video?) {
+        _currentVideo.value = video
+        _currentPlaylistItems.value = emptyList()
         _currentPlaylistIndex.value = 0
     }
 
     fun hasNext(): Boolean {
-        return _currentPlaylistIndex.value < _currentPlaylist.value.size - 1
+        return _currentPlaylistIndex.value < _currentPlaylistItems.value.size - 1
     }
 
     fun hasPrevious(): Boolean {
@@ -107,7 +121,7 @@ class NowPlayingStateHolder @Inject constructor() {
 
     fun getNextVideo(): Video? {
         val currentIndex = _currentPlaylistIndex.value
-        val playlist = _currentPlaylist.value
+        val playlist = _currentPlaylistItems.value
         return if (currentIndex < playlist.size - 1) {
             playlist[currentIndex + 1]
         } else null
@@ -115,7 +129,7 @@ class NowPlayingStateHolder @Inject constructor() {
 
     fun getPreviousVideo(): Video? {
         val currentIndex = _currentPlaylistIndex.value
-        val playlist = _currentPlaylist.value
+        val playlist = _currentPlaylistItems.value
         return if (currentIndex > 0) {
             playlist[currentIndex - 1]
         } else null

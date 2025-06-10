@@ -30,7 +30,7 @@ class BottomSheetBenchmarkTest {
         benchmarkRule.measureRepeated(
             packageName = "com.example.transpose",
             metrics = listOf(StartupTimingMetric(), FrameTimingMetric(), TraceSectionMetric("*")),
-            iterations = 1,
+            iterations = 5,
             startupMode = StartupMode.COLD,
             setupBlock = { pressHome() },
             measureBlock = {

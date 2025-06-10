@@ -72,28 +72,4 @@ class MediaModule {
     fun provideAudioEffectHandler(player: Player): AudioEffectHandlerImpl =
         AudioEffectHandlerImpl(player as ExoPlayer)
 
-    @Provides
-    @Singleton
-    fun provideMediaControllerProvider(
-        @ApplicationContext context: Context
-    ): MediaControllerProvider {
-        return MediaControllerProvider(context)
-    }
-
-    @Singleton
-    @Provides
-    fun provideMediaPlaybackManager(
-        mediaControllerProvider: MediaControllerProvider
-    ): MediaPlaybackManager {
-        return MediaPlaybackManager(mediaControllerProvider)
-    }
-
-    @Singleton
-    @Provides
-    fun provideAudioEffectsManager(
-        mediaControllerProvider: MediaControllerProvider
-    ): AudioEffectsManager {
-        return AudioEffectsManager(mediaControllerProvider)
-    }
-
 }

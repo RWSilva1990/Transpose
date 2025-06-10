@@ -40,6 +40,7 @@ import com.example.domain.model.youtube.video.Video
 import com.example.domain.model.youtube.video_detail.VideoDetail
 import com.example.main.MainViewModel
 import com.example.main.R
+import com.example.main.components.bottomsheet.state.VideoDetailUiState
 import com.example.ui.components.dialog.AddVideoToPlaylistDialog
 import com.example.util.TextFormatUtil
 import com.example.util.ToastUtil
@@ -51,8 +52,6 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChannelSection(
-    currentVideoData: Video?,
-    currentVideoDetail: VideoDetail?,
     mainViewModel: MainViewModel,
     bottomSheetState: SheetState,
     onNavigateToChannelScreen: (String) -> Unit
@@ -66,21 +65,26 @@ fun ChannelSection(
     val myPlaylists by mainViewModel.myPlaylists.collectAsState()
 
     val context = LocalContext.current
+    val videoDetailUiState by mainViewModel.videoDetailUiState.collectAsState()
 
-    if (currentVideoDetail == null) {
-        ChannelSectionShimmer()
-    } else {
-        ChannelSectionContent(
-            currentVideoData,
-            currentVideoDetail,
-            mainViewModel,
-            onAddButtonClicked = { basicVideoData ->
-                selectedVideo = basicVideoData
-                isShowingPlaylistDialog = true
-            },
-            onNavigateToChannelScreen = onNavigateToChannelScreen,
-            bottomSheetState = bottomSheetState
-        )
+    when (val state = videoDetailUiState) {
+        is VideoDetailUiState.Loading -> {
+            ChannelSectionShimmer()
+        }
+        is VideoDetailUiState.Success -> {
+            ChannelSectionContent(
+                videoDetail = state.videoDetail!!,
+                mainViewModel = mainViewModel,
+                onAddButtonClicked = { basicVideoData ->
+                    selectedVideo = basicVideoData
+                    isShowingPlaylistDialog = true
+                },
+                onNavigateToChannelScreen = onNavigateToChannelScreen,
+                bottomSheetState = bottomSheetState
+            )
+        }
+        is VideoDetailUiState.Error -> {
+        }
     }
 
     if (isShowingPlaylistDialog) {
@@ -104,19 +108,18 @@ fun ChannelSection(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChannelSectionContent(
-    currentVideoData: Video?,
-    currentVideoDetail: VideoDetail?,
+    videoDetail: VideoDetail,
     mainViewModel: MainViewModel,
     onAddButtonClicked: (Video) -> Unit,
     bottomSheetState: SheetState,
     onNavigateToChannelScreen: (String) -> Unit
 ) {
+    val video by mainViewModel.currentVideo.collectAsState()
     val subscriberCountFormats = rememberStringArrayResource(R.array.subscriber_count_formats)
-    val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
-    val formattedSubscriberCount = remember(currentVideoDetail?.uploaderSubscriberCount) {
+    val formattedSubscriberCount = remember(videoDetail.uploaderSubscriberCount) {
         TextFormatUtil.subscriberCountConverter(
-            currentVideoDetail?.uploaderSubscriberCount.toString(),
+            videoDetail.uploaderSubscriberCount.toString(),
             subscriberArray = subscriberCountFormats
         )
     }
@@ -127,15 +130,15 @@ fun ChannelSectionContent(
             .padding(top = 5.dp)
             .clip(RoundedCornerShape(4.dp))
             .clickable {
-                onNavigateToChannelScreen(currentVideoDetail?.uploaderId ?: "")
+                onNavigateToChannelScreen(videoDetail.uploaderId ?: "")
                 coroutineScope.launch {
                     bottomSheetState.partialExpand()
                 }
-                       },
+            },
         verticalAlignment = Alignment.CenterVertically
     ) {
         AsyncImage(
-            model = currentVideoDetail?.uploaderAvatarUrl ?: "",
+            model = videoDetail.uploaderAvatarUrl ?: "",
             contentDescription = "Channel Avatar",
             modifier = Modifier
                 .width(60.dp)
@@ -144,7 +147,7 @@ fun ChannelSectionContent(
             contentScale = ContentScale.Crop
         )
         Text(
-            text = currentVideoData?.uploaderName ?: "",
+            text = videoDetail.uploaderName ?: "",
             modifier = Modifier
                 .widthIn(max = 150.dp),
             maxLines = 1,
@@ -162,9 +165,7 @@ fun ChannelSectionContent(
         Button(
             onClick = {
                 mainViewModel.getAllMyPlaylists()
-                currentVideoData?.let {
-                    onAddButtonClicked(it)
-                }
+                video?.let(onAddButtonClicked)
             },
             colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
             elevation = ButtonDefaults.buttonElevation(0.dp),
@@ -209,7 +210,6 @@ fun ChannelSectionShimmer() {
                 .background(AppColors.GrayBackground)
         )
         Spacer(modifier = Modifier.weight(1f))
-        // 버튼은 shimmer 상태에서 제거됨
     }
 }
 

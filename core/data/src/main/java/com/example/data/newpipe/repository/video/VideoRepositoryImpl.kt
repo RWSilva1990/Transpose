@@ -10,20 +10,18 @@ import kotlinx.coroutines.flow.StateFlow
 import javax.inject.Inject
 
 class VideoRepositoryImpl @Inject constructor() : BaseNewPipeRepository(), VideoRepository {
-    private val _currentVideoDetail = MutableStateFlow<VideoDetail?>(null)
-    override val currentVideoDetail: StateFlow<VideoDetail?> get() = _currentVideoDetail
 
-    override suspend fun fetchVideoDetail(videoId: String) {
-        try {
+    override suspend fun fetchVideoDetail(videoId: String): Result<VideoDetail> {
+        return try {
             val extractor = getStreamExtractor(videoId)
             extractor.fetchPage()
             val uploaderId = getChannelId(extractor.uploaderUrl)
-            _currentVideoDetail.value = InfoItemMapper.streamExtractorToVideoDetail(extractor, uploaderId)
-        }
-        catch (e: Exception){
-            Logger.d("VideoRepositoryImpl fetchVideoDetail fail: ${e.message}")
-        }
 
-
+            Result.success(
+                InfoItemMapper.streamExtractorToVideoDetail(extractor, uploaderId)
+            )
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 }
