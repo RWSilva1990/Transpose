@@ -81,7 +81,6 @@ NowPlayingStateHolder @Inject constructor() {
         _currentVideoDetail.value = null
         _currentPosition.value = 0L
         _duration.value = 0L
-        _currentPlaylistInfo.value = null
         _currentVideo.value = null
         _currentPlaylistItems.value = emptyList()
         _currentPlaylistIndex.value = -1
