@@ -33,8 +33,10 @@ fun PlaylistInfoScreen(
     playlistInfoViewModel: PlaylistInfoViewModel,
     playlistId: String?,
 ) {
+
     val playlistInfo by playlistInfoViewModel.currentPlaylistInfo.collectAsState()
     val playlistItemsState by playlistInfoViewModel.playlistItemsState.collectAsState()
+
     val context = LocalContext.current
     var isShowingPlaylistDialog by remember {
         mutableStateOf(false)
