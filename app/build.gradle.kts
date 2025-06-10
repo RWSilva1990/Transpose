@@ -16,6 +16,9 @@ android {
             isDebuggable = false
         }
     }
+    lint {
+        baseline = file("lint-baseline.xml")
+    }
     //    buildTypes {
 //        create("benchmark") {
 //            initWith(buildTypes.getByName("release"))
