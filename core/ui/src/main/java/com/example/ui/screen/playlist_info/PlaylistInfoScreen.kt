@@ -79,8 +79,7 @@ fun PlaylistInfoScreen(
                     CommonVideoItem(item = item.video,
                         onClick = {
                             Logger.d("onClick ${item}")
-                            playlistInfoViewModel.onMediaClicked(
-                                item = item.video,
+                            playlistInfoViewModel.playPlaylist(
                                 playlistItems = state.items.map {
                                     it.video
                                 },

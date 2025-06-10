@@ -97,7 +97,7 @@ class PlaylistInfoViewModel @Inject constructor(
         }
 
 
-    fun onMediaClicked(
+    fun playPlaylist(
         playlistItems: List<Video>,
         clickedIndex: Int
     ) {
