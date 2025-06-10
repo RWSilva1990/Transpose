@@ -148,7 +148,9 @@ class MediaPlaybackManager @Inject constructor(
         }
     }
 
-    fun updateMediaItemWithFullInfo(itemId: String, videoDetail: VideoDetail) {
+    fun updateMediaItemWithFullInfo(itemId: String, videoDetail: VideoDetail?) {
+        videoDetail ?: return
+
         updateMediaItemJob?.cancel()
 
         val selectedVideoStream = videoDetail.videoStreamContent ?: return

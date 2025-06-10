@@ -67,6 +67,10 @@ class MainViewModel @Inject constructor(
             val result = videoRepository.fetchVideoDetail(videoId)
             if (result.isSuccess) {
                 _videoDetailUiState.value = VideoDetailUiState.Success(result.getOrNull())
+                mediaPlaybackManager.updateMediaItemWithFullInfo(
+                    itemId = videoId,
+                    videoDetail = result.getOrNull()
+                )
             } else {
                 _videoDetailUiState.value = VideoDetailUiState.Error(
                     message = result.exceptionOrNull()?.message ?: "Unknown error"
