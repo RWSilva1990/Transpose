@@ -28,10 +28,11 @@ import javax.inject.Singleton
 @Singleton
 class MediaPlaybackManager @Inject constructor(
     private val controllerProvider: MediaControllerProvider,
-    private val defaultDispatcher: CoroutineDispatcher = Dispatchers.Default,
-    private val mainDispatcher: CoroutineDispatcher = Dispatchers.Main,
     private val nowPlayingStateHolder: NowPlayingStateHolder
 ) {
+
+    private val defaultDispatcher = Dispatchers.Default
+    private val mainDispatcher = Dispatchers.Main
 
     private val scope = CoroutineScope(SupervisorJob() + mainDispatcher)
 
