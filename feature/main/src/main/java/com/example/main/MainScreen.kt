@@ -17,13 +17,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -32,11 +32,7 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.rememberNavController
 import com.example.convert.navigation.ConvertNavHost
 import com.example.convert.navigation.ConvertRoutes
@@ -45,20 +41,25 @@ import com.example.home.navigation.HomeRoutes
 import com.example.library.navigation.LibraryNavHost
 import com.example.library.navigation.LibraryRoutes
 import com.example.main.components.appbar.MainAppBar
-import com.example.main.components.appbar.SearchWidgetState
+import com.example.main.components.appbar.SearchBarState
 import com.example.main.components.bottom_navigation.BottomNavigationBar
 import com.example.main.components.bottom_navigation.MainTab
 import com.example.main.components.bottomsheet.PlayerBottomSheetScaffold
-import com.example.util.Logger
 import com.example.util.constants.AppColors
 import com.google.accompanist.systemuicontroller.rememberSystemUiController
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalComposeUiApi::class)
+val LocalBottomSheetOffset = compositionLocalOf { mutableFloatStateOf(-1f) }
+val LocalSearchBarState = compositionLocalOf { mutableStateOf(SearchBarState.CLOSED) }
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(
 ) {
     val mainViewModel = hiltViewModel<MainViewModel>()
+
+    val coroutineScope = rememberCoroutineScope()
+    val context = LocalContext.current
 
     val permissionGranted by mainViewModel.permissionGranted.collectAsState()
 
@@ -79,22 +80,6 @@ fun MainScreen(
 
     val systemUiController = rememberSystemUiController()
 
-    val suggestionKeywords by mainViewModel.suggestionKeywords.collectAsState()
-
-    val (searchWidgetState, setSearchWidgetState) = remember {
-        mutableStateOf(SearchWidgetState.CLOSED)
-    }
-
-    val searchTextState by mainViewModel.searchQuery.collectAsStateWithLifecycle()
-
-    val (isSearchBarActive, setIsSearchBarActive) = remember {
-        mutableStateOf(true)
-    }
-
-    val (normalizedOffset, setNormalizedOffset) = remember {
-        mutableFloatStateOf(0f)
-    }
-
     val sheetState = rememberStandardBottomSheetState(
         initialValue = SheetValue.Hidden,
         skipHiddenState = false
@@ -107,6 +92,14 @@ fun MainScreen(
     val convertNavController = rememberNavController()
 
     var selectedTab by remember { mutableStateOf<MainTab>(MainTab.Home) }
+
+    val (bottomSheetOffset, updateBottomSheetOffset) = remember {
+        mutableFloatStateOf(0f)
+    }
+
+    val (searchBarState, updateSearchBarState) = remember {
+        mutableStateOf(SearchBarState.CLOSED)
+    }
 
     var parentScaffoldHeightPx by remember {
         mutableFloatStateOf(0f)
@@ -122,11 +115,6 @@ fun MainScreen(
         }
     }
 
-    LaunchedEffect(Unit) {
-//        mainViewModel.autoPlayIfBenchmark(bottomSheetState = sheetState, coroutineScope = this)
-    }
-
-
     SideEffect {
         systemUiController.setStatusBarColor(
             color = AppColors.StatusBarBackground,
@@ -136,61 +124,20 @@ fun MainScreen(
             color = AppColors.BlueBackground,
         )
     }
-    val coroutineScope = rememberCoroutineScope()
-    val context = LocalContext.current
-    BackHandler {
-        if (sheetState.currentValue == SheetValue.Expanded) {
-            coroutineScope.launch {
-                sheetState.partialExpand()
-            }
-            return@BackHandler
-        }
 
-        // 홈 탭 처리
-        if (selectedTab == MainTab.Home) {
-            if (homeNavController.previousBackStackEntry != null) {
-                homeNavController.popBackStack()
-                return@BackHandler
-            } else {
-                (context as? Activity)?.moveTaskToBack(false)
-                return@BackHandler
-            }
-        }
 
-        // 라이브러리 탭 처리
-        if (selectedTab == MainTab.Library) {
-            if (libraryNavController.previousBackStackEntry != null) {
-                libraryNavController.popBackStack()
-                return@BackHandler
-            } else {
-                selectedTab = MainTab.Home
-                return@BackHandler
-            }
-        }
-
-        // 변환 탭 처리
-        if (selectedTab == MainTab.Convert) {
-            if (convertNavController.previousBackStackEntry != null) {
-                convertNavController.popBackStack()
-                return@BackHandler
-            } else {
-                selectedTab = MainTab.Home
-                return@BackHandler
-            }
-        }
-    }
-
-    Scaffold(containerColor = Color.White,
+    Scaffold(
+        containerColor = Color.White,
         modifier = Modifier
             .onGloballyPositioned { coordinates ->
                 parentScaffoldHeightPx = coordinates.size.height.toFloat()
             },
         bottomBar = {
             BottomNavigationBar(
+                searchBarState = searchBarState,
+                bottomSheetOffset = bottomSheetOffset,
                 selectedTab = selectedTab,
                 onTabSelected = { tab -> selectedTab = tab },
-                searchWidgetState = searchWidgetState,
-                normalizedOffset = normalizedOffset
             )
         }
     ) { innerPadding ->
@@ -198,16 +145,6 @@ fun MainScreen(
             parentScaffoldHeightPx = parentScaffoldHeightPx,
             topAppBar = {
                 MainAppBar(
-                    searchWidgetState = searchWidgetState,
-                    searchTextState = searchTextState,
-                    onTextChange = mainViewModel::storeSearchQuery,
-                    onTextClearClicked = {
-                        mainViewModel.storeSearchQuery("")
-                    },
-                    onCloseClicked = {
-                        setSearchWidgetState(SearchWidgetState.CLOSED)
-                        mainViewModel.storeSearchQuery("")
-                    },
                     onSearchClicked = {
                         when (selectedTab) {
                             MainTab.Home ->
@@ -229,21 +166,19 @@ fun MainScreen(
                                 )
                             )
                         }
+                        updateSearchBarState(SearchBarState.CLOSED)
                     },
-                    onSearchTriggered = {
-                        setSearchWidgetState(SearchWidgetState.OPENED)
-                    },
-                    suggestionKeywords = suggestionKeywords,
-                    isSearchBarExpanded = isSearchBarActive,
+                    mainViewModel = mainViewModel,
+                    searchBarState = searchBarState,
                     scrollBehavior = scrollBehavior,
                 )
             },
+            mainViewModel = mainViewModel,
+            bottomSheetOffset = bottomSheetOffset,
+            searchBarState = searchBarState,
+            updateBottomSheetOffset = updateBottomSheetOffset,
             innerPadding = innerPadding,
             bottomSheetState = sheetState,
-            normalizedOffset = normalizedOffset,
-            searchWidgetState = searchWidgetState,
-            setNormalizedOffset = setNormalizedOffset,
-            mainViewModel = mainViewModel,
             onNavigateToChannelScreen = { channelId ->
                 when (selectedTab) {
                     MainTab.Home -> homeNavController.navigate(
@@ -310,7 +245,50 @@ fun MainScreen(
 
             playerBottomSheetScaffoldPadding.calculateBottomPadding()
         }
+    }
 
+
+
+    BackHandler {
+        if (sheetState.currentValue == SheetValue.Expanded) {
+            coroutineScope.launch {
+                sheetState.partialExpand()
+            }
+            return@BackHandler
+        }
+
+        // 홈 탭 처리
+        if (selectedTab == MainTab.Home) {
+            if (homeNavController.previousBackStackEntry != null) {
+                homeNavController.popBackStack()
+                return@BackHandler
+            } else {
+                (context as? Activity)?.moveTaskToBack(false)
+                return@BackHandler
+            }
+        }
+
+        // 라이브러리 탭 처리
+        if (selectedTab == MainTab.Library) {
+            if (libraryNavController.previousBackStackEntry != null) {
+                libraryNavController.popBackStack()
+                return@BackHandler
+            } else {
+                selectedTab = MainTab.Home
+                return@BackHandler
+            }
+        }
+
+        // 변환 탭 처리
+        if (selectedTab == MainTab.Convert) {
+            if (convertNavController.previousBackStackEntry != null) {
+                convertNavController.popBackStack()
+                return@BackHandler
+            } else {
+                selectedTab = MainTab.Home
+                return@BackHandler
+            }
+        }
     }
 }
 

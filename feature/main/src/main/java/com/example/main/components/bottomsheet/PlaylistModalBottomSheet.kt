@@ -33,7 +33,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.domain.model.preferences.RepeatMode
-import com.example.main.MainPlayerViewModel
+import com.example.main.MainViewModel
 import com.example.main.R
 import com.example.main.components.bottomsheet.item.PlaylistBottomSheetItem
 
@@ -41,16 +41,17 @@ import com.example.main.components.bottomsheet.item.PlaylistBottomSheetItem
 @Composable
 fun PlaylistModalBottomSheet(
     onDismiss: () -> Unit,
-    mainPlayerViewModel: MainPlayerViewModel,
+    mainViewModel: MainViewModel,
     playerViewHeight: Int,
 ) {
 
-    val currentPlaylistItems by mainPlayerViewModel.currentPlaylistItems.collectAsState()
-    val currentPlaylistIndex by mainPlayerViewModel.currentPlaylistIndex.collectAsState()
-    val currentPlaylistInfo by mainPlayerViewModel.currentPlaylistInfo.collectAsState()
+    val currentPlaylist by mainViewModel.currentPlaylist.collectAsState()
+    val currentPlaylistIndex by mainViewModel.currentPlaylistIndex.collectAsState()
+    val currentPlaylistInfo by mainViewModel.currentPlaylistInfo.collectAsState()
 
-    val repeatMode = mainPlayerViewModel.repeatMode
-    val shuffleMode = mainPlayerViewModel.shuffleMode
+    val repeatMode by mainViewModel.repeatMode.collectAsState()
+    val shuffleMode by mainViewModel.shuffleMode.collectAsState()
+
     val sheetState = rememberModalBottomSheetState(
         skipPartiallyExpanded = true,
     )
@@ -118,7 +119,7 @@ fun PlaylistModalBottomSheet(
                     .padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                IconButton(onClick = { mainPlayerViewModel.toggleRepeatMode() }) {
+                IconButton(onClick = { mainViewModel.toggleRepeatMode() }) {
                     Icon(
                         painter = painterResource(
                             id = when (repeatMode) {
@@ -134,7 +135,7 @@ fun PlaylistModalBottomSheet(
                     )
                 }
                 IconButton(
-                    onClick = { mainPlayerViewModel.toggleShuffleMode() },
+                    onClick = { mainViewModel.toggleShuffleMode() },
                     modifier = Modifier.padding(start = 8.dp)
                 ) {
                     Icon(
@@ -148,7 +149,7 @@ fun PlaylistModalBottomSheet(
                     )
                 }
                 Text(
-                    text = stringResource(R.string.playlist_items_count, currentPlaylistItems.size),
+                    text = stringResource(R.string.playlist_items_count, currentPlaylist.size),
                     modifier = Modifier
                         .weight(1f)
                         .padding(start = 16.dp),
@@ -158,7 +159,7 @@ fun PlaylistModalBottomSheet(
 
             HorizontalDivider(thickness = 1.dp, color = Color.LightGray)
 
-            if (currentPlaylistItems.isEmpty()) {
+            if (currentPlaylist.isEmpty()) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -175,16 +176,16 @@ fun PlaylistModalBottomSheet(
                         .weight(1f, fill = false)
                 ) {
                     items(
-                        count = currentPlaylistItems.size,
-                        key = { index -> currentPlaylistItems[index].id }
+                        count = currentPlaylist.size,
+                        key = { index -> currentPlaylist[index].id }
                     ) { index ->
-                        val item = currentPlaylistItems[index]
+                        val item = currentPlaylist[index]
                         PlaylistBottomSheetItem(
                             item = item,
                             onClick = {
-                                mainPlayerViewModel.playPlaylist(
-                                    playlist = currentPlaylistItems,
-                                    playlistIndex = index
+                                mainViewModel.playPlaylist(
+                                    playlist = currentPlaylist,
+                                    startIndex = index
                                 )
                             },
                             isCurrentlyPlaying = index == currentPlaylistIndex

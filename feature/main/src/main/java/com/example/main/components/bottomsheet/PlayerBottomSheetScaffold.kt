@@ -11,8 +11,6 @@ import androidx.compose.material3.SheetValue
 import androidx.compose.material3.rememberBottomSheetScaffoldState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.State
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
@@ -21,9 +19,6 @@ import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import com.example.main.BuildConfig
-import com.example.main.MainDataModel
-import com.example.main.MainPlayerViewModel
-import com.example.main.MainUiStateViewModel
 import com.example.main.MainViewModel
 import com.example.main.components.appbar.SearchBarState
 import com.example.util.Logger
@@ -37,9 +32,10 @@ fun PlayerBottomSheetScaffold(
     topAppBar: @Composable() (() -> Unit)? = null,
     bottomSheetState: SheetState,
     innerPadding: PaddingValues,
-    mainUiStateViewModel: MainUiStateViewModel,
-    mainDataModel: MainDataModel,
-    mainPlayerViewModel: MainPlayerViewModel,
+    mainViewModel: MainViewModel,
+    updateBottomSheetOffset: (Float) -> Unit,
+    searchBarState: SearchBarState,
+    bottomSheetOffset: Float,
     onNavigateToChannelScreen: (String) -> Unit,
     content: @Composable (PaddingValues) -> Unit,
 ) {
@@ -69,9 +65,6 @@ fun PlayerBottomSheetScaffold(
         bottomSheetState = bottomSheetState
     )
 
-    val searchBarState by mainUiStateViewModel.searchBarState.collectAsState()
-    val bottomSheetOffset by mainUiStateViewModel.bottomSheetOffset.collectAsState()
-
     LaunchedEffect(bottomSheetState, searchBarState, parentScaffoldHeightPx) {
         snapshotFlow { bottomSheetState.requireOffset() }
             .collect { currentOffset ->
@@ -94,7 +87,7 @@ fun PlayerBottomSheetScaffold(
                         )
 
 
-                    mainUiStateViewModel.updateBottomSheetOffset(finalProgress)
+                    updateBottomSheetOffset(finalProgress)
 
                 } catch (e: Exception) {
                     if (BuildConfig.DEBUG) {
@@ -137,7 +130,7 @@ fun PlayerBottomSheetScaffold(
         snapshotFlow { bottomSheetState.currentValue }.collect {
             when (it) {
                 SheetValue.Hidden -> {
-                    mainPlayerViewModel.stopPlayback()
+                    mainViewModel.stopPlayback()
                 }
 
                 SheetValue.Expanded -> {}
@@ -153,11 +146,9 @@ fun PlayerBottomSheetScaffold(
             .padding(bottom = scaffoldBottomPadding),
         sheetContent = {
             PlayerBottomSheet(
-                mainUiStateViewModel = mainUiStateViewModel,
-                mainDataModel = mainDataModel,
-                mainPlayerViewModel = mainPlayerViewModel,
+                mainViewModel = mainViewModel,
                 bottomSheetState = bottomSheetState,
-                normalizedOffset = bottomSheetOffset,
+                bottomSheetOffset = bottomSheetOffset,
                 onNavigateToChannelScreen = onNavigateToChannelScreen,
             )
         },

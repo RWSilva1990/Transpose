@@ -17,19 +17,16 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.main.MainUiStateViewModel
 import com.example.main.components.appbar.SearchBarState
 import com.example.util.constants.AppColors
 
 @Composable
 fun BottomNavigationBar(
+    searchBarState: SearchBarState,
+    bottomSheetOffset: Float,
     selectedTab: MainTab,
     onTabSelected: (MainTab) -> Unit,
-    mainUiStateViewModel: MainUiStateViewModel
 ) {
-
-    val bottomSheetOffset by mainUiStateViewModel.bottomSheetOffset.collectAsState()
-    val searchBarState by mainUiStateViewModel.searchBarState.collectAsState()
 
     val totalOffset = remember(bottomSheetOffset, searchBarState) {
         derivedStateOf {
@@ -48,6 +45,7 @@ fun BottomNavigationBar(
     }
 
     val mainTabs = remember { MainTab.ALL_TABS }
+
     BottomNavigation(
         modifier = Modifier
             .navigationBarsPadding()
@@ -55,8 +53,6 @@ fun BottomNavigationBar(
         backgroundColor = AppColors.BlueBackground
 
     ) {
-
-
         mainTabs.forEach { tab ->
 
             val isSelected = (tab == selectedTab)
@@ -85,5 +81,6 @@ fun BottomNavigationBar(
         }
 
     }
+
 }
 

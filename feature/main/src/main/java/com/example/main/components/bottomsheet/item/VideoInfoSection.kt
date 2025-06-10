@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -18,49 +20,63 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.domain.model.youtube.video.Video
+import com.example.main.MainViewModel
 import com.example.main.R
 import com.example.util.TextFormatUtil
 import com.valentinilk.shimmer.shimmer
 
 @Composable
-fun VideoInfoSection(currentVideoData: Video?) {
+fun VideoInfoSection(mainViewModel: MainViewModel) {
+
+    val currentVideo by mainViewModel.currentVideo.collectAsState()
     val viewCountFormats = rememberStringArrayResource(R.array.view_count_formats)
-    val formattedText = remember(currentVideoData?.viewCount, currentVideoData?.textualUploadDate) {
-        if (currentVideoData == null) "" else {
-            "${
-                TextFormatUtil.viewCountCalculator(
-                    viewCountStringArray = viewCountFormats,
-                    viewCountString = currentVideoData.viewCount.toString()
-                )
-            } • ${currentVideoData.textualUploadDate}"
-        }
-    }
+
     Column(
         modifier = Modifier
             .padding(top = 10.dp)
             .fillMaxWidth()
     ) {
-        if (currentVideoData == null) {
+        if (currentVideo == null) {
             FullShimmerEffect()
         } else {
-            Text(
-                text = currentVideoData.title,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 10.dp),
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.Black,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
-
-            Text(
-                text = formattedText,
-                modifier = Modifier.padding(top = 5.dp, start = 10.dp)
+            VideoInfoContent(
+                video = currentVideo!!,
+                viewCountFormats = viewCountFormats
             )
         }
     }
+}
+
+@Composable
+private fun VideoInfoContent(
+    video: Video,
+    viewCountFormats: Array<String>
+) {
+    val formattedViewInfo = remember(video.viewCount, video.textualUploadDate) {
+        "${
+            TextFormatUtil.viewCountCalculator(
+                viewCountStringArray = viewCountFormats,
+                viewCountString = video.viewCount.toString()
+            )
+        } • ${video.textualUploadDate}"
+    }
+
+    Text(
+        text = video.title,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 10.dp),
+        fontSize = 20.sp,
+        fontWeight = FontWeight.Bold,
+        color = Color.Black,
+        maxLines = 2,
+        overflow = TextOverflow.Ellipsis
+    )
+
+    Text(
+        text = formattedViewInfo,
+        modifier = Modifier.padding(top = 5.dp, start = 10.dp)
+    )
 }
 
 @Composable
