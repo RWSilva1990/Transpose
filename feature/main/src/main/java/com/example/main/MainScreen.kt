@@ -169,6 +169,7 @@ fun MainScreen(
                         updateSearchBarState(SearchBarState.CLOSED)
                     },
                     mainViewModel = mainViewModel,
+                    updateSearchBarState = updateSearchBarState,
                     searchBarState = searchBarState,
                     scrollBehavior = scrollBehavior,
                 )
