@@ -82,13 +82,22 @@ class MainViewModel @Inject constructor(
     val suggestionKeywords = _suggestionKeywords.asStateFlow()
 
     fun setSuggestionKeywords(query: String) = viewModelScope.launch(Dispatchers.IO) {
+        if (query.isBlank()){
+            _suggestionKeywords.value = emptyList()
+            return@launch
+        }
         val result = suggestionKeywordRepository.getSuggestionKeywords(query)
         if (result.isSuccess) {
+            Logger.d("Fetched suggestion keywords: ${result.getOrNull()}")
             _suggestionKeywords.value = result.getOrNull() ?: emptyList()
         } else {
             Logger.d("Failed to fetch suggestion keywords: ${result.exceptionOrNull()}")
             _suggestionKeywords.value = emptyList()
         }
+    }
+
+    fun clearSuggestionKeywords() {
+        _suggestionKeywords.value = emptyList()
     }
 
     private val _permissionGranted = MutableStateFlow(false)

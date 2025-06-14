@@ -28,7 +28,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -52,6 +55,7 @@ import com.example.util.constants.AppColors
 fun MainAppBar(
     onSearchClicked: (String) -> Unit,
     mainViewModel: MainViewModel,
+    updateSearchBarState: (SearchBarState) -> Unit,
     searchBarState: SearchBarState,
     scrollBehavior: TopAppBarScrollBehavior,
 ) {
@@ -63,7 +67,7 @@ fun MainAppBar(
         when (searchBarState) {
             SearchBarState.CLOSED -> {
                 DefaultAppBar(
-                    onSearchClicked = { },
+                    onSearchClicked = { updateSearchBarState(SearchBarState.OPENED) },
                     scrollBehavior = scrollBehavior
                 )
             }
@@ -71,6 +75,7 @@ fun MainAppBar(
             SearchBarState.OPENED -> {
                 CustomSearchAppBar(
                     mainViewModel = mainViewModel,
+                    updateSearchBarState = updateSearchBarState,
                     onSearchClicked = { onSearchClicked(it) },
                     focusRequester = focusRequester,
                 )
@@ -85,13 +90,14 @@ fun MainAppBar(
 @Composable
 fun CustomSearchAppBar(
     mainViewModel: MainViewModel,
+    updateSearchBarState: (SearchBarState) -> Unit,
     onSearchClicked: (String) -> Unit,
     focusRequester: FocusRequester,
 ) {
 
     val suggestionKeywords by mainViewModel.suggestionKeywords.collectAsState()
 
-    val searchQuery = remember { "" }
+    var searchQuery by remember { mutableStateOf("") }
     val context = LocalContext.current
 
     SideEffect {
@@ -104,17 +110,20 @@ fun CustomSearchAppBar(
             .focusRequester(focusRequester),
         query = searchQuery,
         onQueryChange = {
-//            mainDataModel.setSuggestionKeywords(it)
-//            mainUiStateViewModel.storeSearchQuery(it)
+            searchQuery = it
+            mainViewModel.setSuggestionKeywords(it)
         },
         onSearch = {
             onSearchClicked(it)
+            searchQuery = ""
+            mainViewModel.clearSuggestionKeywords()
         },
         active = true,
         placeholder = { Text(text = stringResource(id = R.string.searchView_hint)) },
         leadingIcon = {
             IconButton(onClick = {
-//                mainUiStateViewModel.onCloseSearchBar()
+                updateSearchBarState(SearchBarState.CLOSED)
+                mainViewModel.clearSuggestionKeywords()
             }) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
             }
@@ -126,7 +135,8 @@ fun CustomSearchAppBar(
                 }
             } else {
                 IconButton(onClick = {
-//                    mainUiStateViewModel.onClearSearchQuery()
+                    searchQuery = ""
+                    mainViewModel.clearSuggestionKeywords()
                 }) {
                     Icon(Icons.Default.Close, contentDescription = "Clear Text")
                 }
@@ -140,6 +150,7 @@ fun CustomSearchAppBar(
         ),
         onActiveChange = { isActive ->
             if (!isActive) {
+                updateSearchBarState(SearchBarState.CLOSED)
 //                mainUiStateViewModel.onCloseSearchBar()
             }
         },
@@ -158,6 +169,9 @@ fun CustomSearchAppBar(
             }
             BackHandler {
                 Logger.d("CustomSearchAppBar BackHandler")
+                searchQuery = ""
+                mainViewModel.clearSuggestionKeywords()
+                updateSearchBarState(SearchBarState.CLOSED)
 //                mainUiStateViewModel.onCloseSearchBar()
             }
 
