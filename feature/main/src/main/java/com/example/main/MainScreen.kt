@@ -224,7 +224,7 @@ fun MainScreen(
                 )
             },
             mainViewModel = mainViewModel,
-//            bottomSheetOffset = {bottomSheetOffset},
+            bottomSheetOffset = {bottomSheetOffset},
             searchBarState = searchBarState,
             innerPadding = innerPadding,
             bottomSheetState = sheetState,
