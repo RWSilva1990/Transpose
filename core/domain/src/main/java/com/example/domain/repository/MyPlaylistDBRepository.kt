@@ -6,7 +6,7 @@ import com.example.domain.model.youtube.video_detail.VideoDetail
 
 
 interface MyPlaylistDBRepository {
-    suspend fun createPlaylist(name: String): Long
+    suspend fun createPlaylist(name: String)
     suspend fun getAllPlaylists(): List<MyPlaylist>
     suspend fun deletePlaylist(playlistId: Long)
     suspend fun addVideoToPlaylist(video: Video, playlistId: Long)

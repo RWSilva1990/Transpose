@@ -6,6 +6,7 @@ import com.example.domain.model.library.MyPlaylist
 import com.example.domain.model.youtube.playlist.Playlist
 import com.example.domain.repository.MyPlaylistDBRepository
 import com.example.media.manager.MediaPlaybackManager
+import com.example.media.state_holder.NowPlayingStateHolder
 import com.example.util.Logger
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,7 +17,7 @@ import javax.inject.Inject
 @HiltViewModel
 class LibraryMyPlaylistViewModel @Inject constructor(
     private val myPlaylistDBRepository: MyPlaylistDBRepository,
-    private val mediaPlaybackManager: MediaPlaybackManager
+    private val nowPlayingStateHolder: NowPlayingStateHolder
 ) : ViewModel() {
 
     private val _myPlaylists = MutableStateFlow<List<MyPlaylist>>(emptyList())
@@ -27,7 +28,7 @@ class LibraryMyPlaylistViewModel @Inject constructor(
     }
 
     fun setCurrentPlaylistInfo(playlist: Playlist?) {
-        mediaPlaybackManager.setCurrentPlaylistInfo(playlist)
+        nowPlayingStateHolder.setCurrentPlaylistInfo(playlist)
     }
 
     fun createMyPlaylist(name: String) = viewModelScope.launch {

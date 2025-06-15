@@ -40,7 +40,7 @@ class LibraryMyPlaylistItemViewModel @Inject constructor(
         }
     }
 
-    fun onMediaItemClicked(video: Video, clickedIndex: Int){
-        mediaPlaybackManager.onMediaItemClick(video, playlistItems = myPlaylistItems.value, clickedIndex)
+    fun playPlaylist(clickedIndex: Int){
+        mediaPlaybackManager.playPlaylist(playlistItems = myPlaylistItems.value, clickedIndex)
     }
 }

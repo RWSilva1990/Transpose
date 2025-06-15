@@ -85,8 +85,8 @@ class SearchResultViewModel @Inject constructor(
         }
     }
 
-    fun onMediaClicked(video: Video) {
-        mediaPlaybackManager.onMediaItemClick(video)
+    fun playSingleVideo(video: Video) {
+        mediaPlaybackManager.playSingleVideo(video)
     }
 
     private val _myPlaylists = MutableStateFlow<List<MyPlaylist>>(emptyList())

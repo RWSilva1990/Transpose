@@ -33,8 +33,10 @@ fun PlaylistInfoScreen(
     playlistInfoViewModel: PlaylistInfoViewModel,
     playlistId: String?,
 ) {
+
     val playlistInfo by playlistInfoViewModel.currentPlaylistInfo.collectAsState()
     val playlistItemsState by playlistInfoViewModel.playlistItemsState.collectAsState()
+
     val context = LocalContext.current
     var isShowingPlaylistDialog by remember {
         mutableStateOf(false)
@@ -79,8 +81,7 @@ fun PlaylistInfoScreen(
                     CommonVideoItem(item = item.video,
                         onClick = {
                             Logger.d("onClick ${item}")
-                            playlistInfoViewModel.onMediaClicked(
-                                item = item.video,
+                            playlistInfoViewModel.playPlaylist(
                                 playlistItems = state.items.map {
                                     it.video
                                 },

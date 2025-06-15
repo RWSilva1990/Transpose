@@ -65,7 +65,7 @@ fun LibraryMyPlaylistItemScreen(
         items(myPlaylistItems.size) { index ->
             val item = myPlaylistItems[index]
             PlaylistVideoItem(item = item, onClick = {
-                libraryMyPlaylistItemViewModel.onMediaItemClicked(item, index)
+                libraryMyPlaylistItemViewModel.playPlaylist(index)
                 coroutineScope.launch {
                     bottomSheetState.expand()
                 }
