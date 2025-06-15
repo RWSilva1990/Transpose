@@ -14,41 +14,31 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
-import com.example.main.BuildConfig
 import com.example.main.MainViewModel
 import com.example.main.components.appbar.SearchBarState
-import com.example.util.Logger
 
 @OptIn(
     ExperimentalMaterial3Api::class
 )
 @Composable
 fun PlayerBottomSheetScaffold(
-    parentScaffoldHeightPx: Float,
+    updateIsSheetLayoutComplete: (Boolean) -> Unit,
     topAppBar: @Composable() (() -> Unit)? = null,
     bottomSheetState: SheetState,
     innerPadding: PaddingValues,
     mainViewModel: MainViewModel,
-    updateBottomSheetOffset: (Float) -> Unit,
     searchBarState: SearchBarState,
-    bottomSheetOffset: Float,
+    bottomSheetOffset: () -> Float,
     onNavigateToChannelScreen: (String) -> Unit,
     content: @Composable (PaddingValues) -> Unit,
 ) {
     val density = LocalDensity.current
 
-
-    val sheetPeekHeightPxWhenSearchBarClosed = with(density) {
-        (innerPadding.calculateBottomPadding() + 56.dp).toPx()
-    }
-
-    val sheetPeekHeightPxWhenSearchBarOpened = with(density) {
-        innerPadding.calculateBottomPadding().toPx()
-    }
 
     val searchBarClosedSheetPeekHeight = remember(innerPadding) {
         innerPadding.calculateBottomPadding() + 56.dp
@@ -65,38 +55,6 @@ fun PlayerBottomSheetScaffold(
         bottomSheetState = bottomSheetState
     )
 
-    LaunchedEffect(bottomSheetState, searchBarState, parentScaffoldHeightPx) {
-        snapshotFlow { bottomSheetState.requireOffset() }
-            .collect { currentOffset ->
-                try {
-                    //parentScaffoldHeightPx의 값은, keyboardInfo.height 값이 계산되어 적용되어 계산됨.
-                    val partiallyExpandedOffset = when (searchBarState) {
-                        SearchBarState.CLOSED ->
-                            parentScaffoldHeightPx - sheetPeekHeightPxWhenSearchBarClosed
-
-                        SearchBarState.OPENED -> {
-                            parentScaffoldHeightPx - sheetPeekHeightPxWhenSearchBarOpened
-                        }
-                    }
-
-                    val finalProgress =
-                        calculateDragProgress(
-                            currentOffset,
-                            partiallyExpandedOffset,
-                            parentScaffoldHeightPx
-                        )
-
-
-                    updateBottomSheetOffset(finalProgress)
-
-                } catch (e: Exception) {
-                    if (BuildConfig.DEBUG) {
-                        Logger.d("BottomSheet error: ${e.message}")
-                    }
-                }
-            }
-    }
-
     val sheetPeekHeight = remember(bottomSheetState.currentValue, searchBarState) {
         when (bottomSheetState.currentValue) {
             SheetValue.Hidden -> 1.dp
@@ -112,15 +70,15 @@ fun PlayerBottomSheetScaffold(
         when {
             bottomSheetState.currentValue == SheetValue.Hidden -> 0.dp
 
-            bottomSheetOffset >= 1.0f -> 56.dp
+            bottomSheetOffset() >= 1.0f -> 56.dp
 
-            bottomSheetOffset <= 0.0f -> {
-                val progress = (-bottomSheetOffset * 25).coerceIn(0f, 1f)
+            bottomSheetOffset() <= 0.0f -> {
+                val progress = (-bottomSheetOffset() * 25).coerceIn(0f, 1f)
                 (56 * (1 - progress)).dp
             }
 
             else -> {
-                val progress = bottomSheetOffset.coerceIn(0f, 1f)
+                val progress = bottomSheetOffset().coerceIn(0f, 1f)
                 (56 * progress).dp
             }
         }
@@ -143,6 +101,7 @@ fun PlayerBottomSheetScaffold(
         sheetContainerColor = Color.White,
         scaffoldState = scaffoldState,
         modifier = Modifier
+            .drawBehind { updateIsSheetLayoutComplete(true) }
             .padding(bottom = scaffoldBottomPadding),
         sheetContent = {
             PlayerBottomSheet(
@@ -161,43 +120,4 @@ fun PlayerBottomSheetScaffold(
         content(playerBottomSheetInnerPadding)
     }
 }
-
-
-private fun calculateDragProgress(
-    currentOffset: Float,
-    partiallyExpandedOffset: Float,
-    hiddenOffset: Float
-): Float {
-    val expandedOffset = 0.0f
-
-    val result = when {
-        currentOffset <= expandedOffset -> {
-            1f
-        }
-
-        currentOffset < partiallyExpandedOffset -> {
-            val range = partiallyExpandedOffset - expandedOffset
-            val position = currentOffset - expandedOffset
-            val ratio = (position / range).coerceIn(0f, 1f)
-            val result = 1f - ratio
-            result
-        }
-
-        currentOffset <= hiddenOffset -> {
-            val range = hiddenOffset - partiallyExpandedOffset
-            val position = currentOffset - partiallyExpandedOffset
-            val ratio = (position / range).coerceIn(0f, 1f)
-            val result = -ratio
-            result
-        }
-
-        else -> {
-            -1f
-        }
-    }
-
-    return result
-}
-
-
 

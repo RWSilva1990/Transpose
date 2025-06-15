@@ -9,19 +9,19 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.Text
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.SheetState
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -35,7 +35,7 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlayerBottomSheetHeader(
-    bottomSheetOffset: Float,
+    bottomSheetOffset: () -> Float,
     bottomSheetState: SheetState,
     mainViewModel: MainViewModel,
 ) {
@@ -66,14 +66,18 @@ fun PlayerBottomSheetHeader(
                 modifier = Modifier
                     .weight(1f)
                     .padding(start = 8.dp, end = 12.dp)
-                    .bottomSheetAlpha(bottomSheetOffset)
+                    .graphicsLayer {
+                        alpha = bottomSheetHeaderAlpha(bottomSheetOffset())
+                    }
             )
 
             IconButton(
                 onClick = { mainViewModel.playPause() },
                 modifier = Modifier
                     .padding(end = 5.dp)
-                    .bottomSheetAlpha(bottomSheetOffset)
+                    .graphicsLayer {
+                        alpha = bottomSheetHeaderAlpha(bottomSheetOffset())
+                    }
             ) {
                 Icon(
                     painterResource(id = if (isPlaying) R.drawable.baseline_pause_24 else R.drawable.baseline_play_arrow_24),
@@ -88,7 +92,9 @@ fun PlayerBottomSheetHeader(
                     coroutineScope.launch { bottomSheetState.hide() }
                 },
                 modifier = Modifier
-                    .bottomSheetAlpha(bottomSheetOffset)
+                    .graphicsLayer {
+                        alpha = bottomSheetHeaderAlpha(bottomSheetOffset())
+                    }
             ) {
                 Icon(
                     imageVector = Icons.Default.Close,
@@ -100,17 +106,14 @@ fun PlayerBottomSheetHeader(
     }
 }
 
-private fun Modifier.bottomSheetAlpha(bottomSheetOffset: Float): Modifier {
-    if (bottomSheetOffset < 0) return this.alpha(1f)
-
-    return this.alpha(
-        alpha = when {
+private fun bottomSheetHeaderAlpha(bottomSheetOffset: Float): Float {
+    return if (bottomSheetOffset < 0) 1f else {
+        when {
             bottomSheetOffset < 0.2f -> {
                 val alphaValue = (0.2 - bottomSheetOffset) / 0.2
                 alphaValue.toFloat()
             }
-
             else -> 0f
         }
-    )
+    }
 }
