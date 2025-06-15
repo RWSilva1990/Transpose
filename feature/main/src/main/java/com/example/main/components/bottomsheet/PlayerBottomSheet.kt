@@ -14,6 +14,7 @@ import androidx.compose.material3.SheetValue
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -61,7 +62,7 @@ object GraphicsLayerConstants {
 fun PlayerBottomSheet(
     mainViewModel: MainViewModel,
     bottomSheetState: SheetState,
-    bottomSheetOffset: Float,
+    bottomSheetOffset: () -> Float,
     onNavigateToChannelScreen: (String) -> Unit
 ) = trace("PlayerBottomSheet") {
 
@@ -70,38 +71,27 @@ fun PlayerBottomSheet(
 
     val mediaController by mainViewModel.mediaControllerFlow.collectAsState()
 
-    val scaleY = remember(bottomSheetOffset) {
-        calculateScaleFactorY(bottomSheetOffset)
-    }
 
-    val scaleX = remember(bottomSheetOffset) {
-        when {
-            bottomSheetOffset < 0f -> GraphicsLayerConstants.MIN_SCALE
-            bottomSheetOffset < 0.2f -> calculateDefaultScaleX(bottomSheetOffset)
-            else -> 1f
-        }
-    }
+//    val bottomSheetAlpha = remember(bottomSheetOffset) {
+//        if (bottomSheetOffset < 0) 1f else {
+//            when {
+//                bottomSheetOffset < 0.2f -> {
+//                    val alphaValue = (0.2 - bottomSheetOffset) / 0.2
+//                    alphaValue
+//                }
+//
+//                else -> 0f
+//            }
+//        }
+//    }
 
-    val bottomSheetAlpha = remember(bottomSheetOffset) {
-        if (bottomSheetOffset < 0) 1f else {
-            when {
-                bottomSheetOffset < 0.2f -> {
-                    val alphaValue = (0.2 - bottomSheetOffset) / 0.2
-                    alphaValue
-                }
+//    val mainBackgroundAlpha = remember(bottomSheetOffset) {
+//        if (bottomSheetOffset < 0) 1f else {
+//            bottomSheetOffset.pow(3).coerceAtLeast(0f)
+//        }
+//    }
 
-                else -> 0f
-            }
-        }
-    }
-
-    val mainBackgroundAlpha = remember(bottomSheetOffset) {
-        if (bottomSheetOffset < 0) 1f else {
-            bottomSheetOffset.pow(3).coerceAtLeast(0f)
-        }
-    }
-
-    var playerViewHeight by remember { mutableStateOf(0) }
+    var playerViewHeight by remember { mutableIntStateOf(0) }
 
     if (showPlaylistModal) {
         trace("PlaylistModalBottomSheet") {
@@ -115,25 +105,23 @@ fun PlayerBottomSheet(
 
 
     Box(
-        modifier = Modifier
-            .fillMaxSize()
+        modifier = Modifier.fillMaxSize()
     ) {
         trace("MainPlayerLayout") {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(GraphicsLayerConstants.DEFAULT_HEIGHT)
-                    .graphicsLayer(
-                        scaleY = scaleY,
-                        transformOrigin = TransformOrigin(0.5f, 0f)  // pivotY = 0f에 해당
-                    )
+                    .graphicsLayer {
+                        scaleY = calculateScaleFactorY(bottomSheetOffset())
+                        transformOrigin = TransformOrigin(0.5f, 0f)
+                    }
                     .background(AppColors.BlueBackground)
                     .clickable {
                         coroutineScope.launch {
                             bottomSheetState.expand()
                         }
-                    }
-            )
+                    })
         }
 
         PlayerBottomSheetHeader(
@@ -143,8 +131,7 @@ fun PlayerBottomSheet(
         )
 
         Column(
-            modifier = Modifier
-                .fillMaxSize(),
+            modifier = Modifier.fillMaxSize(),
         ) {
             Box(
                 modifier = Modifier
@@ -153,11 +140,15 @@ fun PlayerBottomSheet(
                     .onGloballyPositioned { coordinates ->
                         playerViewHeight = coordinates.size.height
                     }
-                    .graphicsLayer(
-                        scaleX = scaleX,
-                        scaleY = scaleY,
+                    .graphicsLayer {
+                        scaleX = when {
+                            bottomSheetOffset() < 0f -> GraphicsLayerConstants.MIN_SCALE
+                            bottomSheetOffset() < 0.2f -> calculateDefaultScaleX(bottomSheetOffset())
+                            else -> 1f
+                        }
+                        scaleY = calculateScaleFactorY(bottomSheetOffset())
                         transformOrigin = TransformOrigin(0f, 0f)
-                    )
+                    }
             ) {
                 trace("PlayerView") {
                     AndroidView(
@@ -166,8 +157,7 @@ fun PlayerBottomSheet(
                                 resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FILL
                                 keepScreenOn = true
                             }
-                        },
-                        update = { view ->
+                        }, update = { view ->
                             mediaController?.let { controller ->
                                 view.player = controller
                             } ?: run {
@@ -177,8 +167,7 @@ fun PlayerBottomSheet(
                                 SheetValue.Expanded -> true
                                 else -> false
                             }
-                        },
-                        modifier = Modifier.fillMaxSize()
+                        }, modifier = Modifier.fillMaxSize()
                     )
                 }
                 trace("PlayerThumbnailView") {
@@ -186,13 +175,11 @@ fun PlayerBottomSheet(
                         mainViewModel = mainViewModel,
                         modifier = Modifier
                             .fillMaxSize()
-                            .semantics { contentDescription = "PlayerThumbnailView" }
-                    )
+                            .semantics { contentDescription = "PlayerThumbnailView" })
                 }
                 trace("PlayerLoadingIndicator") {
                     PlayerLoadingIndicator(
-                        mainViewModel = mainViewModel,
-                        modifier = Modifier.align(Alignment.Center)
+                        mainViewModel = mainViewModel, modifier = Modifier.align(Alignment.Center)
                     )
                 }
             }
@@ -202,10 +189,13 @@ fun PlayerBottomSheet(
                 bottomSheetState = bottomSheetState,
                 modifier = Modifier
                     .fillMaxSize()
-                    .graphicsLayer(
-                        translationY = -playerViewHeight * (1 - scaleY)
-                    )
-                    .changeMainBackgroundAlpha(bottomSheetOffset)
+                    .graphicsLayer {
+                        translationY = -playerViewHeight * (1 - calculateScaleFactorY(
+                            bottomSheetOffset()
+                        ))
+                        alpha = if (bottomSheetOffset() < 0) 1f else bottomSheetOffset().pow(3)
+                            .coerceAtLeast(0f)
+                    }
             )
         }
         PlaylistFloatingButton(
@@ -236,8 +226,7 @@ private fun calculateDefaultScaleX(bottomSheetOffset: Float): Float {
 }
 
 private fun calculateScaleFactorY(bottomSheetOffset: Float): Float {
-    val minScale =
-        PEEK_HEIGHT.value / GraphicsLayerConstants.DEFAULT_HEIGHT.value
+    val minScale = PEEK_HEIGHT.value / GraphicsLayerConstants.DEFAULT_HEIGHT.value
     return when {
         bottomSheetOffset <= GraphicsLayerConstants.FULLY_EXPANDED -> minScale
         else -> lerp(start = minScale, stop = 1f, fraction = bottomSheetOffset)

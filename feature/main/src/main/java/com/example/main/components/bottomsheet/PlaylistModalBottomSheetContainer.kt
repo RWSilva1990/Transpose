@@ -9,7 +9,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import com.example.main.MainViewModel
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlaylistModalBottomSheetContainer(
     onDismiss: () -> Unit,
@@ -18,7 +17,7 @@ fun PlaylistModalBottomSheetContainer(
 ) {
 
     PlaylistModalBottomSheet(
-        onDismiss = { },
+        onDismiss = onDismiss,
         mainViewModel = mainViewModel,
         playerViewHeight = playerViewHeight
     )

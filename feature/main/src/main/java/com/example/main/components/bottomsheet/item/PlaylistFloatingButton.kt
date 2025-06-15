@@ -22,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -35,7 +36,7 @@ fun PlaylistFloatingButton(
     mainViewModel: MainViewModel,
     bottomSheetState: SheetState,
     onClick: () -> Unit,
-    bottomSheetOffset: Float,
+    bottomSheetOffset: () -> Float,
     modifier: Modifier = Modifier
 ) {
     val currentPlaylist by mainViewModel.currentPlaylist.collectAsState()
@@ -46,7 +47,9 @@ fun PlaylistFloatingButton(
             modifier = modifier
                 .shadow(elevation = 6.dp, shape = RoundedCornerShape(16.dp))
                 .clickable(onClick = onClick)
-                .alpha(if (bottomSheetOffset >= 0.95f) 1f else 0f),
+                .graphicsLayer {
+                    alpha = if (bottomSheetOffset() >= 0.95f) 1f else 0f
+                },
             shape = RoundedCornerShape(16.dp),
             color = Color.White
         ) {
