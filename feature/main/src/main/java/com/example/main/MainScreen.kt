@@ -17,13 +17,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -32,6 +32,8 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.compose.rememberNavController
 import com.example.convert.navigation.ConvertNavHost
@@ -45,12 +47,10 @@ import com.example.main.components.appbar.SearchBarState
 import com.example.main.components.bottom_navigation.BottomNavigationBar
 import com.example.main.components.bottom_navigation.MainTab
 import com.example.main.components.bottomsheet.PlayerBottomSheetScaffold
+import com.example.util.Logger
 import com.example.util.constants.AppColors
 import com.google.accompanist.systemuicontroller.rememberSystemUiController
 import kotlinx.coroutines.launch
-
-val LocalBottomSheetOffset = compositionLocalOf { mutableFloatStateOf(-1f) }
-val LocalSearchBarState = compositionLocalOf { mutableStateOf(SearchBarState.CLOSED) }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -93,11 +93,12 @@ fun MainScreen(
 
     var selectedTab by remember { mutableStateOf<MainTab>(MainTab.Home) }
 
-    val (bottomSheetOffset, updateBottomSheetOffset) = remember {
+
+    var bottomSheetOffset by remember {
         mutableFloatStateOf(0f)
     }
 
-    val (searchBarState, updateSearchBarState) = remember {
+    var searchBarState by remember {
         mutableStateOf(SearchBarState.CLOSED)
     }
 
@@ -113,6 +114,50 @@ fun MainScreen(
                 return behaviorConsumed
             }
         }
+    }
+
+    var isSheetLayoutComplete by remember { mutableStateOf(false) }
+
+    var scaffoldInnerPaddingBottomPadding by remember { mutableStateOf(0.dp) }
+
+    val density = LocalDensity.current
+
+    LaunchedEffect(sheetState, searchBarState, parentScaffoldHeightPx) {
+        if (!isSheetLayoutComplete) return@LaunchedEffect
+
+        snapshotFlow { sheetState.requireOffset() }
+            .collect { currentOffset ->
+                try {
+                    // parentScaffoldHeightPx의 값은 keyboardInfo.height 값이 계산되어 적용되어 계산됨. 까먹지 말자!!
+                    // 부모 scaffold의 높이를 기준으로 pratiallyExpandedOffset 기준값을 설정!!
+                    val partiallyExpandedOffset = when (searchBarState) {
+                        SearchBarState.CLOSED ->
+                            parentScaffoldHeightPx - with(density) {
+                                (scaffoldInnerPaddingBottomPadding + 56.dp).toPx()
+                            }
+
+                        SearchBarState.OPENED -> {
+                            parentScaffoldHeightPx - with(density) {
+                                scaffoldInnerPaddingBottomPadding.toPx()
+                            }
+                        }
+                    }
+
+                    val finalProgress =
+                        calculateDragProgress(
+                            currentOffset,
+                            partiallyExpandedOffset,
+                            parentScaffoldHeightPx
+                        )
+
+                    bottomSheetOffset = finalProgress
+
+                } catch (e: Exception) {
+                    if (BuildConfig.DEBUG) {
+                        Logger.d("BottomSheet error: ${e.message}")
+                    }
+                }
+            }
     }
 
     SideEffect {
@@ -135,14 +180,16 @@ fun MainScreen(
         bottomBar = {
             BottomNavigationBar(
                 searchBarState = searchBarState,
-                bottomSheetOffset = bottomSheetOffset,
+                bottomSheetOffset = { bottomSheetOffset },
                 selectedTab = selectedTab,
                 onTabSelected = { tab -> selectedTab = tab },
             )
         }
     ) { innerPadding ->
+        scaffoldInnerPaddingBottomPadding = innerPadding.calculateBottomPadding()
+
         PlayerBottomSheetScaffold(
-            parentScaffoldHeightPx = parentScaffoldHeightPx,
+            updateIsSheetLayoutComplete = { isSheetLayoutComplete = it },
             topAppBar = {
                 MainAppBar(
                     onSearchClicked = {
@@ -166,18 +213,19 @@ fun MainScreen(
                                 )
                             )
                         }
-                        updateSearchBarState(SearchBarState.CLOSED)
+                        searchBarState = SearchBarState.CLOSED
                     },
                     mainViewModel = mainViewModel,
-                    updateSearchBarState = updateSearchBarState,
                     searchBarState = searchBarState,
+                    updateSearchBarState = {
+                        searchBarState = it
+                    },
                     scrollBehavior = scrollBehavior,
                 )
             },
             mainViewModel = mainViewModel,
-            bottomSheetOffset = bottomSheetOffset,
+//            bottomSheetOffset = {bottomSheetOffset},
             searchBarState = searchBarState,
-            updateBottomSheetOffset = updateBottomSheetOffset,
             innerPadding = innerPadding,
             bottomSheetState = sheetState,
             onNavigateToChannelScreen = { channelId ->
@@ -291,6 +339,42 @@ fun MainScreen(
             }
         }
     }
+}
+
+private fun calculateDragProgress(
+    currentOffset: Float,
+    partiallyExpandedOffset: Float,
+    hiddenOffset: Float
+): Float {
+    val expandedOffset = 0.0f
+
+    val result = when {
+        currentOffset <= expandedOffset -> {
+            1f
+        }
+
+        currentOffset < partiallyExpandedOffset -> {
+            val range = partiallyExpandedOffset - expandedOffset
+            val position = currentOffset - expandedOffset
+            val ratio = (position / range).coerceIn(0f, 1f)
+            val result = 1f - ratio
+            result
+        }
+
+        currentOffset <= hiddenOffset -> {
+            val range = hiddenOffset - partiallyExpandedOffset
+            val position = currentOffset - partiallyExpandedOffset
+            val ratio = (position / range).coerceIn(0f, 1f)
+            val result = -ratio
+            result
+        }
+
+        else -> {
+            -1f
+        }
+    }
+
+    return result
 }
 
 
