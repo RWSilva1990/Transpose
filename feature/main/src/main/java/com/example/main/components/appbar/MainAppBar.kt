@@ -55,8 +55,8 @@ import com.example.util.constants.AppColors
 fun MainAppBar(
     onSearchClicked: (String) -> Unit,
     mainViewModel: MainViewModel,
-    updateSearchBarState: (SearchBarState) -> Unit,
     searchBarState: SearchBarState,
+    updateSearchBarState: (SearchBarState) -> Unit,
     scrollBehavior: TopAppBarScrollBehavior,
 ) {
 
