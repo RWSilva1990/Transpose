@@ -23,7 +23,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -32,11 +32,9 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.testTagsAsResourceId
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.rememberNavController
 import com.example.convert.navigation.ConvertNavHost
 import com.example.convert.navigation.ConvertRoutes
@@ -45,7 +43,7 @@ import com.example.home.navigation.HomeRoutes
 import com.example.library.navigation.LibraryNavHost
 import com.example.library.navigation.LibraryRoutes
 import com.example.main.components.appbar.MainAppBar
-import com.example.main.components.appbar.SearchWidgetState
+import com.example.main.components.appbar.SearchBarState
 import com.example.main.components.bottom_navigation.BottomNavigationBar
 import com.example.main.components.bottom_navigation.MainTab
 import com.example.main.components.bottomsheet.PlayerBottomSheetScaffold
@@ -54,11 +52,14 @@ import com.example.util.constants.AppColors
 import com.google.accompanist.systemuicontroller.rememberSystemUiController
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalComposeUiApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(
 ) {
     val mainViewModel = hiltViewModel<MainViewModel>()
+
+    val coroutineScope = rememberCoroutineScope()
+    val context = LocalContext.current
 
     val permissionGranted by mainViewModel.permissionGranted.collectAsState()
 
@@ -79,22 +80,6 @@ fun MainScreen(
 
     val systemUiController = rememberSystemUiController()
 
-    val suggestionKeywords by mainViewModel.suggestionKeywords.collectAsState()
-
-    val (searchWidgetState, setSearchWidgetState) = remember {
-        mutableStateOf(SearchWidgetState.CLOSED)
-    }
-
-    val searchTextState by mainViewModel.searchQuery.collectAsStateWithLifecycle()
-
-    val (isSearchBarActive, setIsSearchBarActive) = remember {
-        mutableStateOf(true)
-    }
-
-    val (normalizedOffset, setNormalizedOffset) = remember {
-        mutableFloatStateOf(0f)
-    }
-
     val sheetState = rememberStandardBottomSheetState(
         initialValue = SheetValue.Hidden,
         skipHiddenState = false
@@ -107,6 +92,15 @@ fun MainScreen(
     val convertNavController = rememberNavController()
 
     var selectedTab by remember { mutableStateOf<MainTab>(MainTab.Home) }
+
+
+    var bottomSheetOffset by remember {
+        mutableFloatStateOf(0f)
+    }
+
+    var searchBarState by remember {
+        mutableStateOf(SearchBarState.CLOSED)
+    }
 
     var parentScaffoldHeightPx by remember {
         mutableFloatStateOf(0f)
@@ -122,10 +116,49 @@ fun MainScreen(
         }
     }
 
-    LaunchedEffect(Unit) {
-//        mainViewModel.autoPlayIfBenchmark(bottomSheetState = sheetState, coroutineScope = this)
-    }
+    var isSheetLayoutComplete by remember { mutableStateOf(false) }
 
+    var scaffoldInnerPaddingBottomPadding by remember { mutableStateOf(0.dp) }
+
+    val density = LocalDensity.current
+
+    LaunchedEffect(sheetState, searchBarState, parentScaffoldHeightPx) {
+        if (!isSheetLayoutComplete) return@LaunchedEffect
+
+        snapshotFlow { sheetState.requireOffset() }
+            .collect { currentOffset ->
+                try {
+                    // parentScaffoldHeightPx의 값은 keyboardInfo.height 값이 계산되어 적용되어 계산됨. 까먹지 말자!!
+                    // 부모 scaffold의 높이를 기준으로 pratiallyExpandedOffset 기준값을 설정!!
+                    val partiallyExpandedOffset = when (searchBarState) {
+                        SearchBarState.CLOSED ->
+                            parentScaffoldHeightPx - with(density) {
+                                (scaffoldInnerPaddingBottomPadding + 56.dp).toPx()
+                            }
+
+                        SearchBarState.OPENED -> {
+                            parentScaffoldHeightPx - with(density) {
+                                scaffoldInnerPaddingBottomPadding.toPx()
+                            }
+                        }
+                    }
+
+                    val finalProgress =
+                        calculateDragProgress(
+                            currentOffset,
+                            partiallyExpandedOffset,
+                            parentScaffoldHeightPx
+                        )
+
+                    bottomSheetOffset = finalProgress
+
+                } catch (e: Exception) {
+                    if (BuildConfig.DEBUG) {
+                        Logger.d("BottomSheet error: ${e.message}")
+                    }
+                }
+            }
+    }
 
     SideEffect {
         systemUiController.setStatusBarColor(
@@ -136,78 +169,29 @@ fun MainScreen(
             color = AppColors.BlueBackground,
         )
     }
-    val coroutineScope = rememberCoroutineScope()
-    val context = LocalContext.current
-    BackHandler {
-        if (sheetState.currentValue == SheetValue.Expanded) {
-            coroutineScope.launch {
-                sheetState.partialExpand()
-            }
-            return@BackHandler
-        }
 
-        // 홈 탭 처리
-        if (selectedTab == MainTab.Home) {
-            if (homeNavController.previousBackStackEntry != null) {
-                homeNavController.popBackStack()
-                return@BackHandler
-            } else {
-                (context as? Activity)?.moveTaskToBack(false)
-                return@BackHandler
-            }
-        }
 
-        // 라이브러리 탭 처리
-        if (selectedTab == MainTab.Library) {
-            if (libraryNavController.previousBackStackEntry != null) {
-                libraryNavController.popBackStack()
-                return@BackHandler
-            } else {
-                selectedTab = MainTab.Home
-                return@BackHandler
-            }
-        }
-
-        // 변환 탭 처리
-        if (selectedTab == MainTab.Convert) {
-            if (convertNavController.previousBackStackEntry != null) {
-                convertNavController.popBackStack()
-                return@BackHandler
-            } else {
-                selectedTab = MainTab.Home
-                return@BackHandler
-            }
-        }
-    }
-
-    Scaffold(containerColor = Color.White,
+    Scaffold(
+        containerColor = Color.White,
         modifier = Modifier
             .onGloballyPositioned { coordinates ->
                 parentScaffoldHeightPx = coordinates.size.height.toFloat()
             },
         bottomBar = {
             BottomNavigationBar(
+                searchBarState = searchBarState,
+                bottomSheetOffset = { bottomSheetOffset },
                 selectedTab = selectedTab,
                 onTabSelected = { tab -> selectedTab = tab },
-                searchWidgetState = searchWidgetState,
-                normalizedOffset = normalizedOffset
             )
         }
     ) { innerPadding ->
+        scaffoldInnerPaddingBottomPadding = innerPadding.calculateBottomPadding()
+
         PlayerBottomSheetScaffold(
-            parentScaffoldHeightPx = parentScaffoldHeightPx,
+            updateIsSheetLayoutComplete = { isSheetLayoutComplete = it },
             topAppBar = {
                 MainAppBar(
-                    searchWidgetState = searchWidgetState,
-                    searchTextState = searchTextState,
-                    onTextChange = mainViewModel::storeSearchQuery,
-                    onTextClearClicked = {
-                        mainViewModel.storeSearchQuery("")
-                    },
-                    onCloseClicked = {
-                        setSearchWidgetState(SearchWidgetState.CLOSED)
-                        mainViewModel.storeSearchQuery("")
-                    },
                     onSearchClicked = {
                         when (selectedTab) {
                             MainTab.Home ->
@@ -229,21 +213,21 @@ fun MainScreen(
                                 )
                             )
                         }
+                        searchBarState = SearchBarState.CLOSED
                     },
-                    onSearchTriggered = {
-                        setSearchWidgetState(SearchWidgetState.OPENED)
+                    mainViewModel = mainViewModel,
+                    searchBarState = searchBarState,
+                    updateSearchBarState = {
+                        searchBarState = it
                     },
-                    suggestionKeywords = suggestionKeywords,
-                    isSearchBarExpanded = isSearchBarActive,
                     scrollBehavior = scrollBehavior,
                 )
             },
+            mainViewModel = mainViewModel,
+            bottomSheetOffset = {bottomSheetOffset},
+            searchBarState = searchBarState,
             innerPadding = innerPadding,
             bottomSheetState = sheetState,
-            normalizedOffset = normalizedOffset,
-            searchWidgetState = searchWidgetState,
-            setNormalizedOffset = setNormalizedOffset,
-            mainViewModel = mainViewModel,
             onNavigateToChannelScreen = { channelId ->
                 when (selectedTab) {
                     MainTab.Home -> homeNavController.navigate(
@@ -310,8 +294,87 @@ fun MainScreen(
 
             playerBottomSheetScaffoldPadding.calculateBottomPadding()
         }
-
     }
+
+
+
+    BackHandler {
+        if (sheetState.currentValue == SheetValue.Expanded) {
+            coroutineScope.launch {
+                sheetState.partialExpand()
+            }
+            return@BackHandler
+        }
+
+        // 홈 탭 처리
+        if (selectedTab == MainTab.Home) {
+            if (homeNavController.previousBackStackEntry != null) {
+                homeNavController.popBackStack()
+                return@BackHandler
+            } else {
+                (context as? Activity)?.moveTaskToBack(false)
+                return@BackHandler
+            }
+        }
+
+        // 라이브러리 탭 처리
+        if (selectedTab == MainTab.Library) {
+            if (libraryNavController.previousBackStackEntry != null) {
+                libraryNavController.popBackStack()
+                return@BackHandler
+            } else {
+                selectedTab = MainTab.Home
+                return@BackHandler
+            }
+        }
+
+        // 변환 탭 처리
+        if (selectedTab == MainTab.Convert) {
+            if (convertNavController.previousBackStackEntry != null) {
+                convertNavController.popBackStack()
+                return@BackHandler
+            } else {
+                selectedTab = MainTab.Home
+                return@BackHandler
+            }
+        }
+    }
+}
+
+private fun calculateDragProgress(
+    currentOffset: Float,
+    partiallyExpandedOffset: Float,
+    hiddenOffset: Float
+): Float {
+    val expandedOffset = 0.0f
+
+    val result = when {
+        currentOffset <= expandedOffset -> {
+            1f
+        }
+
+        currentOffset < partiallyExpandedOffset -> {
+            val range = partiallyExpandedOffset - expandedOffset
+            val position = currentOffset - expandedOffset
+            val ratio = (position / range).coerceIn(0f, 1f)
+            val result = 1f - ratio
+            result
+        }
+
+        currentOffset <= hiddenOffset -> {
+            val range = hiddenOffset - partiallyExpandedOffset
+            val position = currentOffset - partiallyExpandedOffset
+            val ratio = (position / range).coerceIn(0f, 1f)
+            val result = -ratio
+            result
+        }
+
+        else -> {
+            -1f
+        }
+    }
+
+    return result
 }
 
 

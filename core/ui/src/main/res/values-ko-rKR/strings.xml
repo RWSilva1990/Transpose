@@ -36,7 +36,7 @@
     <string name="publish_date_year">%d년 전</string>
     <string name="publish_date_second">%d초 전</string>
     <string name="publish_date_minute">%d분 전</string>
-    <string name="publish_date_hour">%s시간 전</string>
+    <string name="publish_date_hour">%d시간 전</string>
     <string name="view_count_under_thousand">조회수 %s회</string>
     <string name="view_count_over_thousand">조회수 %s천회</string>
     <string name="view_count_over_hundred_thousand">조회수 %s만회</string>

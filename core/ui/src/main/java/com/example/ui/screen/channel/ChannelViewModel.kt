@@ -10,6 +10,7 @@ import com.example.domain.model.youtube.video.Video
 import com.example.domain.repository.ChannelRepository
 import com.example.domain.repository.MyPlaylistDBRepository
 import com.example.media.manager.MediaPlaybackManager
+import com.example.media.state_holder.NowPlayingStateHolder
 import com.example.ui.common.PaginatedState
 import com.example.util.Logger
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -23,6 +24,7 @@ import javax.inject.Inject
 class ChannelViewModel @Inject constructor(
     private val channelRepository: ChannelRepository,
     private val mediaPlaybackManager: MediaPlaybackManager,
+    private val nowPlayingStateHolder: NowPlayingStateHolder,
     private val myPlaylistDBRepository: MyPlaylistDBRepository
 ) : ViewModel() {
 
@@ -329,11 +331,11 @@ class ChannelViewModel @Inject constructor(
     }
 
     fun setPlaylistInfo(playlist: Playlist){
-        mediaPlaybackManager.setCurrentPlaylistInfo(playlist)
+        nowPlayingStateHolder.setCurrentPlaylistInfo(playlist)
     }
 
-    fun onMediaClicked(video: Video) {
-        mediaPlaybackManager.onMediaItemClick(video)
+    fun playSingleVideo(video: Video) {
+        mediaPlaybackManager.playSingleVideo(video)
     }
 
     private val _myPlaylists = MutableStateFlow<List<MyPlaylist>>(emptyList())
