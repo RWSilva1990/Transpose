@@ -41,7 +41,8 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindMyPlaylistDBRepository(
-        myPlaylistDBRepositoryImpl: MyPlaylistDBRepositoryImpl
+        myPlaylistDBRepositoryImpl: MyPlaylistDBRepositoryImpl,
+
     ): MyPlaylistDBRepository
 
     @Binds

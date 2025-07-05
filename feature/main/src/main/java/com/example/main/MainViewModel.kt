@@ -173,12 +173,14 @@ class MainViewModel @Inject constructor(
 
     val mediaControllerFlow: StateFlow<MediaController?> = mediaPlaybackManager.mediaControllerFlow
 
-    private val _myPlaylists = MutableStateFlow<List<MyPlaylist>>(emptyList())
-    val myPlaylists = _myPlaylists.asStateFlow()
 
-    fun getAllMyPlaylists() = viewModelScope.launch(Dispatchers.IO) {
-        _myPlaylists.value = myPlaylistDBRepository.getAllPlaylists()
-    }
+    val myPlaylists = myPlaylistDBRepository.getAllPlaylists()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
 
     fun addVideoToPlaylist(video: Video, playlistId: Long) =
         viewModelScope.launch(Dispatchers.IO) {

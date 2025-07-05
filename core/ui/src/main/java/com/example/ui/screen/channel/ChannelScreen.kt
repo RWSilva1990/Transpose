@@ -376,7 +376,6 @@ private fun DisplayTabContent(
                                 )
                             },
                             dropDownMenuClick = {
-                                channelViewModel.getAllMyPlaylists()
                                 selectedVideo = item
                                 isShowingPlaylistDialog = true
                             }

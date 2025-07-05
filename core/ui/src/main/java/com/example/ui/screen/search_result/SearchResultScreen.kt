@@ -95,7 +95,6 @@ fun SearchResultScreen(
                                     )
                                 },
                                 dropDownMenuClick = {
-                                    searchResultViewModel.getAllMyPlaylists()
                                     selectedVideo = item
                                     isShowingPlaylistDialog = true
                                 }

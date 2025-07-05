@@ -7,11 +7,13 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import com.example.data.local.database.AppDatabase
 import com.example.data.local.database.dao.PlaylistDao
 import com.example.data.local.database.dao.VideoDao
+import com.example.util.Logger
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import java.util.concurrent.Executors
 import javax.inject.Singleton
 
 @Module
@@ -24,8 +26,11 @@ object DatabaseModule {
             context,
             AppDatabase::class.java,
             "app_database"
-        ).addMigrations(MIGRATION_1_2) // 마이그레이션 등록
-         .build()
+        ).addMigrations(MIGRATION_1_2)
+            .setQueryCallback({ sqlQuery, bindArgs ->
+                Logger.d("실행된 SQL: $sqlQuery, args: $bindArgs")
+            }, Executors.newSingleThreadExecutor())
+            .build()
     }
 
     @Provides
@@ -91,7 +96,6 @@ object DatabaseModule {
             db.execSQL("CREATE INDEX IF NOT EXISTS index_videos_playlistId ON videos(playlistId)")
         }
     }
-
 
 
 }

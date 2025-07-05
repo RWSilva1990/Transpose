@@ -14,7 +14,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -23,10 +22,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.library.R
-import com.example.library.my_playlist.items.PlaylistItem
 import com.example.library.my_playlist.items.AddPlaylistItem
 import com.example.library.my_playlist.items.AudioStorageItem
+import com.example.library.my_playlist.items.PlaylistItem
 import com.example.library.my_playlist.items.VideoStorageItem
 import com.example.util.PermissionUtils
 import kotlinx.coroutines.launch
@@ -41,7 +41,7 @@ fun LibraryMyPlaylistScreen(
     navigateToLocalFileScreen: (String) -> Unit,
 ) {
 
-    val myPlaylists by libraryMyPlaylistViewModel.myPlaylists.collectAsState()
+    val myPlaylists by libraryMyPlaylistViewModel.myPlaylists.collectAsStateWithLifecycle()
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
 
