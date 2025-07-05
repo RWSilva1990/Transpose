@@ -13,6 +13,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.domain.model.youtube.playlist.PlaylistItem
 import com.example.domain.model.youtube.video.Video
 import com.example.ui.components.scrollbar.EndlessLazyColumn
@@ -45,7 +46,7 @@ fun PlaylistInfoScreen(
         mutableStateOf(null as Video?)
     }
 
-    val myPlaylists by playlistInfoViewModel.myPlaylists.collectAsState()
+    val myPlaylists by playlistInfoViewModel.myPlaylists.collectAsStateWithLifecycle()
 
     val coroutineScope = rememberCoroutineScope()
     BackHandler(
@@ -93,7 +94,6 @@ fun PlaylistInfoScreen(
 
                         },
                         dropDownMenuClick = {
-                            playlistInfoViewModel.getAllMyPlaylists()
                             selectedVideo = item.video
                             isShowingPlaylistDialog = true
                         })

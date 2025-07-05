@@ -26,12 +26,13 @@ fun NavGraphBuilder.libraryNavGraph(
         enterTransition = { EnterTransition.None },
         exitTransition = { ExitTransition.None },
         popEnterTransition = { EnterTransition.None },
-        popExitTransition = { ExitTransition.None }) {
+        popExitTransition = { ExitTransition.None },
+    ) {
         LibraryMyPlaylistScreen(
             bottomSheetState = bottomSheetState,
             libraryMyPlaylistViewModel = hiltViewModel(),
-            navigateToMyPlaylistItemScreen = { itemId ->
-                libraryNavigationHelper.navigateToMyPlaylistItem(itemId)
+            navigateToMyPlaylistItemScreen = { playlistId ->
+                libraryNavigationHelper.navigateToMyPlaylistItem(playlistId)
             },
             navigateToSearchResultScreen = { query ->
                 libraryNavigationHelper.navigateToSearchResult(query)
@@ -47,13 +48,11 @@ fun NavGraphBuilder.libraryNavGraph(
         exitTransition = { ExitTransition.None },
         popEnterTransition = { EnterTransition.None },
         popExitTransition = { ExitTransition.None },
-        arguments = listOf(navArgument("itemId") { type = NavType.LongType })
-    ) { backStackEntry ->
-        val itemId = backStackEntry.arguments?.getLong("itemId")
+        arguments = listOf(navArgument("playlistId") { type = NavType.LongType })
+    ) {
         LibraryMyPlaylistItemScreen(
             bottomSheetState = bottomSheetState,
             libraryMyPlaylistItemViewModel = hiltViewModel(),
-            itemId = itemId,
             navigateToBack = {
                 libraryNavigationHelper.navigateBack()
             }

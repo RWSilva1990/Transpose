@@ -164,7 +164,6 @@ fun ChannelSectionContent(
         Spacer(modifier = Modifier.weight(1f))
         Button(
             onClick = {
-                mainViewModel.getAllMyPlaylists()
                 video?.let(onAddButtonClicked)
             },
             colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),

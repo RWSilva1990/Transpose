@@ -14,7 +14,9 @@ import com.example.util.Logger
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -84,12 +86,13 @@ class PlaylistInfoViewModel @Inject constructor(
         }
     }
 
-    private val _myPlaylists = MutableStateFlow<List<MyPlaylist>>(emptyList())
-    val myPlaylists = _myPlaylists.asStateFlow()
+    val myPlaylists = myPlaylistDBRepository.getAllPlaylists()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
 
-    fun getAllMyPlaylists() = viewModelScope.launch(Dispatchers.IO) {
-        _myPlaylists.value = myPlaylistDBRepository.getAllPlaylists()
-    }
 
     fun addVideoToPlaylist(video: Video, playlistId: Long) =
         viewModelScope.launch(Dispatchers.IO) {

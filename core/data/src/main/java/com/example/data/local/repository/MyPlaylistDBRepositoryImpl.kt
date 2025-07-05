@@ -9,19 +9,56 @@ import com.example.domain.model.youtube.video.Video
 import com.example.domain.model.youtube.video_detail.VideoDetail
 import com.example.domain.repository.MyPlaylistDBRepository
 import com.example.util.Logger
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.stateIn
 import javax.inject.Inject
 
 class MyPlaylistDBRepositoryImpl @Inject constructor(
     private val playlistDao: PlaylistDao,
-    private val videoDao: VideoDao
+    private val videoDao: VideoDao,
 ) : MyPlaylistDBRepository {
+
+    private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    private val _myPlaylists: StateFlow<List<MyPlaylist>> =
+        playlistDao.getAllPlaylists()
+            .map { playlistEntities ->
+                MyPlaylistMapper.toMyPlaylistItems(playlistEntities)
+            }
+            .onEach { playlists ->
+                Logger.d("getAllPlaylists: ${playlists.size} playlists fetched from DB")
+            }
+            .catch { exception ->
+                Logger.e("Error fetching playlists", exception)
+                emit(emptyList())
+            }
+            .stateIn(
+                scope = repositoryScope,
+                started = SharingStarted.WhileSubscribed(5000),
+                initialValue = emptyList()
+            )
+
+    override fun getAllPlaylists(): Flow<List<MyPlaylist>> = _myPlaylists
+
+    override fun getVideosForPlaylist(playlistId: Long): Flow<List<Video>> =
+        videoDao.getVideosForPlaylist(playlistId)
+            .map {
+                MyPlaylistMapper.toVideos(it)
+            }
+            .catch {
+                emit(emptyList())
+            }
 
     override suspend fun createPlaylist(name: String) {
         playlistDao.insertPlaylist(PlaylistEntity(name = name))
-    }
-
-    override suspend fun getAllPlaylists(): List<MyPlaylist> {
-        return MyPlaylistMapper.toMyPlaylistItem(playlistDao.getAllPlaylists())
     }
 
     override suspend fun deletePlaylist(playlistId: Long) {
@@ -48,10 +85,6 @@ class MyPlaylistDBRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun getVideosForPlaylist(playlistId: Long): List<Video> {
-        return videoDao.getVideosForPlaylist(playlistId)
-            .map { MyPlaylistMapper.toVideoData(it) }
-    }
 
     override suspend fun deleteVideoFromPlaylist(playlistId: Long, video: Video) {
         try {
