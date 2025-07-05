@@ -42,6 +42,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.main.MainViewModel
 import com.example.main.R
 import com.example.ui.components.items.SearchSuggestionItem
@@ -95,9 +96,9 @@ fun CustomSearchAppBar(
     focusRequester: FocusRequester,
 ) {
 
-    val suggestionKeywords by mainViewModel.suggestionKeywords.collectAsState()
+    val searchQuery by mainViewModel.searchQuery.collectAsStateWithLifecycle()
+    val suggestionKeywords by mainViewModel.suggestionKeywords.collectAsStateWithLifecycle()
 
-    var searchQuery by remember { mutableStateOf("") }
     val context = LocalContext.current
 
     SideEffect {
@@ -109,21 +110,17 @@ fun CustomSearchAppBar(
             .fillMaxWidth()
             .focusRequester(focusRequester),
         query = searchQuery,
-        onQueryChange = {
-            searchQuery = it
-            mainViewModel.setSuggestionKeywords(it)
-        },
+        onQueryChange = mainViewModel::updateSearchQuery,
         onSearch = {
             onSearchClicked(it)
-            searchQuery = ""
-            mainViewModel.clearSuggestionKeywords()
+            mainViewModel.clearSearchQuery()
         },
         active = true,
         placeholder = { Text(text = stringResource(id = R.string.searchView_hint)) },
         leadingIcon = {
             IconButton(onClick = {
                 updateSearchBarState(SearchBarState.CLOSED)
-                mainViewModel.clearSuggestionKeywords()
+                mainViewModel.clearSearchQuery()
             }) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
             }
@@ -135,8 +132,7 @@ fun CustomSearchAppBar(
                 }
             } else {
                 IconButton(onClick = {
-                    searchQuery = ""
-                    mainViewModel.clearSuggestionKeywords()
+                    mainViewModel.clearSearchQuery()
                 }) {
                     Icon(Icons.Default.Close, contentDescription = "Clear Text")
                 }
@@ -151,7 +147,6 @@ fun CustomSearchAppBar(
         onActiveChange = { isActive ->
             if (!isActive) {
                 updateSearchBarState(SearchBarState.CLOSED)
-//                mainUiStateViewModel.onCloseSearchBar()
             }
         },
         content = {
@@ -168,13 +163,9 @@ fun CustomSearchAppBar(
 
             }
             BackHandler {
-                Logger.d("CustomSearchAppBar BackHandler")
-                searchQuery = ""
-                mainViewModel.clearSuggestionKeywords()
+                mainViewModel.clearSearchQuery()
                 updateSearchBarState(SearchBarState.CLOSED)
-//                mainUiStateViewModel.onCloseSearchBar()
             }
-
         }
     )
 }

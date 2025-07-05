@@ -32,11 +32,14 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.fold
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -78,26 +81,32 @@ class MainViewModel @Inject constructor(
             }
         }
 
-    private val _suggestionKeywords = MutableStateFlow<List<String>>(emptyList())
-    val suggestionKeywords = _suggestionKeywords.asStateFlow()
+    private val _searchQuery = MutableStateFlow("")
+    val searchQuery = _searchQuery.asStateFlow()
 
-    fun setSuggestionKeywords(query: String) = viewModelScope.launch(Dispatchers.IO) {
-        if (query.isBlank()){
-            _suggestionKeywords.value = emptyList()
-            return@launch
+    @OptIn(FlowPreview::class)
+    val suggestionKeywords = searchQuery
+        .debounce (100)
+        .distinctUntilChanged()
+        .flatMapLatest { query ->
+            if (query.isBlank()){
+                flowOf(emptyList())
+            } else {
+                suggestionKeywordRepository.getSuggestionKeywords(query)
+            }
         }
-        val result = suggestionKeywordRepository.getSuggestionKeywords(query)
-        if (result.isSuccess) {
-            Logger.d("Fetched suggestion keywords: ${result.getOrNull()}")
-            _suggestionKeywords.value = result.getOrNull() ?: emptyList()
-        } else {
-            Logger.d("Failed to fetch suggestion keywords: ${result.exceptionOrNull()}")
-            _suggestionKeywords.value = emptyList()
-        }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
+    fun updateSearchQuery(query: String) {
+        _searchQuery.value = query
     }
 
-    fun clearSuggestionKeywords() {
-        _suggestionKeywords.value = emptyList()
+    fun clearSearchQuery() {
+        _searchQuery.value = ""
     }
 
     private val _permissionGranted = MutableStateFlow(false)
