@@ -2,7 +2,6 @@ package com.example.ui.screen.playlist_info
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.domain.model.library.MyPlaylist
 import com.example.domain.model.youtube.playlist.PlaylistItem
 import com.example.domain.model.youtube.video.Video
 import com.example.domain.repository.MyPlaylistDBRepository
@@ -34,7 +33,7 @@ class PlaylistInfoViewModel @Inject constructor(
 
     val currentPlaylistInfo = nowPlayingStateHolder.currentPlaylistInfo
 
-    fun initializePlaylistPager(playlistId: String) = viewModelScope.launch(Dispatchers.IO) {
+    fun initializePlaylistPager(playlistId: String) = viewModelScope.launch {
         if (playlistItemsState.value == PaginatedState.Initial) {
             _playlistItemsState.value = PaginatedState.Loading
             try {
@@ -58,7 +57,7 @@ class PlaylistInfoViewModel @Inject constructor(
         }
     }
 
-    fun loadMorePlaylistItems() = viewModelScope.launch(Dispatchers.IO) {
+    fun loadMorePlaylistItems() = viewModelScope.launch {
         val currentState = _playlistItemsState.value
         if (currentState !is PaginatedState.Success || currentState.isLoadingMore) return@launch
         if (!currentState.hasMore) return@launch

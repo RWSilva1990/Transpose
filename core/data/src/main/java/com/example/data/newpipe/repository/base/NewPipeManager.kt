@@ -11,25 +11,28 @@ import org.schabi.newpipe.extractor.linkhandler.ListLinkHandler
 import org.schabi.newpipe.extractor.linkhandler.ListLinkHandlerFactory
 import org.schabi.newpipe.extractor.services.youtube.YoutubeService
 import org.schabi.newpipe.extractor.stream.StreamExtractor
+import javax.inject.Inject
+import javax.inject.Singleton
 
-abstract class BaseNewPipeRepository {
-    protected val youtubeService: YoutubeService = ServiceList.YouTube
+@Singleton
+class NewPipeManager @Inject constructor() {
+    val youtubeService: YoutubeService = ServiceList.YouTube
 
     init {
         NewPipe.init(NewPipeDownloader())
-
     }
-    protected fun getVideoUrl(videoId: String): String {
+
+    private fun getVideoUrl(videoId: String): String {
         return if (videoId.startsWith("https")) videoId else youtubeService.streamLHFactory.getUrl(
             videoId
         )
     }
 
-    protected fun getStreamExtractor(videoId: String): StreamExtractor {
+    fun getStreamExtractor(videoId: String): StreamExtractor {
         return youtubeService.getStreamExtractor(getVideoUrl(videoId))
     }
 
-    protected fun getChannelLinkHandler(channelId: String): ListLinkHandler {
+     fun getChannelLinkHandler(channelId: String): ListLinkHandler {
         val factory: ListLinkHandlerFactory = youtubeService.channelLHFactory
         return try {
             factory.fromUrl(channelId)
@@ -45,7 +48,7 @@ abstract class BaseNewPipeRepository {
         }
     }
 
-    protected fun getVideoId(url: String): String {
+     fun getVideoId(url: String): String {
         return try {
             youtubeService.streamLHFactory.getId(url)
         } catch (e: ParsingException) {
@@ -53,7 +56,7 @@ abstract class BaseNewPipeRepository {
         }
     }
 
-    protected fun getPlaylistId(url: String): String {
+     fun getPlaylistId(url: String): String {
         return try {
             youtubeService.playlistLHFactory.getId(url)
         } catch (e: ParsingException) {
@@ -61,7 +64,7 @@ abstract class BaseNewPipeRepository {
         }
     }
 
-    protected fun getChannelId(url: String): String {
+     fun getChannelId(url: String): String {
         return try {
             youtubeService.channelLHFactory.getId(url).replace("channel/", "")
         } catch (e: ParsingException) {
@@ -69,15 +72,15 @@ abstract class BaseNewPipeRepository {
         }
     }
 
-    protected fun getChannelExtractor(linkHandler: ListLinkHandler): ChannelExtractor {
+     fun getChannelExtractor(linkHandler: ListLinkHandler): ChannelExtractor {
         return youtubeService.getChannelExtractor(linkHandler)
     }
 
-    protected fun getChannelTabExtractor(linkHandler: ListLinkHandler): ChannelTabExtractor {
+     fun getChannelTabExtractor(linkHandler: ListLinkHandler): ChannelTabExtractor {
         return youtubeService.getChannelTabExtractor(linkHandler)
     }
 
-    protected fun getPlaylistHandler(playlistId: String): ListLinkHandler {
+     fun getPlaylistHandler(playlistId: String): ListLinkHandler {
         val factory: ListLinkHandlerFactory = youtubeService.playlistLHFactory
         return try {
             factory.fromUrl(playlistId)
@@ -86,7 +89,7 @@ abstract class BaseNewPipeRepository {
         }
     }
 
-    protected fun determineTabContentType(contentFilters: List<String>): String {
+     fun determineTabContentType(contentFilters: List<String>): String {
         return when {
             contentFilters.contains("videos") -> "videos"
             contentFilters.contains("shorts") -> "shorts"
