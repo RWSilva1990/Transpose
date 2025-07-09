@@ -1,5 +1,6 @@
 package com.example.data.local.repository
 
+import com.example.data.di.IoDispatcher
 import com.example.data.local.database.dao.PlaylistDao
 import com.example.data.local.database.dao.VideoDao
 import com.example.data.local.database.entity.PlaylistEntity
@@ -9,8 +10,8 @@ import com.example.domain.model.youtube.video.Video
 import com.example.domain.model.youtube.video_detail.VideoDetail
 import com.example.domain.repository.MyPlaylistDBRepository
 import com.example.util.Logger
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
@@ -19,14 +20,16 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 class MyPlaylistDBRepositoryImpl @Inject constructor(
     private val playlistDao: PlaylistDao,
     private val videoDao: VideoDao,
+    @IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) : MyPlaylistDBRepository {
 
-    private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val repositoryScope = CoroutineScope(SupervisorJob() + ioDispatcher)
 
     private val _myPlaylists: StateFlow<List<MyPlaylist>> =
         playlistDao.getAllPlaylists()
@@ -70,30 +73,35 @@ class MyPlaylistDBRepositoryImpl @Inject constructor(
     }
 
     override suspend fun addVideoToPlaylist(video: Video, playlistId: Long) {
-        try {
-            videoDao.insertVideo(MyPlaylistMapper.toVideoEntity(video, playlistId))
-        } catch (e: Exception) {
-            Logger.d("addVideoToPlaylist failed: ${e.message}")
+        repositoryScope.launch {
+            try {
+                videoDao.insertVideo(MyPlaylistMapper.toVideoEntity(video, playlistId))
+            } catch (e: Exception) {
+                Logger.d("addVideoToPlaylist failed: ${e.message}")
+            }
         }
     }
 
     override suspend fun addVideoToPlaylist(video: VideoDetail, playlistId: Long) {
-        try {
-            videoDao.insertVideo(MyPlaylistMapper.toVideoEntity(video, playlistId))
-        } catch (e: Exception) {
-            Logger.d("addVideoToPlaylist failed: ${e.message}")
+        repositoryScope.launch {
+            try {
+                videoDao.insertVideo(MyPlaylistMapper.toVideoEntity(video, playlistId))
+            } catch (e: Exception) {
+                Logger.d("addVideoToPlaylist failed: ${e.message}")
+            }
         }
     }
 
 
     override suspend fun deleteVideoFromPlaylist(playlistId: Long, video: Video) {
-        try {
-            playlistDao.deleteVideoFromPlaylist(playlistId, video.id)
-        } catch (e: Exception) {
-            Logger.d("deleteVideoFromPlaylist failed: ${e.message}")
+        repositoryScope.launch {
+            try {
+                playlistDao.deleteVideoFromPlaylist(playlistId, video.id)
+            } catch (e: Exception) {
+                Logger.d("deleteVideoFromPlaylist failed: ${e.message}")
+            }
         }
     }
-
 
 }
 

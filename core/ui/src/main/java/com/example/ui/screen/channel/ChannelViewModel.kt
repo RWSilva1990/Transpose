@@ -2,7 +2,6 @@ package com.example.ui.screen.channel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.domain.model.library.MyPlaylist
 import com.example.domain.model.youtube.channel.ChannelDetail
 import com.example.domain.model.youtube.channel.ChannelTabResult
 import com.example.domain.model.youtube.playlist.Playlist
@@ -49,7 +48,7 @@ class ChannelViewModel @Inject constructor(
     val isChannelDetailDataLoading = _isChannelDetailDataLoading.asStateFlow()
 
 
-    fun loadChannelDetail(channelId: String) = viewModelScope.launch(Dispatchers.IO) {
+    fun loadChannelDetail(channelId: String) = viewModelScope.launch {
         if (_channelDetail.value != null) {
             return@launch
         }
@@ -68,7 +67,7 @@ class ChannelViewModel @Inject constructor(
         }
     }
 
-    fun onTabChanged(channelId: String, contentType: String?) = viewModelScope.launch(Dispatchers.IO) {
+    fun onTabChanged(channelId: String, contentType: String?) = viewModelScope.launch {
         if (contentType == null) return@launch
 
         Logger.d("탭 전환: $contentType")
@@ -90,6 +89,7 @@ class ChannelViewModel @Inject constructor(
                     Logger.d("Videos 탭의 hasMore 상태가 $hasMore 로 업데이트되었습니다.")
                 }
             }
+
             SHORTS -> {
                 val currentState = _channelTabShortsState.value
                 if (currentState is PaginatedState.Success) {
@@ -97,6 +97,7 @@ class ChannelViewModel @Inject constructor(
                     Logger.d("Shorts 탭의 hasMore 상태가 $hasMore 로 업데이트되었습니다.")
                 }
             }
+
             PLAYLISTS -> {
                 val currentState = _channelTabPlaylistsState.value
                 if (currentState is PaginatedState.Success) {
@@ -108,7 +109,7 @@ class ChannelViewModel @Inject constructor(
     }
 
     fun loadTabContent(channelId: String, contentType: String?) =
-        viewModelScope.launch(Dispatchers.IO) {
+        viewModelScope.launch {
             if (contentType == null) {
                 Logger.d("loadTabContent - contentType이 null입니다")
                 return@launch
@@ -176,7 +177,7 @@ class ChannelViewModel @Inject constructor(
             }
         }
 
-    fun loadMoreContent(channelId: String, contentType: String?) = viewModelScope.launch(Dispatchers.IO) {
+    fun loadMoreContent(channelId: String, contentType: String?) = viewModelScope.launch {
         if (contentType == null) {
             Logger.d("loadMoreContent - contentType이 null입니다")
             return@launch
@@ -332,7 +333,7 @@ class ChannelViewModel @Inject constructor(
         }
     }
 
-    fun setPlaylistInfo(playlist: Playlist){
+    fun setPlaylistInfo(playlist: Playlist) {
         nowPlayingStateHolder.setCurrentPlaylistInfo(playlist)
     }
 

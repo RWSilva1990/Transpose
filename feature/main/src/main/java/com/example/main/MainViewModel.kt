@@ -1,16 +1,12 @@
 package com.example.main
 
 import android.content.Context
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.SheetState
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.session.MediaController
-import com.example.domain.model.library.MyPlaylist
 import com.example.domain.model.preferences.RepeatMode
 import com.example.domain.model.youtube.video.Video
-import com.example.domain.model.youtube.video_detail.VideoDetail
 import com.example.domain.repository.ChannelRepository
 import com.example.domain.repository.MyPlaylistDBRepository
 import com.example.domain.repository.PlaybackPreferencesRepository
@@ -24,22 +20,17 @@ import com.example.util.Logger
 import com.example.util.PermissionUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.flow.fold
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -61,11 +52,12 @@ class MainViewModel @Inject constructor(
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
-    private val _videoDetailUiState = MutableStateFlow<VideoDetailUiState>(VideoDetailUiState.Loading)
+    private val _videoDetailUiState =
+        MutableStateFlow<VideoDetailUiState>(VideoDetailUiState.Loading)
     val videoDetailUiState = _videoDetailUiState.asStateFlow()
 
     private fun fetchCurrentVideoDetailData(videoId: String) =
-        viewModelScope.launch(Dispatchers.IO) {
+        viewModelScope.launch {
             _videoDetailUiState.value = VideoDetailUiState.Loading
             val result = videoRepository.fetchVideoDetail(videoId)
             if (result.isSuccess) {
@@ -86,10 +78,10 @@ class MainViewModel @Inject constructor(
 
     @OptIn(FlowPreview::class)
     val suggestionKeywords = searchQuery
-        .debounce (100)
+        .debounce(100)
         .distinctUntilChanged()
         .flatMapLatest { query ->
-            if (query.isBlank()){
+            if (query.isBlank()) {
                 flowOf(emptyList())
             } else {
                 suggestionKeywordRepository.getSuggestionKeywords(query)
@@ -183,7 +175,7 @@ class MainViewModel @Inject constructor(
 
 
     fun addVideoToPlaylist(video: Video, playlistId: Long) =
-        viewModelScope.launch(Dispatchers.IO) {
+        viewModelScope.launch {
             myPlaylistDBRepository.addVideoToPlaylist(video, playlistId)
         }
 
@@ -199,7 +191,7 @@ class MainViewModel @Inject constructor(
     fun playPlaylist(
         playlist: List<Video>,
         startIndex: Int,
-    ){
+    ) {
         mediaPlaybackManager.playPlaylist(
             playlistItems = playlist,
             startIndex = startIndex
@@ -245,7 +237,7 @@ class MainViewModel @Inject constructor(
         }
     }
 
-    fun fetchChannelInfo(channelId: String) = viewModelScope.launch(Dispatchers.IO) {
+    fun fetchChannelInfo(channelId: String) = viewModelScope.launch {
         val result = channelRepository.fetchChannelDetail(channelId)
         if (result.isSuccess) {
             Logger.d("mainViewModel fetchChannelInfo success ${result.getOrNull()}")
@@ -253,8 +245,6 @@ class MainViewModel @Inject constructor(
             Logger.e("mainViewModel fetchChannelInfo fail ${result.exceptionOrNull()}")
         }
     }
-
-
 
 
     fun toggleRepeatMode() {
@@ -299,9 +289,6 @@ class MainViewModel @Inject constructor(
             mediaPlaybackManager.setShuffleMode(currentShuffleMode)
         }
     }
-
-
-
 
 
 }

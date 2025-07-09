@@ -5,11 +5,9 @@ import androidx.lifecycle.viewModelScope
 import com.example.domain.constants.MusicCategoryConstants
 import com.example.domain.model.youtube.playlist.Playlist
 import com.example.domain.repository.PlaylistRepository
-import com.example.media.manager.MediaPlaybackManager
 import com.example.media.state_holder.NowPlayingStateHolder
 import com.example.ui.common.UiState
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -47,7 +45,7 @@ class HomePlaylistViewModel @Inject constructor(
     }
 
 
-    private fun fetchNationalPlaylists() = viewModelScope.launch(Dispatchers.IO) {
+    private fun fetchNationalPlaylists() = viewModelScope.launch {
         _nationalPlaylistDataState.value = UiState.Loading
         val currentList = mutableListOf<Playlist>()
         var hasError = false
@@ -77,7 +75,7 @@ class HomePlaylistViewModel @Inject constructor(
         }
     }
 
-    private fun fetchRecommendedPlaylists() = viewModelScope.launch(Dispatchers.IO) {
+    private fun fetchRecommendedPlaylists() = viewModelScope.launch {
         _recommendedPlaylistDataState.value = UiState.Loading
 
         val recommendedId = MusicCategoryConstants().recommendPlaylistChannelId
@@ -98,7 +96,7 @@ class HomePlaylistViewModel @Inject constructor(
         }
     }
 
-    private fun fetchTypedPlaylists() = viewModelScope.launch(Dispatchers.IO) {
+    private fun fetchTypedPlaylists() = viewModelScope.launch {
         _typedPlaylistDataState.value = UiState.Loading
 
         val typedPlaylistId = MusicCategoryConstants().typedPlaylistChannelId
