@@ -1,29 +1,27 @@
 package com.example.main
 
 import android.content.Context
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.SheetState
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.session.MediaController
-import com.example.domain.model.library.MyPlaylist
 import com.example.domain.model.preferences.RepeatMode
 import com.example.domain.model.youtube.video.Video
-import com.example.domain.model.youtube.video_detail.VideoDetail
 import com.example.domain.repository.ChannelRepository
 import com.example.domain.repository.MyPlaylistDBRepository
 import com.example.domain.repository.PlaybackPreferencesRepository
 import com.example.domain.repository.SuggestionKeywordRepository
+import com.example.domain.repository.UpdateInfo
+import com.example.domain.repository.UpdateRepository
 import com.example.domain.repository.VideoRepository
+import com.example.main.components.bottomsheet.state.VideoDetailUiState
 import com.example.media.manager.AudioEffectsManager
 import com.example.media.manager.MediaPlaybackManager
+import com.example.media.state_holder.NowPlayingStateHolder
 import com.example.util.Logger
 import com.example.util.PermissionUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -51,40 +49,80 @@ class MainViewModel @Inject constructor(
     private val videoRepository: VideoRepository,
     private val myPlaylistDBRepository: MyPlaylistDBRepository,
     private val channelRepository: ChannelRepository,
+    private val nowPlayingStateHolder: NowPlayingStateHolder,
     private val playbackPreferencesRepository: PlaybackPreferencesRepository,
+    private val updateRepository: UpdateRepository,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
-    val searchQuery: StateFlow<String> = savedStateHandle.getStateFlow(SEARCH_QUERY, "")
+    private val _updateDialogState = MutableStateFlow<UpdateDialogState>(UpdateDialogState.Hidden)
+    val updateDialogState: StateFlow<UpdateDialogState> = _updateDialogState.asStateFlow()
+
+    private val _videoDetailUiState =
+        MutableStateFlow<VideoDetailUiState>(VideoDetailUiState.Loading)
+    val videoDetailUiState = _videoDetailUiState.asStateFlow()
+
+    private fun fetchCurrentVideoDetailData(videoId: String) =
+        viewModelScope.launch {
+            _videoDetailUiState.value = VideoDetailUiState.Loading
+            val result = videoRepository.fetchVideoDetail(videoId)
+            if (result.isSuccess) {
+                _videoDetailUiState.value = VideoDetailUiState.Success(result.getOrNull())
+                mediaPlaybackManager.updateMediaItemWithFullInfo(
+                    itemId = videoId,
+                    videoDetail = result.getOrNull()
+                )
+            } else {
+                _videoDetailUiState.value = VideoDetailUiState.Error(
+                    message = result.exceptionOrNull()?.message ?: "Unknown error"
+                )
+            }
+        }
+
+    private val _searchQuery = MutableStateFlow("")
+    val searchQuery = _searchQuery.asStateFlow()
 
     @OptIn(FlowPreview::class)
     val suggestionKeywords = searchQuery
-        .debounce(50L)
+        .debounce(100)
+        .distinctUntilChanged()
         .flatMapLatest { query ->
-            if (query.isEmpty()) {
-                flowOf(emptyList<String>())
+            if (query.isBlank()) {
+                flowOf(emptyList())
             } else {
-                flowOf(suggestionKeywordRepository.getSuggestionKeywords(query)
-                    .getOrNull() ?: emptyList())
+                suggestionKeywordRepository.getSuggestionKeywords(query)
             }
-    }.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
-        initialValue = emptyList()
-    )
+        }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
+    fun updateSearchQuery(query: String) {
+        _searchQuery.value = query
+    }
+
+    fun clearSearchQuery() {
+        _searchQuery.value = ""
+    }
 
     private val _permissionGranted = MutableStateFlow(false)
     val permissionGranted: StateFlow<Boolean> = _permissionGranted.asStateFlow()
 
+    val isPlaying = nowPlayingStateHolder.isPlaying
+    val currentVideo = nowPlayingStateHolder.currentVideo
+    val currentPlaylist = nowPlayingStateHolder.currentPlaylist
+    val currentPlaylistIndex = nowPlayingStateHolder.currentPlaylistIndex
+    val currentPlaylistInfo = nowPlayingStateHolder.currentPlaylistInfo
 
     val repeatMode: StateFlow<RepeatMode> = playbackPreferencesRepository.repeatMode
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
-            initialValue = RepeatMode.NONE
+            initialValue = RepeatMode.OFF
         )
 
-    // 셔플 모드 상태
     val shuffleMode: StateFlow<Boolean> = playbackPreferencesRepository.shuffleMode
         .stateIn(
             scope = viewModelScope,
@@ -94,27 +132,48 @@ class MainViewModel @Inject constructor(
 
     init {
         checkPermissions()
-
+        checkForUpdate()
         viewModelScope.launch {
-            mediaPlaybackManager.currentVideoData
+            nowPlayingStateHolder.currentVideo
                 .distinctUntilChanged { old, new -> old?.id == new?.id }
-                .collectLatest { videoData ->
-                    videoData?.let {
+                .collectLatest { currentVideo ->
+                    currentVideo?.let {
                         fetchCurrentVideoDetailData(it.id)
                     }
                 }
         }
 
         viewModelScope.launch {
-            repeatMode?.collect { mode ->
+            repeatMode.collect { mode ->
                 mediaPlaybackManager.setRepeatMode(mode)
             }
         }
 
         viewModelScope.launch {
-            shuffleMode?.collect { enabled ->
+            shuffleMode.collect { enabled ->
                 mediaPlaybackManager.setShuffleMode(enabled)
             }
+        }
+    }
+
+    private fun checkForUpdate() {
+        viewModelScope.launch {
+            updateRepository.checkForUpdate()?.let { updateInfo ->
+                Logger.d("Update available: ${updateInfo.latestVersion}")
+                if (updateInfo.isUpdateAvailable) {
+                    _updateDialogState.value = UpdateDialogState.Visible(updateInfo)
+                }
+            }
+        }
+    }
+
+    fun dismissUpdateDialog() {
+        _updateDialogState.value = UpdateDialogState.Hidden
+    }
+
+    fun onUpdateClicked() {
+        (_updateDialogState.value as? UpdateDialogState.Visible)?.let { state ->
+            _updateDialogState.value = UpdateDialogState.Hidden
         }
     }
 
@@ -132,36 +191,18 @@ class MainViewModel @Inject constructor(
     }
 
     val mediaControllerFlow: StateFlow<MediaController?> = mediaPlaybackManager.mediaControllerFlow
-    val isPlaying = mediaPlaybackManager.isPlaying
-    val currentVideoData = mediaPlaybackManager.currentVideoData
-    val currentPlaylistInfo = mediaPlaybackManager.currentPlaylistInfo
-    val currentPlaylistItems = mediaPlaybackManager.currentPlaylist
-    val currentPlaylistIndex = mediaPlaybackManager.currentPlaylistIndex
 
-    private val _currentVideoDetail = MutableStateFlow<VideoDetail?>(null)
-    val currentVideoDetailData = _currentVideoDetail.asStateFlow()
 
-    private fun fetchCurrentVideoDetailData(videoId: String) =
-        viewModelScope.launch(Dispatchers.IO) {
-            _currentVideoDetail.value = null
-            val result = videoRepository.fetchVideoDetail(videoId)
-            if (result.isSuccess) {
-                _currentVideoDetail.value = result.getOrNull()
-                mediaPlaybackManager.updateMediaItemWithFullInfo(videoId, result.getOrNull())
-            } else {
-                Logger.d("mainViewModel fetchCurrentVideoDetailData fail ${result.exceptionOrNull()}")
-            }
-        }
+    val myPlaylists = myPlaylistDBRepository.getAllPlaylists()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
 
-    private val _myPlaylists = MutableStateFlow<List<MyPlaylist>>(emptyList())
-    val myPlaylists = _myPlaylists.asStateFlow()
-
-    fun getAllMyPlaylists() = viewModelScope.launch(Dispatchers.IO) {
-        _myPlaylists.value = myPlaylistDBRepository.getAllPlaylists()
-    }
 
     fun addVideoToPlaylist(video: Video, playlistId: Long) =
-        viewModelScope.launch(Dispatchers.IO) {
+        viewModelScope.launch {
             myPlaylistDBRepository.addVideoToPlaylist(video, playlistId)
         }
 
@@ -174,12 +215,20 @@ class MainViewModel @Inject constructor(
         mediaPlaybackManager.clearCurrentPlayback()
     }
 
-    fun onMediaItemClick(
-        clickedItem: Video,
-        playlistItems: List<Video>? = null,
-        clickedIndex: Int = 0
+    fun playPlaylist(
+        playlist: List<Video>,
+        startIndex: Int,
     ) {
-        mediaPlaybackManager.onMediaItemClick(clickedItem, playlistItems, clickedIndex)
+        mediaPlaybackManager.playPlaylist(
+            playlistItems = playlist,
+            startIndex = startIndex
+        )
+    }
+
+    fun playVideo(
+        video: Video,
+    ) {
+        mediaPlaybackManager.playSingleVideo(video)
     }
 
     val pitchValue = audioEffectsManager.pitchValue
@@ -215,7 +264,7 @@ class MainViewModel @Inject constructor(
         }
     }
 
-    fun fetchChannelInfo(channelId: String) = viewModelScope.launch(Dispatchers.IO) {
+    fun fetchChannelInfo(channelId: String) = viewModelScope.launch {
         val result = channelRepository.fetchChannelDetail(channelId)
         if (result.isSuccess) {
             Logger.d("mainViewModel fetchChannelInfo success ${result.getOrNull()}")
@@ -225,15 +274,13 @@ class MainViewModel @Inject constructor(
     }
 
 
-
-
     fun toggleRepeatMode() {
         viewModelScope.launch {
             val currentMode = repeatMode.value
             val newMode = when (currentMode) {
-                RepeatMode.NONE -> RepeatMode.ALL
-                RepeatMode.ALL -> RepeatMode.ONE
-                RepeatMode.ONE -> RepeatMode.NONE
+                RepeatMode.OFF -> RepeatMode.ONE
+                RepeatMode.ONE -> RepeatMode.ALL
+                RepeatMode.ALL -> RepeatMode.OFF
             }
 
             // 저장소 업데이트
@@ -244,7 +291,7 @@ class MainViewModel @Inject constructor(
         }
     }
 
-    // 셔플 모드 전환 메서드
+
     fun toggleShuffleMode() {
         viewModelScope.launch {
             val currentMode = shuffleMode.value
@@ -258,7 +305,6 @@ class MainViewModel @Inject constructor(
         }
     }
 
-    // 앱 시작 시 저장된 재생 설정 적용 (init 블록에 추가 또는 별도 호출)
     fun applyPlaybackSettings() {
         viewModelScope.launch {
             // 반복 모드 및 셔플 모드 값 가져오기 위한 코드
@@ -271,47 +317,10 @@ class MainViewModel @Inject constructor(
         }
     }
 
-
-    @OptIn(ExperimentalMaterial3Api::class)
-    fun autoPlayIfBenchmark(bottomSheetState: SheetState, coroutineScope: CoroutineScope) {
-        // instrumentation 환경에서만 동작
-        val args = try {
-            androidx.test.platform.app.InstrumentationRegistry.getArguments()
-        } catch (e: Exception) { null }
-        val autoPlay = args?.getString("autoPlay")?.toBoolean() ?: true
-        if (autoPlay) {
-            // 1. Video 정보 세팅
-            val video = Video(
-                id = "jWQx2f-CErU",
-                title = "aespa 에스파 'Whiplash' MV",
-                thumbnailUrl = "https://i.ytimg.com/vi/jWQx2f-CErU/maxresdefault.jpg",
-                description = "",
-                publishTimestamp = 1731826800000,
-                infoType = null,          // 실제 enum/상수에 맞게 지정
-                uploaderName = "SMTOWN",
-                uploaderUrl = "channel/UCEf_Bc-KVd7onSeifS3py9g",
-                uploaderAvatarUrl = null,             // 프로필 이미지 url이 있다면 문자열로
-                uploaderVerified = false,             // 인증 여부
-                duration = 191,                       // 영상 길이(초)
-                viewCount = 176_000_000,              // 조회수
-                textualUploadDate = "6 months ago",   // 텍스트로 표기
-                streamType = null, // enum 값에 맞게
-                shortFormContent = false              // 쇼츠/짧은영상 여부
-            )
-
-            val playlist = listOf(video) // 또는 원하는 Playlist
-            val clickedIndex = 0
-
-            // 2. 동영상 재생 함수 호출
-            mediaPlaybackManager.onMediaItemClick(video, playlist, clickedIndex)
-
-            // 3. BottomSheet 바로 expand
-            coroutineScope.launch {
-                bottomSheetState.expand()
-            }
-        }
+    sealed interface UpdateDialogState {
+        data object Hidden : UpdateDialogState
+        data class Visible(val updateInfo: UpdateInfo) : UpdateDialogState
     }
-
 
 
 }

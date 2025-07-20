@@ -3,20 +3,29 @@ package com.example.data.repository
 import android.content.Context
 import android.net.Uri
 import android.provider.MediaStore
+import com.example.data.di.IoDispatcher
 import com.example.domain.repository.LocalFileRepository
 import com.example.domain.model.local_file.LocalFileData
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 class LocalFileRepositoryImpl @Inject constructor(
-    @ApplicationContext private val context: Context
+    @ApplicationContext private val context: Context,
+    @IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ): LocalFileRepository {
-    override fun getAudioFiles(): Result<List<LocalFileData>> {
-        return queryMediaStore(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, true)
+
+    override suspend fun getAudioFiles(): Result<List<LocalFileData>> {
+        return withContext(ioDispatcher){
+            queryMediaStore(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, true)
+        }
     }
 
-    override fun getVideoFiles(): Result<List<LocalFileData>> {
-        return queryMediaStore(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, false)
+    override suspend fun getVideoFiles(): Result<List<LocalFileData>> {
+        return withContext(ioDispatcher){
+            queryMediaStore(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, false)
+        }
     }
 
 

@@ -4,8 +4,8 @@ sealed class LibraryRoutes(val route: String) {
 
     data object MyPlaylist : LibraryRoutes("library_my_playlist")
 
-    data object MyPlaylistItem : LibraryRoutes("library_my_playlist_item/{itemId}") {
-        fun createRoute(itemId: Long) = "library_my_playlist_item/$itemId"
+    data object MyPlaylistItem : LibraryRoutes("library_my_playlist_item/{playlistId}") {
+        fun createRoute(playlistId: Long) = "library_my_playlist_item/$playlistId"
     }
     data object SearchResult : LibraryRoutes("library_search_result/{query}") {
         fun createRoute(query: String) = "library_search_result/$query"

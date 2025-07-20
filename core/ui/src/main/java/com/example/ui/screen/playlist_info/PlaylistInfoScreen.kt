@@ -13,6 +13,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.domain.model.youtube.playlist.PlaylistItem
 import com.example.domain.model.youtube.video.Video
 import com.example.ui.components.scrollbar.EndlessLazyColumn
@@ -33,8 +34,10 @@ fun PlaylistInfoScreen(
     playlistInfoViewModel: PlaylistInfoViewModel,
     playlistId: String?,
 ) {
+
     val playlistInfo by playlistInfoViewModel.currentPlaylistInfo.collectAsState()
     val playlistItemsState by playlistInfoViewModel.playlistItemsState.collectAsState()
+
     val context = LocalContext.current
     var isShowingPlaylistDialog by remember {
         mutableStateOf(false)
@@ -43,7 +46,7 @@ fun PlaylistInfoScreen(
         mutableStateOf(null as Video?)
     }
 
-    val myPlaylists by playlistInfoViewModel.myPlaylists.collectAsState()
+    val myPlaylists by playlistInfoViewModel.myPlaylists.collectAsStateWithLifecycle()
 
     val coroutineScope = rememberCoroutineScope()
     BackHandler(
@@ -79,8 +82,7 @@ fun PlaylistInfoScreen(
                     CommonVideoItem(item = item.video,
                         onClick = {
                             Logger.d("onClick ${item}")
-                            playlistInfoViewModel.onMediaClicked(
-                                item = item.video,
+                            playlistInfoViewModel.playPlaylist(
                                 playlistItems = state.items.map {
                                     it.video
                                 },
@@ -92,7 +94,6 @@ fun PlaylistInfoScreen(
 
                         },
                         dropDownMenuClick = {
-                            playlistInfoViewModel.getAllMyPlaylists()
                             selectedVideo = item.video
                             isShowingPlaylistDialog = true
                         })

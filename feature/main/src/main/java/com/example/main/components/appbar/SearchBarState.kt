@@ -1,6 +1,6 @@
 package com.example.main.components.appbar
 
-enum class SearchWidgetState {
+enum class SearchBarState {
     OPENED,
     CLOSED
 }

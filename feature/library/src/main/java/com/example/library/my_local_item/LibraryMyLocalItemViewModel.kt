@@ -33,7 +33,7 @@ class LibraryMyLocalItemViewModel @Inject constructor(
 
     private val _pendingDeleteFile = MutableStateFlow<LocalFileData?>(null)
 
-    fun loadAudioFiles() = viewModelScope.launch(Dispatchers.IO) {
+    fun loadAudioFiles() = viewModelScope.launch {
         localFileRepository.getAudioFiles()
             .onSuccess { files ->
                 _audioFiles.value = files
@@ -43,7 +43,7 @@ class LibraryMyLocalItemViewModel @Inject constructor(
             }
     }
 
-    fun loadVideoFiles() = viewModelScope.launch(Dispatchers.IO) {
+    fun loadVideoFiles() = viewModelScope.launch {
         localFileRepository.getVideoFiles()
             .onSuccess { files ->
                 _videoFiles.value = files

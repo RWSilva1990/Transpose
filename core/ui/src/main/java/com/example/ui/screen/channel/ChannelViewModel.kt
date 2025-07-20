@@ -2,7 +2,6 @@ package com.example.ui.screen.channel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.domain.model.library.MyPlaylist
 import com.example.domain.model.youtube.channel.ChannelDetail
 import com.example.domain.model.youtube.channel.ChannelTabResult
 import com.example.domain.model.youtube.playlist.Playlist
@@ -10,12 +9,15 @@ import com.example.domain.model.youtube.video.Video
 import com.example.domain.repository.ChannelRepository
 import com.example.domain.repository.MyPlaylistDBRepository
 import com.example.media.manager.MediaPlaybackManager
+import com.example.media.state_holder.NowPlayingStateHolder
 import com.example.ui.common.PaginatedState
 import com.example.util.Logger
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -23,6 +25,7 @@ import javax.inject.Inject
 class ChannelViewModel @Inject constructor(
     private val channelRepository: ChannelRepository,
     private val mediaPlaybackManager: MediaPlaybackManager,
+    private val nowPlayingStateHolder: NowPlayingStateHolder,
     private val myPlaylistDBRepository: MyPlaylistDBRepository
 ) : ViewModel() {
 
@@ -45,7 +48,7 @@ class ChannelViewModel @Inject constructor(
     val isChannelDetailDataLoading = _isChannelDetailDataLoading.asStateFlow()
 
 
-    fun loadChannelDetail(channelId: String) = viewModelScope.launch(Dispatchers.IO) {
+    fun loadChannelDetail(channelId: String) = viewModelScope.launch {
         if (_channelDetail.value != null) {
             return@launch
         }
@@ -64,7 +67,7 @@ class ChannelViewModel @Inject constructor(
         }
     }
 
-    fun onTabChanged(channelId: String, contentType: String?) = viewModelScope.launch(Dispatchers.IO) {
+    fun onTabChanged(channelId: String, contentType: String?) = viewModelScope.launch {
         if (contentType == null) return@launch
 
         Logger.d("탭 전환: $contentType")
@@ -86,6 +89,7 @@ class ChannelViewModel @Inject constructor(
                     Logger.d("Videos 탭의 hasMore 상태가 $hasMore 로 업데이트되었습니다.")
                 }
             }
+
             SHORTS -> {
                 val currentState = _channelTabShortsState.value
                 if (currentState is PaginatedState.Success) {
@@ -93,6 +97,7 @@ class ChannelViewModel @Inject constructor(
                     Logger.d("Shorts 탭의 hasMore 상태가 $hasMore 로 업데이트되었습니다.")
                 }
             }
+
             PLAYLISTS -> {
                 val currentState = _channelTabPlaylistsState.value
                 if (currentState is PaginatedState.Success) {
@@ -104,7 +109,7 @@ class ChannelViewModel @Inject constructor(
     }
 
     fun loadTabContent(channelId: String, contentType: String?) =
-        viewModelScope.launch(Dispatchers.IO) {
+        viewModelScope.launch {
             if (contentType == null) {
                 Logger.d("loadTabContent - contentType이 null입니다")
                 return@launch
@@ -172,7 +177,7 @@ class ChannelViewModel @Inject constructor(
             }
         }
 
-    fun loadMoreContent(channelId: String, contentType: String?) = viewModelScope.launch(Dispatchers.IO) {
+    fun loadMoreContent(channelId: String, contentType: String?) = viewModelScope.launch {
         if (contentType == null) {
             Logger.d("loadMoreContent - contentType이 null입니다")
             return@launch
@@ -328,20 +333,20 @@ class ChannelViewModel @Inject constructor(
         }
     }
 
-    fun setPlaylistInfo(playlist: Playlist){
-        mediaPlaybackManager.setCurrentPlaylistInfo(playlist)
+    fun setPlaylistInfo(playlist: Playlist) {
+        nowPlayingStateHolder.setCurrentPlaylistInfo(playlist)
     }
 
-    fun onMediaClicked(video: Video) {
-        mediaPlaybackManager.onMediaItemClick(video)
+    fun playSingleVideo(video: Video) {
+        mediaPlaybackManager.playSingleVideo(video)
     }
 
-    private val _myPlaylists = MutableStateFlow<List<MyPlaylist>>(emptyList())
-    val myPlaylists = _myPlaylists.asStateFlow()
-
-    fun getAllMyPlaylists() = viewModelScope.launch(Dispatchers.IO) {
-        _myPlaylists.value = myPlaylistDBRepository.getAllPlaylists()
-    }
+    val myPlaylists = myPlaylistDBRepository.getAllPlaylists()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
 
     fun addVideoToPlaylist(video: Video, playlistId: Long) =
         viewModelScope.launch(Dispatchers.IO) {

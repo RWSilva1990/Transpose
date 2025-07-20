@@ -371,12 +371,11 @@ private fun DisplayTabContent(
                                 coroutineScope.launch {
                                     bottomSheetState.expand()
                                 }
-                                channelViewModel.onMediaClicked(
+                                channelViewModel.playSingleVideo(
                                     item.video
                                 )
                             },
                             dropDownMenuClick = {
-                                channelViewModel.getAllMyPlaylists()
                                 selectedVideo = item
                                 isShowingPlaylistDialog = true
                             }
@@ -399,7 +398,7 @@ private fun DisplayTabContent(
                                 coroutineScope.launch {
                                     bottomSheetState.expand()
                                 }
-                                channelViewModel.onMediaClicked(
+                                channelViewModel.playSingleVideo(
                                     item.video
                                 )
                             })

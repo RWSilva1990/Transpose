@@ -6,6 +6,7 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import com.example.data.local.database.entity.VideoEntity
+import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface VideoDao {
@@ -13,7 +14,7 @@ interface VideoDao {
     suspend fun insertVideo(video: VideoEntity)
 
     @Query("SELECT * FROM videos WHERE playlistId = :playlistId")
-    suspend fun getVideosForPlaylist(playlistId: Long): List<VideoEntity>
+    fun getVideosForPlaylist(playlistId: Long): Flow<List<VideoEntity>>
 
     @Query("DELETE FROM videos WHERE id = :videoId")
     suspend fun deleteVideoById(videoId: String)

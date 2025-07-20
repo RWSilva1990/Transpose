@@ -5,14 +5,15 @@ import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.Query
 import com.example.data.local.database.entity.PlaylistEntity
+import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface PlaylistDao {
     @Insert
-    suspend fun insertPlaylist(playlist: PlaylistEntity): Long
+    suspend fun insertPlaylist(playlist: PlaylistEntity)
 
     @Query("SELECT * FROM playlists")
-    suspend fun getAllPlaylists(): List<PlaylistEntity>
+    fun getAllPlaylists(): Flow<List<PlaylistEntity>>
 
 
     @Query("DELETE FROM playlists WHERE playlistId =:playlistId")

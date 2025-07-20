@@ -10,17 +10,22 @@ import org.schabi.newpipe.extractor.stream.StreamType
 
 object MyPlaylistMapper {
 
-    fun toMyPlaylistItem(playlistEntities: List<PlaylistEntity>): List<MyPlaylist> {
-        val myPlaylistItems = playlistEntities.map {
+    fun toMyPlaylistItems(playlistEntities: List<PlaylistEntity>): List<MyPlaylist> {
+        return playlistEntities.map {
             MyPlaylist(
                 playlistId = it.playlistId,
                 name = it.name
             )
         }
-        return myPlaylistItems
     }
 
-    fun toBasicVideoData(videoEntity: VideoEntity): Video {
+    fun toVideos(videoEntities: List<VideoEntity>): List<Video> {
+        return videoEntities.map { videoEntity ->
+            toVideo(videoEntity)
+        }
+    }
+
+    private fun toVideo(videoEntity: VideoEntity): Video {
 
         return Video(
             id = videoEntity.id,

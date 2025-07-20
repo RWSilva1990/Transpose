@@ -26,7 +26,12 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -37,6 +42,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.main.MainViewModel
 import com.example.main.R
 import com.example.ui.components.items.SearchSuggestionItem
 import com.example.util.Logger
@@ -47,44 +54,32 @@ import com.example.util.constants.AppColors
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainAppBar(
-    searchWidgetState: SearchWidgetState,
-    searchTextState: String,
-    onTextChange: (String) -> Unit,
-    onTextClearClicked: () -> Unit,
-    onCloseClicked: () -> Unit,
     onSearchClicked: (String) -> Unit,
-    onSearchTriggered: () -> Unit,
-    suggestionKeywords: List<String>,
-    isSearchBarExpanded: Boolean,
-    scrollBehavior: TopAppBarScrollBehavior
+    mainViewModel: MainViewModel,
+    searchBarState: SearchBarState,
+    updateSearchBarState: (SearchBarState) -> Unit,
+    scrollBehavior: TopAppBarScrollBehavior,
 ) {
 
     val focusRequester = remember { FocusRequester() }
 
-    Box(
-        modifier = Modifier
 
-    ) {
-        when (searchWidgetState) {
-            SearchWidgetState.CLOSED -> {
+    Box {
+        when (searchBarState) {
+            SearchBarState.CLOSED -> {
                 DefaultAppBar(
-                    onSearchClicked = onSearchTriggered,
+                    onSearchClicked = { updateSearchBarState(SearchBarState.OPENED) },
                     scrollBehavior = scrollBehavior
                 )
             }
 
-            SearchWidgetState.OPENED -> {
+            SearchBarState.OPENED -> {
                 CustomSearchAppBar(
-                    searchTextState = searchTextState,
-                    onTextChange = onTextChange,
-                    onTextClearClicked = { onTextClearClicked() },
-                    onCloseClicked = { onCloseClicked() },
+                    mainViewModel = mainViewModel,
+                    updateSearchBarState = updateSearchBarState,
                     onSearchClicked = { onSearchClicked(it) },
-                    suggestionKeywords = suggestionKeywords,
                     focusRequester = focusRequester,
                 )
-
-
             }
         }
     }
@@ -95,18 +90,17 @@ fun MainAppBar(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CustomSearchAppBar(
-    searchTextState: String,
-    onTextChange: (String) -> Unit,
-    onTextClearClicked: () -> Unit,
-    onCloseClicked: () -> Unit,
+    mainViewModel: MainViewModel,
+    updateSearchBarState: (SearchBarState) -> Unit,
     onSearchClicked: (String) -> Unit,
-    suggestionKeywords: List<String>,
     focusRequester: FocusRequester,
 ) {
 
-    Logger.d("searchTextState: ${searchTextState.isEmpty()}")
+    val searchQuery by mainViewModel.searchQuery.collectAsStateWithLifecycle()
+    val suggestionKeywords by mainViewModel.suggestionKeywords.collectAsStateWithLifecycle()
 
     val context = LocalContext.current
+
     SideEffect {
         focusRequester.requestFocus()
     }
@@ -115,26 +109,31 @@ fun CustomSearchAppBar(
         modifier = Modifier
             .fillMaxWidth()
             .focusRequester(focusRequester),
-        query = searchTextState,
-        onQueryChange = onTextChange,
+        query = searchQuery,
+        onQueryChange = mainViewModel::updateSearchQuery,
         onSearch = {
             onSearchClicked(it)
-            onCloseClicked()
+            mainViewModel.clearSearchQuery()
         },
         active = true,
         placeholder = { Text(text = stringResource(id = R.string.searchView_hint)) },
         leadingIcon = {
-            IconButton(onClick = onCloseClicked) {
+            IconButton(onClick = {
+                updateSearchBarState(SearchBarState.CLOSED)
+                mainViewModel.clearSearchQuery()
+            }) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
             }
         },
         trailingIcon = {
-            if (searchTextState.isEmpty()) {
+            if (searchQuery.isEmpty()) {
                 IconButton(onClick = { ToastUtil.showNotImplemented(context = context) }) {
                     Icon(Icons.Default.Search, contentDescription = "Search")
                 }
             } else {
-                IconButton(onClick = { onTextClearClicked() }) {
+                IconButton(onClick = {
+                    mainViewModel.clearSearchQuery()
+                }) {
                     Icon(Icons.Default.Close, contentDescription = "Clear Text")
                 }
             }
@@ -146,13 +145,11 @@ fun CustomSearchAppBar(
             dividerColor = Color.Black,
         ),
         onActiveChange = { isActive ->
-            // active가 false로 변경될 때만 닫기 처리
             if (!isActive) {
-                onCloseClicked()
+                updateSearchBarState(SearchBarState.CLOSED)
             }
         },
         content = {
-
             LazyColumn(modifier = Modifier.fillMaxSize()) {
                 items(suggestionKeywords.size) { index ->
                     val suggestionKeyword = suggestionKeywords[index]
@@ -160,24 +157,25 @@ fun CustomSearchAppBar(
                         suggestionText = suggestionKeyword,
                         onClick = {
                             onSearchClicked(suggestionKeyword)
-                            onCloseClicked()
                         },
                     )
                 }
 
             }
             BackHandler {
-                Logger.d("CustomSearchAppBar BackHandler")
-                onCloseClicked()
+                mainViewModel.clearSearchQuery()
+                updateSearchBarState(SearchBarState.CLOSED)
             }
-
         }
     )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DefaultAppBar(onSearchClicked: () -> Unit, scrollBehavior: TopAppBarScrollBehavior) {
+fun DefaultAppBar(
+    onSearchClicked: () -> Unit,
+    scrollBehavior: TopAppBarScrollBehavior
+) {
 
     val context = LocalContext.current
     TopAppBar(
