@@ -90,12 +90,11 @@ fun SearchResultScreen(
                                     coroutineScope.launch {
                                         bottomSheetState.expand()
                                     }
-                                    searchResultViewModel.onMediaClicked(
+                                    searchResultViewModel.playSingleVideo(
                                         item.video
                                     )
                                 },
                                 dropDownMenuClick = {
-                                    searchResultViewModel.getAllMyPlaylists()
                                     selectedVideo = item
                                     isShowingPlaylistDialog = true
                                 }

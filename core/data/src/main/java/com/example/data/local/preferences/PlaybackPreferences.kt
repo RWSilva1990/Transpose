@@ -35,7 +35,7 @@ class PlaybackPreferences(private val dataStore: DataStore<Preferences>) {
     }
 
     val repeatMode: Flow<RepeatMode> = dataStore.data.map { preferences ->
-        val value = preferences[REPEAT_MODE] ?: RepeatMode.NONE.value
+        val value = preferences[REPEAT_MODE] ?: RepeatMode.OFF.value
         RepeatMode.fromValue(value)
     }
 

@@ -1,34 +1,50 @@
 package com.example.data.newpipe.repository.search
 
+import com.example.data.di.IoDispatcher
 import com.example.data.newpipe.extractor.search.ContentPager
-import com.example.data.newpipe.repository.base.BaseNewPipeRepository
+import com.example.data.newpipe.repository.base.NewPipeManager
 import com.example.domain.model.youtube.search.SearchResult
 import com.example.domain.repository.SearchRepository
+import com.example.util.Logger
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
-class SearchRepositoryImpl @Inject constructor() : BaseNewPipeRepository(), SearchRepository {
+class SearchRepositoryImpl @Inject constructor(
+    private val newPipeManager: NewPipeManager,
+    @IoDispatcher private val ioDispatcher: CoroutineDispatcher
+) : SearchRepository {
 
     private var currentContentPager: ContentPager? = null
 
     override suspend fun search(query: String): Result<List<SearchResult>> {
-        return try {
-            val searchExtractor = youtubeService.getSearchExtractor(query)
-            searchExtractor.fetchPage()
-            val pager = ContentPager(youtubeService, searchExtractor)
-            currentContentPager = pager
-            Result.success(pager.getNextPage())
-        } catch (e: Exception) {
-            Result.failure(e)
+        return withContext(ioDispatcher){
+            try {
+                val searchExtractor = newPipeManager.youtubeService.getSearchExtractor(query)
+                searchExtractor.fetchPage()
+                val pager = ContentPager(newPipeManager.youtubeService, searchExtractor)
+                currentContentPager = pager
+                Result.success(pager.getNextPage())
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
         }
     }
 
     override suspend fun loadMoreSearchResults(): Result<List<SearchResult>> {
-        val pager = currentContentPager
-            ?: return Result.failure(IllegalStateException("No search initiated"))
-        return try {
-            Result.success(pager.getNextPage())
-        } catch (e: Exception) {
-            Result.failure(e)
+        return withContext(ioDispatcher) {
+            try {
+                val pager = currentContentPager
+                    ?: return@withContext Result.failure(
+                        IllegalStateException("No search pager initiated")
+                    )
+
+                val nextPages = pager.getNextPage()
+                Result.success(nextPages)
+            } catch (e: Exception) {
+                Logger.e("Error loading more search results", e)
+                Result.failure(e)
+            }
         }
     }
 

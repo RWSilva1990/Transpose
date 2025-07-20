@@ -11,6 +11,7 @@
     <string name="notify_video_added_to_playlist">The Video has been added to the playlist</string>
     <string name="add_button_text">Add</string>
     <string name="main_playlist_title">Current Playlist</string>
+    <string name="empty_playlist">Your playlist is empty</string>
 
     <!-- 오디오 편집 관련 -->
     <string name="pitch_text">Pitch</string>
@@ -43,5 +44,13 @@
 
     <string name="playlist_items_count">%d items</string>
 
+    <!-- Update Dialog -->
+    <string name="update_dialog_title">Update Available</string>
+    <string name="update_dialog_message">A new version is available!</string>
+    <string name="update_dialog_current_version">Current version: %s</string>
+    <string name="update_dialog_latest_version">Latest version: %s</string>
+    <string name="update_dialog_update_button">Update</string>
+    <string name="update_dialog_later_button">Later</string>
+    <string name="update_dialog_features_title">What\'s New</string>
 
 </resources>

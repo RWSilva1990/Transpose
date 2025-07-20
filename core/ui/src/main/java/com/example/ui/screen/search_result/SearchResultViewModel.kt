@@ -2,7 +2,6 @@ package com.example.ui.screen.search_result
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.domain.model.library.MyPlaylist
 import com.example.domain.model.youtube.search.SearchResult
 import com.example.domain.model.youtube.video.Video
 import com.example.domain.repository.MyPlaylistDBRepository
@@ -11,9 +10,10 @@ import com.example.media.manager.MediaPlaybackManager
 import com.example.ui.common.PaginatedState
 import com.example.util.Logger
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -28,8 +28,8 @@ class SearchResultViewModel @Inject constructor(
         MutableStateFlow<PaginatedState<SearchResult>>(PaginatedState.Initial)
     val searchResultsState = _searchResultsState.asStateFlow()
 
-    fun initializeSearchPager(query: String) = viewModelScope.launch(Dispatchers.IO) {
-        if (searchResultsState.value == PaginatedState.Initial){
+    fun initializeSearchPager(query: String) = viewModelScope.launch {
+        if (searchResultsState.value == PaginatedState.Initial) {
             _searchResultsState.value = PaginatedState.Loading
             try {
                 val result = searchRepository.search(query)
@@ -53,7 +53,7 @@ class SearchResultViewModel @Inject constructor(
         }
     }
 
-    fun loadMoreSearchResults() = viewModelScope.launch(Dispatchers.IO) {
+    fun loadMoreSearchResults() = viewModelScope.launch {
         val currentState = _searchResultsState.value
         // 현재 상태가 Success가 아니거나 이미 로딩 중이면 추가 로드를 하지 않음
         if (currentState !is PaginatedState.Success || currentState.isLoadingMore) return@launch
@@ -85,19 +85,20 @@ class SearchResultViewModel @Inject constructor(
         }
     }
 
-    fun onMediaClicked(video: Video) {
-        mediaPlaybackManager.onMediaItemClick(video)
+    fun playSingleVideo(video: Video) {
+        mediaPlaybackManager.playSingleVideo(video)
     }
 
-    private val _myPlaylists = MutableStateFlow<List<MyPlaylist>>(emptyList())
-    val myPlaylists = _myPlaylists.asStateFlow()
 
-    fun getAllMyPlaylists() = viewModelScope.launch(Dispatchers.IO) {
-        _myPlaylists.value = myPlaylistDBRepository.getAllPlaylists()
-    }
+    val myPlaylists = myPlaylistDBRepository.getAllPlaylists()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
 
     fun addVideoToPlaylist(video: Video, playlistId: Long) =
-        viewModelScope.launch(Dispatchers.IO) {
+        viewModelScope.launch {
             myPlaylistDBRepository.addVideoToPlaylist(video, playlistId)
         }
 

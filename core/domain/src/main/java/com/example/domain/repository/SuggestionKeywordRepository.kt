@@ -1,5 +1,7 @@
 package com.example.domain.repository
 
+import kotlinx.coroutines.flow.Flow
+
 interface SuggestionKeywordRepository {
-    suspend fun getSuggestionKeywords(query: String): Result<List<String>>
+    fun getSuggestionKeywords(query: String): Flow<List<String>>
 }

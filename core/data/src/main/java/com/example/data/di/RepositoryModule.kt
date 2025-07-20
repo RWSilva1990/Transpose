@@ -1,5 +1,6 @@
 package com.example.data.di
 
+import com.example.data.firebase.repository.UpdateRepositoryImpl
 import com.example.data.local.repository.MyPlaylistDBRepositoryImpl
 import com.example.data.newpipe.repository.channel.ChannelRepositoryImpl
 import com.example.data.newpipe.repository.playlist.PlaylistRepositoryImpl
@@ -14,12 +15,14 @@ import com.example.data.repository.LocalFileRepositoryImpl
 import com.example.domain.repository.ChannelRepository
 import com.example.domain.repository.PlaylistRepository
 import com.example.domain.repository.SearchRepository
+import com.example.domain.repository.UpdateRepository
 import com.example.domain.repository.VideoRepository
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
+
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -41,7 +44,7 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindMyPlaylistDBRepository(
-        myPlaylistDBRepositoryImpl: MyPlaylistDBRepositoryImpl
+        myPlaylistDBRepositoryImpl: MyPlaylistDBRepositoryImpl,
     ): MyPlaylistDBRepository
 
     @Binds
@@ -64,5 +67,10 @@ abstract class RepositoryModule {
         channelRepositoryImpl: ChannelRepositoryImpl
     ): ChannelRepository
 
+    @Binds
+    @Singleton
+    abstract fun bindUpdateRepository(
+        updateRepositoryImpl: UpdateRepositoryImpl
+    ): UpdateRepository
 
 }

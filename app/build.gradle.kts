@@ -1,20 +1,29 @@
 plugins {
     alias(libs.plugins.android.application.compose.convention)
+    alias(libs.plugins.android.application)
     alias(libs.plugins.android.hilt)
     alias(libs.plugins.android.firebase)
-    alias(libs.plugins.android.application)
     alias(libs.plugins.baselineprofile)
+    alias(libs.plugins.google.services)
+    alias(libs.plugins.firebase.crashlytics)
 }
 
 android {
     namespace = "com.example.transpose"
     buildTypes {
+        getByName("release") {
+            signingConfig = signingConfigs.getByName("debug")
+            // 기타 옵션: minifyEnabled 등 원래 release 옵션들 그대로
+        }
         create("benchmark") {
             initWith(buildTypes.getByName("release"))
             signingConfig = signingConfigs.getByName("debug")
             matchingFallbacks += listOf("release")
             isDebuggable = false
         }
+    }
+    lint {
+        baseline = file("lint-baseline.xml")
     }
     //    buildTypes {
 //        create("benchmark") {
@@ -25,6 +34,10 @@ android {
 //        }
 //    }
 
+}
+composeCompiler {
+    reportsDestination = layout.buildDirectory.dir("compose_compiler")
+    metricsDestination = layout.buildDirectory.dir("compose_compiler")
 }
 
 dependencies {
