@@ -12,9 +12,8 @@ plugins {
     alias(libs.plugins.android.test) apply false
     alias(libs.plugins.baselineprofile) apply false
     id("dev.iurysouza.modulegraph") version "0.12.0"
-
-
 }
+
 moduleGraphConfig {
     readmePath.set("${rootDir}/module-graph.md") // 원하는 파일명/경로로
     heading.set("### Module Graph")

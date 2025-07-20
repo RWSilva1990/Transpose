@@ -1,13 +1,12 @@
 package com.example.data.remote.repository
 
 import android.util.Log
-import com.example.domain.repository.SuggestionKeywordRepository
 import com.example.data.remote.api.SuggestionKeywordApiService
+import com.example.domain.repository.SuggestionKeywordRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
-import okhttp3.Dispatcher
 import org.json.JSONArray
 import javax.inject.Inject
 
@@ -18,11 +17,11 @@ class SuggestionKeywordRepositoryImpl @Inject constructor(
 
     override fun getSuggestionKeywords(query: String): Flow<List<String>> = flow {
         try {
-            val responseBody = suggestionKeywordApiService.getSuggestionKeyword("firefox", "yt", query)
+            val responseBody =
+                suggestionKeywordApiService.getSuggestionKeyword("firefox", "yt", query)
             val parsedSuggestionKeywords = parseSuggestionKeywords(responseBody)
             emit(parsedSuggestionKeywords)
-        }
-        catch (e: Exception){
+        } catch (e: Exception) {
             Log.e("SuggestionKeywordRepository", "Error fetching suggestion keywords", e)
             emit(emptyList())
         }
