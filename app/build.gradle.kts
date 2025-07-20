@@ -1,9 +1,11 @@
 plugins {
     alias(libs.plugins.android.application.compose.convention)
+    alias(libs.plugins.android.application)
     alias(libs.plugins.android.hilt)
     alias(libs.plugins.android.firebase)
-    alias(libs.plugins.android.application)
     alias(libs.plugins.baselineprofile)
+    alias(libs.plugins.google.services)
+    alias(libs.plugins.firebase.crashlytics)
 }
 
 android {

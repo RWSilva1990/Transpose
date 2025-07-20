@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.android.room)
     alias(libs.plugins.android.network)
     alias(libs.plugins.android.hilt)
+    alias(libs.plugins.android.firebase)
 }
 android{
     namespace = "com.example.transpose.core.data"

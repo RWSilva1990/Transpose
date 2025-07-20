@@ -11,6 +11,8 @@ import com.example.domain.repository.ChannelRepository
 import com.example.domain.repository.MyPlaylistDBRepository
 import com.example.domain.repository.PlaybackPreferencesRepository
 import com.example.domain.repository.SuggestionKeywordRepository
+import com.example.domain.repository.UpdateInfo
+import com.example.domain.repository.UpdateRepository
 import com.example.domain.repository.VideoRepository
 import com.example.main.components.bottomsheet.state.VideoDetailUiState
 import com.example.media.manager.AudioEffectsManager
@@ -49,8 +51,12 @@ class MainViewModel @Inject constructor(
     private val channelRepository: ChannelRepository,
     private val nowPlayingStateHolder: NowPlayingStateHolder,
     private val playbackPreferencesRepository: PlaybackPreferencesRepository,
+    private val updateRepository: UpdateRepository,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
+
+    private val _updateDialogState = MutableStateFlow<UpdateDialogState>(UpdateDialogState.Hidden)
+    val updateDialogState: StateFlow<UpdateDialogState> = _updateDialogState.asStateFlow()
 
     private val _videoDetailUiState =
         MutableStateFlow<VideoDetailUiState>(VideoDetailUiState.Loading)
@@ -126,7 +132,7 @@ class MainViewModel @Inject constructor(
 
     init {
         checkPermissions()
-
+        checkForUpdate()
         viewModelScope.launch {
             nowPlayingStateHolder.currentVideo
                 .distinctUntilChanged { old, new -> old?.id == new?.id }
@@ -147,6 +153,27 @@ class MainViewModel @Inject constructor(
             shuffleMode.collect { enabled ->
                 mediaPlaybackManager.setShuffleMode(enabled)
             }
+        }
+    }
+
+    private fun checkForUpdate() {
+        viewModelScope.launch {
+            updateRepository.checkForUpdate()?.let { updateInfo ->
+                Logger.d("Update available: ${updateInfo.latestVersion}")
+                if (updateInfo.isUpdateAvailable) {
+                    _updateDialogState.value = UpdateDialogState.Visible(updateInfo)
+                }
+            }
+        }
+    }
+
+    fun dismissUpdateDialog() {
+        _updateDialogState.value = UpdateDialogState.Hidden
+    }
+
+    fun onUpdateClicked() {
+        (_updateDialogState.value as? UpdateDialogState.Visible)?.let { state ->
+            _updateDialogState.value = UpdateDialogState.Hidden
         }
     }
 
@@ -288,6 +315,11 @@ class MainViewModel @Inject constructor(
             mediaPlaybackManager.setRepeatMode(currentRepeatMode)
             mediaPlaybackManager.setShuffleMode(currentShuffleMode)
         }
+    }
+
+    sealed interface UpdateDialogState {
+        data object Hidden : UpdateDialogState
+        data class Visible(val updateInfo: UpdateInfo) : UpdateDialogState
     }
 
 

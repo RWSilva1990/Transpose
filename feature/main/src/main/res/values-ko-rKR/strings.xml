@@ -25,5 +25,14 @@
 
     <string name="playlist_items_count">%d개 아이템</string>
 
+    <!-- 업데이트 다이얼로그 -->
+    <string name="update_dialog_title">업데이트 알림</string>
+    <string name="update_dialog_message">새로운 버전이 출시되었습니다!</string>
+    <string name="update_dialog_current_version">현재 버전: %s</string>
+    <string name="update_dialog_latest_version">최신 버전: %s</string>
+    <string name="update_dialog_update_button">업데이트</string>
+    <string name="update_dialog_later_button">나중에</string>
+    <string name="update_dialog_features_title">새로운 기능</string>
+
 
 </resources>

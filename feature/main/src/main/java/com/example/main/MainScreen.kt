@@ -1,6 +1,8 @@
 package com.example.main
 
+import UpdateDialog
 import android.app.Activity
+import android.content.Intent
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -34,6 +36,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.compose.rememberNavController
 import com.example.convert.navigation.ConvertNavHost
@@ -60,6 +63,7 @@ fun MainScreen(
 
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
+    val updateDialogState by mainViewModel.updateDialogState.collectAsState()
 
     val permissionGranted by mainViewModel.permissionGranted.collectAsState()
 
@@ -170,6 +174,30 @@ fun MainScreen(
         )
     }
 
+    when (val state = updateDialogState) {
+        is MainViewModel.UpdateDialogState.Hidden -> {
+            // Nothing to show
+        }
+
+        is MainViewModel.UpdateDialogState.Visible -> {
+            UpdateDialog(
+                updateInfo = state.updateInfo,
+                onUpdateClick = {
+                    // GitHub 릴리즈 페이지 열기
+                    val intent = Intent(
+                        Intent.ACTION_VIEW,
+                        state.updateInfo.updateUrl.toUri()
+                    )
+                    context.startActivity(intent)
+                    mainViewModel.dismissUpdateDialog()
+                },
+                onDismiss = {
+                    mainViewModel.dismissUpdateDialog()
+                }
+            )
+        }
+    }
+
 
     Scaffold(
         containerColor = Color.White,
@@ -224,7 +252,7 @@ fun MainScreen(
                 )
             },
             mainViewModel = mainViewModel,
-            bottomSheetOffset = {bottomSheetOffset},
+            bottomSheetOffset = { bottomSheetOffset },
             searchBarState = searchBarState,
             innerPadding = innerPadding,
             bottomSheetState = sheetState,
