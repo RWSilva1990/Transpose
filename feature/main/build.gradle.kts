@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.android.presentation.ui.convention)
     alias(libs.plugins.android.hilt)
     alias(libs.plugins.android.media)
+    alias(libs.plugins.android.network)
 }
 android{
     namespace = "com.example.main"
