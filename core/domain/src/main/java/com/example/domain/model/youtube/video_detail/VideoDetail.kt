@@ -1,13 +1,16 @@
 package com.example.domain.model.youtube.video_detail
 
 import com.example.domain.model.youtube.video.Video
+import org.schabi.newpipe.extractor.stream.AudioStream
+import org.schabi.newpipe.extractor.stream.VideoStream
 
 data class VideoDetail(
     val id: String,
     val title: String,
-    val videoOnlyStreams: List<String>?,
-    val audioOnlyStreams: List<String>?,
+    val videoOnlyStreams: List<VideoStream>?,
+    val audioOnlyStreams: List<AudioStream>?,
     val videoStreamContent: String?,
+    val duration: Long,
     val description: String,
     val thumbnailUrl: String?,
     val uploaderName: String?,

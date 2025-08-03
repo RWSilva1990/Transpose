@@ -3,6 +3,7 @@ package com.example.data.newpipe.repository.video
 import com.example.data.di.IoDispatcher
 import com.example.data.newpipe.mapper.InfoItemMapper
 import com.example.data.newpipe.repository.base.NewPipeManager
+import com.example.domain.model.youtube.video.Video
 import com.example.domain.model.youtube.video_detail.VideoDetail
 import com.example.domain.repository.VideoRepository
 import kotlinx.coroutines.CoroutineDispatcher
@@ -14,15 +15,15 @@ class VideoRepositoryImpl @Inject constructor(
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) : VideoRepository {
 
-    override suspend fun fetchVideoDetail(videoId: String): Result<VideoDetail> {
-        return withContext(ioDispatcher){
+    override suspend fun fetchVideoDetail(video: Video): Result<VideoDetail> {
+        return withContext(ioDispatcher) {
             try {
-                val extractor = newPipeManager.getStreamExtractor(videoId)
+                val extractor = newPipeManager.getStreamExtractor(video.id)
                 extractor.fetchPage()
                 val uploaderId = newPipeManager.getChannelId(extractor.uploaderUrl)
 
                 Result.success(
-                    InfoItemMapper.streamExtractorToVideoDetail(extractor, uploaderId)
+                    InfoItemMapper.streamExtractorToVideoDetail(extractor, uploaderId, video)
                 )
             } catch (e: Exception) {
                 Result.failure(e)

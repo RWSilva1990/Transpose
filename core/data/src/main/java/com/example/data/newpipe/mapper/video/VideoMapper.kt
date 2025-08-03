@@ -2,35 +2,51 @@ package com.example.data.newpipe.mapper.video
 
 import com.example.data.newpipe.mapper.base.BaseMapper
 import com.example.domain.model.youtube.channel.ChannelTabResult
-import com.example.domain.model.youtube.video.Video
 import com.example.domain.model.youtube.search.SearchResult
+import com.example.domain.model.youtube.video.Video
 import com.example.domain.model.youtube.video_detail.VideoDetail
-import org.schabi.newpipe.extractor.InfoItem
+import com.example.util.Logger
 import org.schabi.newpipe.extractor.stream.StreamExtractor
 import org.schabi.newpipe.extractor.stream.StreamInfoItem
 
 object VideoMapper {
 
-    fun streamInfoItemToSearchResultVideo(item: StreamInfoItem, videoId: String, uploaderId: String): SearchResult.VideoResult {
+    fun streamInfoItemToSearchResultVideo(
+        item: StreamInfoItem,
+        videoId: String,
+        uploaderId: String
+    ): SearchResult.VideoResult {
         return SearchResult.VideoResult(
             video = streamInfoItemToBasicVideoData(item, videoId, uploaderId)
         )
     }
 
-    fun streamInfoItemToChannelTabResultVideo(item: StreamInfoItem, videoId: String, uploaderId: String): ChannelTabResult.VideoResult {
+    fun streamInfoItemToChannelTabResultVideo(
+        item: StreamInfoItem,
+        videoId: String,
+        uploaderId: String
+    ): ChannelTabResult.VideoResult {
         return ChannelTabResult.VideoResult(
             video = streamInfoItemToBasicVideoData(item, videoId, uploaderId)
         )
     }
 
-    fun streamInfoItemToChannelTabResultShorts(item: StreamInfoItem, videoId: String, uploaderId: String): ChannelTabResult.ShortsResult {
+    fun streamInfoItemToChannelTabResultShorts(
+        item: StreamInfoItem,
+        videoId: String,
+        uploaderId: String
+    ): ChannelTabResult.ShortsResult {
         return ChannelTabResult.ShortsResult(
             video = streamInfoItemToBasicVideoData(item, videoId, uploaderId)
         )
     }
 
 
-    fun streamInfoItemToBasicVideoData(item: StreamInfoItem, videoId: String, uploaderId: String): Video {
+    fun streamInfoItemToBasicVideoData(
+        item: StreamInfoItem,
+        videoId: String,
+        uploaderId: String
+    ): Video {
         return Video(
             id = videoId,
             title = item.name,
@@ -50,10 +66,14 @@ object VideoMapper {
         )
     }
 
-    fun streamExtractorToVideoDetail(extractor: StreamExtractor, uploaderId: String): VideoDetail {
+    fun streamExtractorToVideoDetail(
+        extractor: StreamExtractor,
+        uploaderId: String,
+        video: Video
+    ): VideoDetail {
         val videoStreams = extractor.videoStreams
-        val videoOnlyUrls = extractor.videoOnlyStreams.map { it.content }
-        val audioOnlyUrls = extractor.audioStreams.map { it.content }
+        val videoOnlyUrls = extractor.videoOnlyStreams.toList()
+        val audioOnlyUrls = extractor.audioStreams.toList()
 
         return VideoDetail(
             id = extractor.id,
@@ -61,6 +81,7 @@ object VideoMapper {
             videoStreamContent = videoStreams.firstOrNull()?.content,
             videoOnlyStreams = videoOnlyUrls,
             audioOnlyStreams = audioOnlyUrls,
+            duration = video.duration,
             description = extractor.description.content,
             thumbnailUrl = BaseMapper.getHighestResThumbnail(extractor.thumbnails.firstOrNull()?.url),
             uploaderName = extractor.uploaderName,
