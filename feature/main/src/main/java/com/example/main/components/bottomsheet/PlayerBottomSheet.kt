@@ -1,5 +1,6 @@
 package com.example.main.components.bottomsheet
 
+import android.widget.ImageButton
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -68,9 +69,8 @@ fun PlayerBottomSheet(
 
     val coroutineScope = rememberCoroutineScope()
     var showPlaylistModal by remember { mutableStateOf(false) }
-
+    var showQualityModal by remember { mutableStateOf(false) }
     val mediaController by mainViewModel.mediaControllerFlow.collectAsState()
-
 
 //    val bottomSheetAlpha = remember(bottomSheetOffset) {
 //        if (bottomSheetOffset < 0) 1f else {
@@ -101,6 +101,13 @@ fun PlayerBottomSheet(
                 playerViewHeight = playerViewHeight
             )
         }
+    }
+
+    if (showQualityModal) {
+        VideoQualityBottomSheet(
+            mainViewModel = mainViewModel,
+            onDismiss = { showQualityModal = false }
+        )
     }
 
 
@@ -156,6 +163,17 @@ fun PlayerBottomSheet(
                             PlayerView(ctx).apply {
                                 resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FILL
                                 keepScreenOn = true
+
+                                post {
+                                    val settingButtons = findViewById<ImageButton>(
+                                        androidx.media3.ui.R.id.exo_settings
+                                    )
+                                    settingButtons.setOnClickListener {
+                                        showQualityModal = true
+                                    }
+
+                                }
+
                             }
                         }, update = { view ->
                             mediaController?.let { controller ->

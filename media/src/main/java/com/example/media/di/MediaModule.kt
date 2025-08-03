@@ -6,13 +6,12 @@ import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
-import com.example.media.manager.AudioEffectsManager
+import com.example.media.CustomHttpDataSource
 import com.example.media.CustomMediaSourceFactory
-import com.example.media.manager.MediaControllerProvider
-import com.example.media.manager.MediaPlaybackManager
 import com.example.media.audio_effect.AudioEffectHandlerImpl
 import dagger.Module
 import dagger.Provides
@@ -35,8 +34,17 @@ class MediaModule {
     @OptIn(UnstableApi::class)
     @Provides
     @Singleton
-    fun provideCustomMediaSourceFactory(@ApplicationContext context: Context): CustomMediaSourceFactory =
-        CustomMediaSourceFactory(context)
+    fun provideCustomMediaSourceFactory(@ApplicationContext context: Context): CustomMediaSourceFactory{
+
+        val custom = CustomHttpDataSource.Factory()
+            .setRangeParameterEnabled(true)
+            .setRnParameterEnabled(true)
+
+        val defaultDataSourceFactory = DefaultDataSource.Factory(context, custom)
+
+        return CustomMediaSourceFactory(context, defaultDataSourceFactory)
+
+    }
 
 
     @OptIn(UnstableApi::class)
@@ -49,16 +57,19 @@ class MediaModule {
     ): ExoPlayer = ExoPlayer.Builder(context)
         .setAudioAttributes(audioAttributes, true)
         .setHandleAudioBecomingNoisy(true)
-        .setLoadControl(DefaultLoadControl.Builder()
-            .setBufferDurationsMs(
-                DefaultLoadControl.DEFAULT_MIN_BUFFER_MS,
-                DefaultLoadControl.DEFAULT_MAX_BUFFER_MS,
-                DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_MS,
-                DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS
-            )
-            .setTargetBufferBytes(C.LENGTH_UNSET)
-            .setPrioritizeTimeOverSizeThresholds(true)
-            .build())
+        .setLoadControl(
+            DefaultLoadControl.Builder()
+                .setBufferDurationsMs(
+                    5_000,   // minBufferMs: 5초로 줄임 (빠른 시작)
+                    30_000,  // maxBufferMs: 30초로 줄임 (메모리 절약)
+                    1_000,   // bufferForPlaybackMs: 1초로 줄임 (빠른 재생 시작)
+                    2_000    // bufferForPlaybackAfterRebufferMs: 2초로 줄임
+                )
+                .setTargetBufferBytes(5 * 1024 * 1024) // 5MB로 줄임
+                .setPrioritizeTimeOverSizeThresholds(false) // 크기 기반 우선
+                .setBackBuffer(10_000, true) // 10초 백버퍼 설정
+                .build()
+        )
         .setTrackSelector(DefaultTrackSelector(context))
         .build()
 

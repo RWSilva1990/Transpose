@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.media3.session.MediaController
 import com.example.domain.model.preferences.RepeatMode
 import com.example.domain.model.youtube.video.Video
+import com.example.domain.model.youtube.video_detail.VideoDetail
 import com.example.domain.repository.ChannelRepository
 import com.example.domain.repository.MyPlaylistDBRepository
 import com.example.domain.repository.PlaybackPreferencesRepository
@@ -35,6 +36,8 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import org.schabi.newpipe.extractor.services.youtube.dashmanifestcreators.YoutubeProgressiveDashManifestCreator
+import org.schabi.newpipe.extractor.stream.DeliveryMethod
 import javax.inject.Inject
 
 private const val SEARCH_QUERY = "search_query"
@@ -62,16 +65,22 @@ class MainViewModel @Inject constructor(
         MutableStateFlow<VideoDetailUiState>(VideoDetailUiState.Loading)
     val videoDetailUiState = _videoDetailUiState.asStateFlow()
 
-    private fun fetchCurrentVideoDetailData(videoId: String) =
+    private fun fetchCurrentVideoDetailData(video: Video) =
         viewModelScope.launch {
             _videoDetailUiState.value = VideoDetailUiState.Loading
-            val result = videoRepository.fetchVideoDetail(videoId)
+            val result = videoRepository.fetchVideoDetail(video)
             if (result.isSuccess) {
+                val videoDetail = result.getOrNull()
+
+                if (videoDetail == null) {
+                    _videoDetailUiState.value = VideoDetailUiState.Error("Video detail not found")
+                    return@launch
+                }
+
                 _videoDetailUiState.value = VideoDetailUiState.Success(result.getOrNull())
-                mediaPlaybackManager.updateMediaItemWithFullInfo(
-                    itemId = videoId,
-                    videoDetail = result.getOrNull()
-                )
+
+                updateMediaItemWithFullInfo(result.getOrNull())
+
             } else {
                 _videoDetailUiState.value = VideoDetailUiState.Error(
                     message = result.exceptionOrNull()?.message ?: "Unknown error"
@@ -81,6 +90,83 @@ class MainViewModel @Inject constructor(
 
     private val _searchQuery = MutableStateFlow("")
     val searchQuery = _searchQuery.asStateFlow()
+
+    private fun updateMediaItemWithFullInfo(
+        videoDetail: VideoDetail?,
+    ){
+        videoDetail ?: return
+
+        val videoQuality = videoQuality.value
+
+        val videoQualityToItag = mapOf(
+            "AUTO" to 136,
+            "1080p" to 137,
+            "720p" to 136,
+            "480p" to 135,
+            "360p" to 134,
+            "240p" to 133,
+            "144p" to 160
+        )
+
+        val audioQualityToItag = mapOf(
+            "48kbps" to 139,
+            "50kbps" to 249,
+            "128kbps" to 140,
+            "160kbps" to 251,
+            "AUTO" to 140
+        )
+
+        val videoItag = videoQualityToItag[videoQuality] ?: 136
+
+        val audioItag = 140
+
+        val videoOnlyStream = videoDetail.videoOnlyStreams?.firstOrNull { it.itag == videoItag }
+        val audioOnlyStream = videoDetail.audioOnlyStreams?.firstOrNull { it.itag == audioItag }
+
+        videoOnlyStream ?: return
+        audioOnlyStream ?: return
+
+        Logger.d("quality changed ${videoOnlyStream.itag} ${videoOnlyStream.quality}")
+        val deliveryMethod = videoOnlyStream.deliveryMethod
+
+        when (deliveryMethod) {
+            DeliveryMethod.PROGRESSIVE_HTTP -> {
+
+                val videoManifestString = YoutubeProgressiveDashManifestCreator
+                    .fromProgressiveStreamingUrl(
+                        videoOnlyStream.content,
+                        videoOnlyStream.itagItem!!,
+                        videoDetail.duration
+                    )
+                val audioManifestString = YoutubeProgressiveDashManifestCreator
+                    .fromProgressiveStreamingUrl(
+                        audioOnlyStream.content,
+                        audioOnlyStream.itagItem!!,
+                        videoDetail.duration
+                    )
+
+                Logger.d("videoManifestUrl: ${videoOnlyStream.manifestUrl}")
+                Logger.d("audioManifestUrl: ${audioOnlyStream.manifestUrl}")
+
+                mediaPlaybackManager.updateMediaItemWithFullInfo(
+                    itemId = videoDetail.id,
+                    videoQuality = videoQuality,
+                    videoDefaultStreamUrl = videoDetail.videoStreamContent!!,
+                    videoOnlyStreamUrl = videoOnlyStream.content,
+                    audioOnlyStreamUrl = audioOnlyStream.content,
+                    videoManifestString = videoManifestString,
+                    videoManifestUrl = videoOnlyStream.manifestUrl,
+                    audioManifestsString = audioManifestString,
+                    audioManifestUrl = audioOnlyStream.manifestUrl,
+                )
+            }
+
+            DeliveryMethod.DASH -> {}
+            DeliveryMethod.HLS -> {}
+            DeliveryMethod.SS -> {}
+            DeliveryMethod.TORRENT -> {}
+        }
+    }
 
     @OptIn(FlowPreview::class)
     val suggestionKeywords = searchQuery
@@ -117,18 +203,11 @@ class MainViewModel @Inject constructor(
     val currentPlaylistInfo = nowPlayingStateHolder.currentPlaylistInfo
 
     val repeatMode: StateFlow<RepeatMode> = playbackPreferencesRepository.repeatMode
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = RepeatMode.OFF
-        )
 
     val shuffleMode: StateFlow<Boolean> = playbackPreferencesRepository.shuffleMode
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = false
-        )
+
+    val videoQuality: StateFlow<String> = playbackPreferencesRepository.videoQuality
+
 
     init {
         checkPermissions()
@@ -138,21 +217,24 @@ class MainViewModel @Inject constructor(
                 .distinctUntilChanged { old, new -> old?.id == new?.id }
                 .collectLatest { currentVideo ->
                     currentVideo?.let {
-                        fetchCurrentVideoDetailData(it.id)
+                        fetchCurrentVideoDetailData(it)
                     }
                 }
         }
-
         viewModelScope.launch {
-            repeatMode.collect { mode ->
-                mediaPlaybackManager.setRepeatMode(mode)
+            videoQuality.collectLatest {
+                videoDetailUiState.value.let { state ->
+                    if (state is VideoDetailUiState.Success) {
+                        updateMediaItemWithFullInfo(state.videoDetail)
+                    }
+                }
             }
         }
+    }
 
+    fun setVideoQuality(quality: String) {
         viewModelScope.launch {
-            shuffleMode.collect { enabled ->
-                mediaPlaybackManager.setShuffleMode(enabled)
-            }
+            playbackPreferencesRepository.setVideoQuality(quality)
         }
     }
 
@@ -305,17 +387,6 @@ class MainViewModel @Inject constructor(
         }
     }
 
-    fun applyPlaybackSettings() {
-        viewModelScope.launch {
-            // 반복 모드 및 셔플 모드 값 가져오기 위한 코드
-            val currentRepeatMode = repeatMode.value
-            val currentShuffleMode = shuffleMode.value
-
-            // ExoPlayer에 적용
-            mediaPlaybackManager.setRepeatMode(currentRepeatMode)
-            mediaPlaybackManager.setShuffleMode(currentShuffleMode)
-        }
-    }
 
     sealed interface UpdateDialogState {
         data object Hidden : UpdateDialogState
