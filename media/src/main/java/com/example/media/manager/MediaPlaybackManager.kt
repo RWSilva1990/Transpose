@@ -6,6 +6,7 @@ import androidx.media3.common.MediaMetadata
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
+import androidx.media3.common.Timeline
 import androidx.media3.common.Tracks
 import androidx.media3.session.MediaController
 import com.example.domain.model.preferences.RepeatMode
@@ -13,7 +14,7 @@ import com.example.domain.model.youtube.video.Video
 import com.example.domain.model.youtube.video_detail.VideoDetail
 import com.example.media.state_holder.NowPlayingStateHolder
 import com.example.media.state_holder.PlaybackType
-import kotlinx.coroutines.CoroutineDispatcher
+import com.example.util.Logger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -67,6 +68,7 @@ class MediaPlaybackManager @Inject constructor(
         }
 
         override fun onPlayerError(error: PlaybackException) {
+            Logger.d("MediaPlaybackManager onPlayerError Listener: ${error.message}")
         }
 
         override fun onIsPlayingChanged(isPlaying: Boolean) {
@@ -148,25 +150,74 @@ class MediaPlaybackManager @Inject constructor(
         }
     }
 
-    fun updateMediaItemWithFullInfo(itemId: String, videoDetail: VideoDetail?) {
-        videoDetail ?: return
+    fun updateMediaItemWithFullInfo(
+        itemId: String,
+        videoDefaultStreamUrl: String,
+        videoOnlyStreamUrl: String?,
+        audioOnlyStreamUrl: String?,
+        videoQuality: String,
+        videoManifestString: String,
+        videoManifestUrl: String?,
+        audioManifestsString: String,
+        audioManifestUrl: String?,
+    ) {
+        val ctrl = mediaControllerFlow.value ?: return
+        val currentPosition = ctrl.currentPosition
 
         updateMediaItemJob?.cancel()
 
-        val selectedVideoStream = videoDetail.videoStreamContent ?: return
 
-        updateMediaItemJob = scope.launch {
-            val ctrl = mediaControllerFlow.value ?: return@launch
-            val currentIndex = ctrl.currentMediaItemIndex
+        ctrl.addListener(object : Player.Listener {
+            override fun onTimelineChanged(timeline: Timeline, reason: Int) {
+                ctrl.seekTo(currentPosition)
+                ctrl.removeListener(this)
+            }
+        })
 
-            if (currentIndex < 0 || currentIndex >= ctrl.mediaItemCount) return@launch
+        if (videoQuality == "AUTO"){
+            updateMediaItemJob = scope.launch {
+                val currentIndex = ctrl.currentMediaItemIndex
 
-            val currentItem = ctrl.getMediaItemAt(currentIndex)
-            if (currentItem.mediaId == itemId) {
-                val updatedMediaItem = currentItem.buildUpon()
-                    .setUri(selectedVideoStream)
-                    .build()
-                ctrl.replaceMediaItem(currentIndex, updatedMediaItem)
+                if (currentIndex < 0 || currentIndex >= ctrl.mediaItemCount) return@launch
+
+                val currentItem = ctrl.getMediaItemAt(currentIndex)
+                if (currentItem.mediaId == itemId) {
+                    val updatedMediaItem = currentItem.buildUpon()
+                        .setUri(videoDefaultStreamUrl)
+                        .build()
+                    Logger.d("quality 고정일 때 로그창")
+
+                    ctrl.replaceMediaItem(currentIndex, updatedMediaItem)
+                }
+            }
+        }
+        else{
+            updateMediaItemJob = scope.launch {
+                val currentIndex = ctrl.currentMediaItemIndex
+
+                if (currentIndex < 0 || currentIndex >= ctrl.mediaItemCount) return@launch
+
+                val currentItem = ctrl.getMediaItemAt(currentIndex)
+                if (currentItem.mediaId == itemId) {
+                    val updatedMetadata = currentItem.mediaMetadata.buildUpon()
+                        .setExtras(android.os.Bundle().apply {
+                            putString("videoManifestUrl", videoManifestUrl)
+                            putString("videoManifestString", videoManifestString)
+                            putString("audioManifestUrl", audioManifestUrl)
+                            putString("audioManifestString", audioManifestsString)
+                            putString("videoUrl", videoOnlyStreamUrl)
+                            putString("audioUrl", audioOnlyStreamUrl)
+                        })
+                        .build()
+
+                    val updatedMediaItem = currentItem.buildUpon()
+                        .setUri(videoOnlyStreamUrl)
+                        .setMediaMetadata(updatedMetadata)
+                        .build()
+                    Logger.d("quality 바뀌었을 때 로그창")
+
+                    ctrl.replaceMediaItem(currentIndex, updatedMediaItem)
+                }
             }
         }
     }
