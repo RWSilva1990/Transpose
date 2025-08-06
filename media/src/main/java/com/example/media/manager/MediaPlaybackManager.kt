@@ -1,6 +1,7 @@
 package com.example.media.manager
 
 import android.net.Uri
+import androidx.annotation.OptIn
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.PlaybackException
@@ -8,10 +9,12 @@ import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.Timeline
 import androidx.media3.common.Tracks
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.datasource.HttpDataSource
+import androidx.media3.exoplayer.source.BehindLiveWindowException
 import androidx.media3.session.MediaController
 import com.example.domain.model.preferences.RepeatMode
 import com.example.domain.model.youtube.video.Video
-import com.example.domain.model.youtube.video_detail.VideoDetail
 import com.example.media.state_holder.NowPlayingStateHolder
 import com.example.media.state_holder.PlaybackType
 import com.example.util.Logger
@@ -67,8 +70,22 @@ class MediaPlaybackManager @Inject constructor(
             }
         }
 
+        @OptIn(UnstableApi::class)
         override fun onPlayerError(error: PlaybackException) {
-            Logger.d("MediaPlaybackManager onPlayerError Listener: ${error.message}")
+            Logger.e("🔴 Player Error:")
+            Logger.e("  - Error code: ${error.errorCode}")
+            Logger.e("  - Message: ${error.message}")
+            Logger.e("  - Cause: ${error.cause}")
+
+            error.cause?.let { cause ->
+                if (cause is BehindLiveWindowException) {
+                    Logger.e("  - Behind live window")
+                } else if (cause is HttpDataSource.HttpDataSourceException) {
+                    Logger.e("  - HTTP error: ${cause.type}")
+                } else {
+                    Logger.e("  - HTTP error: ${cause.cause}")
+                }
+            }
         }
 
         override fun onIsPlayingChanged(isPlaying: Boolean) {
@@ -174,24 +191,7 @@ class MediaPlaybackManager @Inject constructor(
             }
         })
 
-        if (videoQuality == "AUTO"){
-            updateMediaItemJob = scope.launch {
-                val currentIndex = ctrl.currentMediaItemIndex
-
-                if (currentIndex < 0 || currentIndex >= ctrl.mediaItemCount) return@launch
-
-                val currentItem = ctrl.getMediaItemAt(currentIndex)
-                if (currentItem.mediaId == itemId) {
-                    val updatedMediaItem = currentItem.buildUpon()
-                        .setUri(videoDefaultStreamUrl)
-                        .build()
-                    Logger.d("quality 고정일 때 로그창")
-
-                    ctrl.replaceMediaItem(currentIndex, updatedMediaItem)
-                }
-            }
-        }
-        else{
+        if (videoQuality == "AUTO") {
             updateMediaItemJob = scope.launch {
                 val currentIndex = ctrl.currentMediaItemIndex
 
@@ -201,6 +201,29 @@ class MediaPlaybackManager @Inject constructor(
                 if (currentItem.mediaId == itemId) {
                     val updatedMetadata = currentItem.mediaMetadata.buildUpon()
                         .setExtras(android.os.Bundle().apply {
+                            putString("videoQuality", videoQuality)
+                        })
+                        .build()
+                    val updatedMediaItem = currentItem.buildUpon()
+                        .setUri(videoDefaultStreamUrl)
+                        .build()
+                    Logger.d("quality 고정일 때 로그창")
+
+                    ctrl.replaceMediaItem(currentIndex, updatedMediaItem)
+                }
+            }
+        } else {
+            updateMediaItemJob = scope.launch {
+                val currentIndex = ctrl.currentMediaItemIndex
+
+                if (currentIndex < 0 || currentIndex >= ctrl.mediaItemCount) return@launch
+
+                val currentItem = ctrl.getMediaItemAt(currentIndex)
+                if (currentItem.mediaId == itemId) {
+                    Logger.d("quality 바뀌었을 때 로그창 $videoManifestString")
+                    val updatedMetadata = currentItem.mediaMetadata.buildUpon()
+                        .setExtras(android.os.Bundle().apply {
+                            putString("videoQuality", videoQuality)
                             putString("videoManifestUrl", videoManifestUrl)
                             putString("videoManifestString", videoManifestString)
                             putString("audioManifestUrl", audioManifestUrl)

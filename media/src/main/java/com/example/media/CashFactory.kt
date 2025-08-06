@@ -10,6 +10,8 @@ import androidx.media3.datasource.TransferListener
 import androidx.media3.datasource.cache.CacheDataSink
 import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.datasource.cache.SimpleCache
+import androidx.media3.datasource.BaseDataSource
+import com.example.util.Logger
 
 @OptIn(UnstableApi::class)
 internal class CacheFactory(
@@ -20,12 +22,15 @@ internal class CacheFactory(
 ) : DataSource.Factory {
 
     override fun createDataSource(): DataSource {
-
-        val upstreamDataSource = DefaultDataSource.Factory(
-            context, upstreamDataSourceFactory
-        )
-            .setTransferListener(transferListener)
+        Logger.d("CacheFactory.createDataSource: Creating data source")
+        
+        val upstreamDataSource = upstreamDataSourceFactory
             .createDataSource()
+            .apply {
+                if (this is BaseDataSource) {
+                    addTransferListener(transferListener)
+                }
+            }
 
         val fileSource = FileDataSource()
         val dataSink = CacheDataSink(cache, 2 * 1024 * 1024L)
