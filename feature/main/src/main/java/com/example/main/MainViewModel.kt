@@ -145,8 +145,8 @@ class MainViewModel @Inject constructor(
                         videoDetail.duration
                     )
 
-                Logger.d("videoManifestUrl: ${videoOnlyStream.manifestUrl}")
-                Logger.d("audioManifestUrl: ${audioOnlyStream.manifestUrl}")
+                Logger.d("videoManifestString: $videoManifestString")
+                Logger.d("audioManifestString: $audioManifestString")
 
                 mediaPlaybackManager.updateMediaItemWithFullInfo(
                     itemId = videoDetail.id,

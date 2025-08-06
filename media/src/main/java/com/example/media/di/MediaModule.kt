@@ -6,7 +6,6 @@ import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
@@ -39,10 +38,10 @@ class MediaModule {
         val custom = CustomHttpDataSource.Factory()
             .setRangeParameterEnabled(true)
             .setRnParameterEnabled(true)
+            .setKeepPostFor302Redirects(true)
+            .setAllowCrossProtocolRedirects(true)
 
-        val defaultDataSourceFactory = DefaultDataSource.Factory(context, custom)
-
-        return CustomMediaSourceFactory(context, defaultDataSourceFactory)
+        return CustomMediaSourceFactory(context, custom)
 
     }
 
@@ -70,6 +69,7 @@ class MediaModule {
                 .setBackBuffer(10_000, true) // 10초 백버퍼 설정
                 .build()
         )
+        .setMediaSourceFactory(customMediaSourceFactory)
         .setTrackSelector(DefaultTrackSelector(context))
         .build()
 
