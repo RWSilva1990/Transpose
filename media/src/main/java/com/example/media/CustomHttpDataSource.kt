@@ -16,6 +16,7 @@ import androidx.media3.datasource.HttpDataSource.HttpDataSourceException
 import androidx.media3.datasource.HttpUtil
 import androidx.media3.datasource.HttpUtil.buildRangeRequestHeader
 import androidx.media3.datasource.TransferListener
+import com.example.util.Logger
 import com.google.common.net.HttpHeaders
 import java.io.IOException
 import java.io.InputStream
@@ -26,7 +27,6 @@ import java.net.NoRouteToHostException
 import java.net.URL
 import java.util.zip.GZIPInputStream
 import kotlin.math.min
-import com.example.util.Logger
 
 
 @OptIn(UnstableApi::class)
@@ -102,7 +102,13 @@ class CustomHttpDataSource(
         }
 
         override fun createDataSource(): CustomHttpDataSource {
-            Logger.d("CustomHttpDataSource.Factory: Creating with rangeParam=$rangeParameterEnabled, rnParam=$rnParameterEnabled, connectTimeout=$connectTimeoutMs, readTimeout=$readTimeoutMs")
+            Logger.d("CustomHttpDataSource.Factory.createDataSource: CREATING NEW INSTANCE")
+            Logger.d("  rangeParameterEnabled: $rangeParameterEnabled")
+            Logger.d("  rnParameterEnabled: $rnParameterEnabled")
+            Logger.d("  connectTimeoutMs: $connectTimeoutMs")
+            Logger.d("  readTimeoutMs: $readTimeoutMs")
+            Logger.d("  keepPostFor302Redirects: $keepPostFor302Redirects")
+
             val dataSource = CustomHttpDataSource(
                 userAgent,
                 connectTimeoutMs,
@@ -148,7 +154,7 @@ class CustomHttpDataSource(
     private var responseCode: Int = 0
     private var bytesToRead: Long = 0
     private var bytesRead: Long = 0
-    private var requestProperties = HttpDataSource.RequestProperties()
+    private val requestProperties = HttpDataSource.RequestProperties()
 
     private var requestNumber: Long = 0
 
@@ -157,6 +163,11 @@ class CustomHttpDataSource(
         try {
             return readInternal(buffer, offset, length)
         } catch (e: IOException) {
+            Logger.e("CustomHttpDataSource.read: Read failed", e)
+            Logger.e("  Exception type: ${e.javaClass.simpleName}")
+            Logger.e("  Exception message: ${e.message}")
+            Logger.e("  Offset: $offset, Length: $length")
+            Logger.e("  BytesRead: $bytesRead, BytesToRead: $bytesToRead")
             throw HttpDataSourceException.createForIOException(
                 e, Util.castNonNull(dataSpec), HttpDataSourceException.TYPE_READ
             )
@@ -199,17 +210,22 @@ class CustomHttpDataSource(
 
         bytesRead += read.toLong()
         bytesTransferred(read)
-        
+
         // Log every 1MB of data read
         if (bytesRead % (1024 * 1024) < read) {
             Logger.d("CustomHttpDataSource.read: bytesRead=${bytesRead / 1024}KB, bytesToRead=${if (bytesToRead == C.LENGTH_UNSET.toLong()) "UNSET" else "${bytesToRead / 1024}KB"}")
         }
-        
+
         return read
     }
 
     override fun open(dataSpec: DataSpec): Long {
-        Logger.d("CustomHttpDataSource.open: URL=${dataSpec.uri}, position=${dataSpec.position}, length=${dataSpec.length}")
+        Logger.d("CustomHttpDataSource.open: START")
+        Logger.d("  URL: ${dataSpec.uri}")
+        Logger.d("  Position: ${dataSpec.position}")
+        Logger.d("  Length: ${dataSpec.length}")
+        Logger.d("  HTTP Method: ${dataSpec.httpMethod}")
+
         this.dataSpec = dataSpec
         bytesRead = 0
         bytesToRead = 0
@@ -218,11 +234,16 @@ class CustomHttpDataSource(
         val httpURLConnection: HttpURLConnection
         val responseMessage: String
         try {
+            Logger.d("CustomHttpDataSource: Making connection START")
             connection = makeConnection(dataSpec)
             httpURLConnection = connection!!
             responseCode = httpURLConnection.responseCode
             responseMessage = httpURLConnection.responseMessage
+            Logger.d("CustomHttpDataSource: Connection successful - Response code: $responseCode, message: $responseMessage")
         } catch (e: IOException) {
+            Logger.e("CustomHttpDataSource: Connection failed", e)
+            Logger.e("Exception type: ${e.javaClass.simpleName}")
+            Logger.e("Exception message: ${e.message}")
             closeConnectionQuietly()
             throw HttpDataSourceException.createForIOException(
                 e,
@@ -232,20 +253,35 @@ class CustomHttpDataSource(
         }
 
         if (responseCode < 200 || responseCode > 299) {
+            Logger.e("CustomHttpDataSource: HTTP Error - Code: $responseCode, Message: $responseMessage")
+            Logger.e("Request URL: ${dataSpec.uri}")
+            Logger.e("Request position: ${dataSpec.position}, length: ${dataSpec.length}")
+
             val headers = httpURLConnection.headerFields
+            Logger.e("Response headers: $headers")
+
             if (responseCode == 416) {
-                val documentSize =
-                    HttpUtil.getDocumentSize(httpURLConnection.getHeaderField(HttpHeaders.CONTENT_RANGE))
+                val contentRangeHeader = httpURLConnection.getHeaderField(HttpHeaders.CONTENT_RANGE)
+                Logger.d("CustomHttpDataSource: Range error - Content-Range header: $contentRangeHeader")
+                val documentSize = HttpUtil.getDocumentSize(contentRangeHeader)
+                Logger.d("CustomHttpDataSource: Document size: $documentSize, requested position: ${dataSpec.position}")
                 if (dataSpec.position == documentSize) {
+                    Logger.d("CustomHttpDataSource: Range request at end of file - returning 0 bytes")
                     opened = true
                     transferStarted(dataSpec)
                     return if (dataSpec.length != C.LENGTH_UNSET.toLong()) dataSpec.length else 0
                 }
             }
+
             val errorStream = httpURLConnection.errorStream
             val errorResponseBody = try {
-                errorStream?.readBytes() ?: ByteArray(0)
+                val errorBytes = errorStream?.readBytes() ?: ByteArray(0)
+                if (errorBytes.isNotEmpty()) {
+                    Logger.e("CustomHttpDataSource: Error response body: ${String(errorBytes)}")
+                }
+                errorBytes
             } catch (e: IOException) {
+                Logger.e("CustomHttpDataSource: Failed to read error stream", e)
                 ByteArray(0)
             }
             closeConnectionQuietly()
@@ -267,17 +303,28 @@ class CustomHttpDataSource(
             throw HttpDataSource.InvalidContentTypeException(contentType, dataSpec)
         }
 
-        val bytesToSkip =
-            if (responseCode == 200 && dataSpec.position != 0L) dataSpec.position else 0L
+        // Range 포함 url일 때는 bytesToSkip 계산 x
+        // rangeParameterEnabled가 false인 경우에만 수동으로 position 만큼 skip
+        val bytesToSkip = if (!rangeParameterEnabled) {
+            if (responseCode == 200 && dataSpec.position != 0L) {
+                Logger.d("CustomHttpDataSource: Server doesn't support range requests, will skip ${dataSpec.position} bytes")
+                dataSpec.position
+            } else {
+                0L
+            }
+        } else {
+            Logger.d("CustomHttpDataSource: Using range parameter, no manual skipping needed")
+            0L
+        }
 
         val isCompressed = isCompressed(httpURLConnection)
         val contentLength = HttpUtil.getContentLength(
             httpURLConnection.getHeaderField(HttpHeaders.CONTENT_LENGTH),
             httpURLConnection.getHeaderField(HttpHeaders.CONTENT_RANGE)
         )
-        
+
         Logger.d("CustomHttpDataSource: Response code=$responseCode, contentLength=$contentLength, isCompressed=$isCompressed, bytesToSkip=$bytesToSkip")
-        
+
         bytesToRead = if (!isCompressed) {
             if (dataSpec.length != C.LENGTH_UNSET.toLong()) {
                 dataSpec.length
@@ -446,23 +493,37 @@ class CustomHttpDataSource(
         requestParameters: Map<String, String>
     ): HttpURLConnection {
         var requestUrl = url.toString()
+        val originalUrl = requestUrl
 
         val isVideoPlaybackUrl = url.path.startsWith("/videoplayback")
-        Logger.d("CustomHttpDataSource.makeConnection: Original URL=$requestUrl, isVideoPlayback=$isVideoPlaybackUrl")
-        
+        Logger.d("CustomHttpDataSource.makeConnection: START")
+        Logger.d("  Original URL: $originalUrl")
+        Logger.d("  isVideoPlayback: $isVideoPlaybackUrl (path: ${url.path})")
+        Logger.d("  rnParameterEnabled: $rnParameterEnabled, rangeParameterEnabled: $rangeParameterEnabled")
+        Logger.d("  Request position: $position, length: $length")
+
         if (isVideoPlaybackUrl && rnParameterEnabled && !requestUrl.contains(RN_PARAMETER)) {
-            val rnValue = requestNumber
-            requestUrl += RN_PARAMETER + rnValue
+            val currentRequestNumber = requestNumber
+            requestUrl += RN_PARAMETER + requestNumber
             requestNumber++
-            Logger.d("CustomHttpDataSource: Added RN parameter=$rnValue")
+            Logger.d("CustomHttpDataSource: Added RN parameter: $currentRequestNumber (next will be $requestNumber)")
         }
 
         if (rangeParameterEnabled && isVideoPlaybackUrl) {
             val rangeParameterBuilt = buildRangeParameter(position, length)
             if (rangeParameterBuilt != null) {
                 requestUrl += rangeParameterBuilt
-                Logger.d("CustomHttpDataSource: Added range parameter=$rangeParameterBuilt")
+                Logger.d("CustomHttpDataSource: Added range parameter: $rangeParameterBuilt")
+            } else {
+                Logger.d("CustomHttpDataSource: Range parameter not added (null)")
             }
+        }
+
+        if (originalUrl != requestUrl) {
+            Logger.d("CustomHttpDataSource: Modified URL: $requestUrl")
+            Logger.d("  URL diff: ${requestUrl.substring(originalUrl.length)}")
+        } else {
+            Logger.d("CustomHttpDataSource: URL unchanged")
         }
 
         val httpURLConnection = openConnection(URL(requestUrl))
@@ -486,10 +547,19 @@ class CustomHttpDataSource(
         }
 
 
+//        // YouTube specific headers
+//        val isWebStreamingUrl = requestUrl.contains("googlevideo.com") || isVideoPlaybackUrl
+//        if (isWebStreamingUrl) {
+//            httpURLConnection.setRequestProperty(HttpHeaders.ORIGIN, YOUTUBE_BASE_URL)
+//            httpURLConnection.setRequestProperty(HttpHeaders.REFERER, YOUTUBE_BASE_URL)
+//            httpURLConnection.setRequestProperty("Sec-Fetch-Dest", "empty")
+//            httpURLConnection.setRequestProperty("Sec-Fetch-Mode", "cors")
+//            httpURLConnection.setRequestProperty("Sec-Fetch-Site", "cross-site")
+//            Logger.d("CustomHttpDataSource: Added YouTube headers for URL: $requestUrl")
+//        }
+
         httpURLConnection.setRequestProperty(HttpHeaders.TE, "trailers")
-
-
-        httpURLConnection.setRequestProperty(HttpHeaders.USER_AGENT, getAndroidUserAgent(null))
+        httpURLConnection.setRequestProperty(HttpHeaders.USER_AGENT, getAndroidUserAgent())
 
 
         httpURLConnection.setRequestProperty(
@@ -501,21 +571,33 @@ class CustomHttpDataSource(
         httpURLConnection.requestMethod = "POST"
         httpURLConnection.doOutput = true
         httpURLConnection.setFixedLengthStreamingMode(POST_BODY.size)
-        
+
         Logger.d("CustomHttpDataSource: Making POST request to $requestUrl")
+
+        val connectionStartTime = System.currentTimeMillis()
         httpURLConnection.connect()
+        val connectionTime = System.currentTimeMillis() - connectionStartTime
+        Logger.d("CustomHttpDataSource: Connection established in ${connectionTime}ms")
 
         val os = httpURLConnection.outputStream
         os.write(POST_BODY)
         os.close()
+        Logger.d(
+            "CustomHttpDataSource: POST body sent (${POST_BODY.size} bytes: ${
+                POST_BODY.joinToString(
+                    ", "
+                ) { "0x%02x".format(it) }
+            })"
+        )
 
         return httpURLConnection
     }
 
-    private fun getAndroidUserAgent(localization: Localization?): String {
+    private fun getAndroidUserAgent(): String {
+        val countryCode = "US"
         return ("com.google.android.youtube/" + ANDROID_CLIENT_VERSION
                 + " (Linux; U; Android 15; "
-                + (localization ?: Localization.DEFAULT).countryCode
+                + countryCode
                 + ") gzip")
     }
 
