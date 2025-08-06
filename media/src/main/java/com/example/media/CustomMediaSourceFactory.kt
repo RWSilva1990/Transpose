@@ -9,7 +9,8 @@ import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.database.StandaloneDatabaseProvider
-import androidx.media3.datasource.DefaultDataSource
+import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor
 import androidx.media3.datasource.cache.SimpleCache
 import androidx.media3.exoplayer.dash.DashMediaSource
@@ -19,50 +20,46 @@ import androidx.media3.exoplayer.dash.manifest.DashManifestParser
 import androidx.media3.exoplayer.drm.DrmSessionManagerProvider
 import androidx.media3.exoplayer.source.MediaSource
 import androidx.media3.exoplayer.source.MergingMediaSource
+import androidx.media3.exoplayer.source.ProgressiveMediaSource
 import androidx.media3.exoplayer.upstream.DefaultBandwidthMeter
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy
 import com.example.util.Logger
 import java.io.ByteArrayInputStream
 import java.io.File
 import java.nio.charset.StandardCharsets
-import java.util.Objects
 
 @OptIn(UnstableApi::class)
 class CustomMediaSourceFactory(
     private val context: Context,
-    private val dataSourceFactory: DefaultDataSource.Factory
+    private val dataSourceFactory: CustomHttpDataSource.Factory
 ) : MediaSource.Factory {
 
-    val CACHE_FOLDER_NAME: String = "exoplayer"
-
-    val USER_AGENT: String =
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:128.0) Gecko/20100101 Firefox/128.0"
+    private val CACHE_FOLDER_NAME: String = "exoplayer"
 
     private var cache: SimpleCache? = null
     private var drmSessionManagerProvider: DrmSessionManagerProvider? = null
     private var loadErrorHandlingPolicy: LoadErrorHandlingPolicy? = null
     private var bandwidthMeter: DefaultBandwidthMeter? = null
-    private var cacheFactory: CacheFactory? = null
+    private var cacheFactory:
+            CacheDataSource.Factory? = null
     private var defaultDashChunkSourceFactory: DefaultDashChunkSource.Factory? = null
-    private var dashMediaSource: DashMediaSource.Factory? = null
+    private var youtubeDashMediaSource: DashMediaSource.Factory? = null
 
     init {
         instantiateCacheIfNeeded(context)
 
         bandwidthMeter = DefaultBandwidthMeter.Builder(context).build()
 
-        cacheFactory = CacheFactory(
-            context,
-            bandwidthMeter!!,
-            cache!!,
-            dataSourceFactory
-        )
+        cacheFactory = CacheDataSource.Factory()
+            .setUpstreamDataSourceFactory(dataSourceFactory)
+            .setCache(cache!!)
+
         defaultDashChunkSourceFactory = DefaultDashChunkSource.Factory(cacheFactory!!)
-        dashMediaSource = DashMediaSource.Factory(
+
+        youtubeDashMediaSource = DashMediaSource.Factory(
             defaultDashChunkSourceFactory!!,
             cacheFactory
         )
-
     }
 
 
@@ -86,16 +83,36 @@ class CustomMediaSourceFactory(
     }
 
     override fun createMediaSource(mediaItem: MediaItem): MediaSource {
+        // 30초 무음 파일인지 확인
+        val uri = mediaItem.localConfiguration?.uri?.toString()
+        if (uri?.contains("30-seconds-of-silence") == true || uri?.startsWith("asset:///") == true) {
+            Logger.d("CustomMediaSourceFactory: Creating media source for silence file")
+            // 기본 MediaSource 팩토리로 처리
+            return ProgressiveMediaSource.Factory(DefaultHttpDataSource.Factory())
+                .createMediaSource(mediaItem)
+        }
+
         // extras에 "videoUrl", "audioUrl"가 들어있다면 각각 사용
         val extras: Bundle? = mediaItem.mediaMetadata.extras
-        val videoManifestUrl = extras?.getString("manifestUrl")
-        val videoManifestString = extras?.getString("manifestString")
-        val audioManifestString = extras?.getString("audioManifestString")
-        val audioManifestUrl = extras?.getString("audioManifestUrl")
 
+        val videoQuality = extras?.getString("videoQuality")
+
+        if (videoQuality == "AUTO") {
+            return ProgressiveMediaSource.Factory(DefaultHttpDataSource.Factory())
+                .createMediaSource(mediaItem)
+        }
+
+        val videoManifestUrl = extras?.getString("videoManifestUrl")
+        val videoManifestString = extras?.getString("videoManifestString")
+        val audioManifestUrl = extras?.getString("audioManifestUrl")
+        val audioManifestString = extras?.getString("audioManifestString")
+
+        Logger.d("CustomMediaSourceFactory.createMediaSource: videoManifestUrl: $videoManifestUrl, videoManifestString: $videoManifestString")
+        Logger.d("CustomMediaSourceFactory.createMediaSource: audioManifestString: $audioManifestString, audioManifestUrl: $audioManifestUrl")
         val videoUri = extras?.getString("videoUrl")
         val audioUri = extras?.getString("audioUrl")
-        Logger.d("CustomMediaSourceFactory.createMediaSource: ${videoUri.isNullOrEmpty()} ${audioUri.isNullOrEmpty()}")
+        Logger.d("CustomMediaSourceFactory.createMediaSource: videoUri: $videoUri, audioUri: $audioUri")
+
 
         val mediaSourceList = mutableListOf<MediaSource>()
 
@@ -111,39 +128,118 @@ class CustomMediaSourceFactory(
             .setMediaMetadata(mediaItem.mediaMetadata)
             .build()
 
-        val videoMediaSource = dashMediaSource?.createMediaSource(
-            createDashManifest(
-                videoManifestString!!,
-                videoManifestUrl!!
-            ), videoMediaItem
-        )
-        val audioMediaSource = dashMediaSource?.createMediaSource(
-            createDashManifest(
-                audioManifestString!!,
-                audioManifestUrl!!
-            ), audioMediaItem
-        )
+        Logger.d("CustomMediaSourceFactory videoMediaItem: ${videoMediaItem.mediaId}, audioMediaItem: ${audioMediaItem.mediaId}")
+
+        val videoMediaSource = try {
+            Logger.d("Creating video media source with:")
+            Logger.d("  - videoManifestString: ${videoManifestString?.take(200)}...")
+            Logger.d("  - videoManifestUrl: $videoManifestUrl")
+            Logger.d("  - videoUri: ${videoMediaItem.localConfiguration?.uri}")
+
+            val manifest = createDashManifest(videoManifestString, videoManifestUrl)
+            Logger.d("Video manifest created successfully")
+
+            val source = youtubeDashMediaSource?.createMediaSource(manifest, videoMediaItem)
+            Logger.d("Video media source created: $source")
+            source
+        } catch (e: Exception) {
+            Logger.e(
+                "CustomMediaSourceFactory.createMediaSource: Failed to create video media source",
+                e
+            )
+            Logger.e("Exception type: ${e.javaClass.simpleName}")
+            Logger.e("Exception message: ${e.message}")
+            Logger.e("Stack trace:", e)
+            throw RuntimeException("Failed to create video media source", e)
+        }
+        val audioMediaSource = if (!audioManifestString.isNullOrEmpty()) {
+            try {
+                Logger.d("Creating audio media source with:")
+                Logger.d("  - audioManifestString: ${audioManifestString.take(200)}...")
+                Logger.d("  - audioManifestUrl: $audioManifestUrl")
+                Logger.d("  - audioUri: ${audioMediaItem.localConfiguration?.uri}")
+
+                val manifest = createDashManifest(audioManifestString, audioManifestUrl)
+                Logger.d("Audio manifest created successfully")
+
+                val source = youtubeDashMediaSource?.createMediaSource(manifest, audioMediaItem)
+                Logger.d("Audio media source created: $source")
+                source
+            } catch (e: Exception) {
+                Logger.e(
+                    "CustomMediaSourceFactory.createMediaSource: Failed to create audio media source",
+                    e
+                )
+                Logger.e("Exception type: ${e.javaClass.simpleName}")
+                Logger.e("Exception message: ${e.message}")
+                Logger.e("Stack trace:", e)
+                throw RuntimeException("Failed to create audio media source", e)
+            }
+        } else {
+            Logger.d("Audio manifest string is null or empty, skipping audio source")
+            null
+        }
+
+        Logger.d("CustomMediaSourceFactory videoMediaSource: $videoMediaSource, audioMediaSource: $audioMediaSource")
 
 
-        mediaSourceList.add(videoMediaSource!!)
-        mediaSourceList.add(audioMediaSource!!)
+        if (videoMediaSource != null) {
+            mediaSourceList.add(videoMediaSource)
+        }
+        if (audioMediaSource != null) {
+            mediaSourceList.add(audioMediaSource)
+        }
 
-        return MergingMediaSource(true, *mediaSourceList.toTypedArray())
+        if (mediaSourceList.isEmpty()) {
+            throw RuntimeException("No media sources could be created")
+        }
+
+        val mergingMediaSource = if (mediaSourceList.size > 1) {
+            MergingMediaSource(true, *mediaSourceList.toTypedArray())
+        } else {
+            mediaSourceList.first()
+        }
+
+        Logger.d("CustomMediaSourceFactory mergingMediaSource: $mergingMediaSource")
+        return mergingMediaSource
     }
 
-    @androidx.annotation.OptIn(UnstableApi::class)
+    @OptIn(UnstableApi::class)
     private fun createDashManifest(
-        manifestContent: String,
-        manifestUrl: String
+        manifestContent: String?,
+        manifestUrl: String?
     ): DashManifest {
-        return DashManifestParser().parse(
-            manifestUrlToUri(manifestUrl),
-            ByteArrayInputStream(manifestContent.toByteArray(StandardCharsets.UTF_8))
-        )
+        try {
+            // Null 체크 및 검증
+            if (manifestContent.isNullOrEmpty()) {
+                throw IllegalArgumentException("Manifest content is null or empty")
+            }
+
+            Logger.d("Parsing DASH manifest:")
+            Logger.d("  - Content length: ${manifestContent.length}")
+            Logger.d("  - URL: $manifestUrl")
+
+            val uri = manifestUrlToUri(manifestUrl)
+            Logger.d("  - Parsed URI: $uri")
+
+            val inputStream =
+                ByteArrayInputStream(manifestContent.toByteArray(StandardCharsets.UTF_8))
+            val manifest = DashManifestParser().parse(uri, inputStream)
+
+            Logger.d("Manifest parsed successfully:")
+            Logger.d("  - Duration: ${manifest.durationMs}ms")
+            Logger.d("  - Period count: ${manifest.periodCount}")
+
+            return manifest
+        } catch (e: Exception) {
+            Logger.e("CustomMediaSourceFactory.createDashManifest: Failed to parse manifest", e)
+            Logger.e("Manifest content preview: ${manifestContent?.take(500)}")
+            throw RuntimeException("Failed to parse DASH manifest: ${e.message}", e)
+        }
     }
 
-    private fun manifestUrlToUri(manifestUrl: String): Uri {
-        return Objects.requireNonNullElse(manifestUrl, "").toUri()
+    private fun manifestUrlToUri(manifestUrl: String?): Uri {
+        return manifestUrl?.toUri() ?: "".toUri()
     }
 
     private fun instantiateCacheIfNeeded(context: Context) {
