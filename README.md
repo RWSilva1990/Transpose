@@ -18,7 +18,7 @@ The latest beta version of Transpose is now available!
 
 [![GitHub release (latest by date including pre-releases)](https://img.shields.io/github/v/release/joh9911/Transpose?include_prereleases)](https://github.com/joh9911/Transpose/releases/latest) ![GitHub all releases](https://img.shields.io/github/downloads/joh9911/Transpose/total)
 
-You can download the latest APK from my [GitHub Releases page](https://github.com/joh9911/Transpose/releases/tag/v0.1.1-beta).
+You can download the latest APK from my [GitHub Releases page](https://github.com/joh9911/Transpose/releases)
 
 Please note that this is a beta release and may contain bugs. We appreciate your feedback to help improve Transpose!
 
