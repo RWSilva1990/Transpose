@@ -1,9 +1,10 @@
 package com.example.data.newpipe.extractor.playlist
 
-import com.example.data.newpipe.extractor.base.Pager
 import com.example.data.newpipe.exception.NewPipeException
+import com.example.data.newpipe.extractor.base.Pager
 import com.example.data.newpipe.mapper.InfoItemMapper
 import com.example.domain.model.youtube.playlist.PlaylistItem
+import com.example.util.Logger
 import org.schabi.newpipe.extractor.InfoItem
 import org.schabi.newpipe.extractor.ListExtractor
 import org.schabi.newpipe.extractor.StreamingService
@@ -22,21 +23,27 @@ class PlaylistItemPager(
 
         for (infoItem in page.items) {
             if (infoItem is StreamInfoItem) {
+                Logger.d("PlaylistItemPager extract - videoId: $infoItem, uploaderId: ${infoItem.uploaderUrl}")
+
                 val videoId = getId(streamLinkHandler, infoItem.url)
                 val uploaderId = getId(channelLinkHandler, infoItem.uploaderUrl)
-                val playlistItemDomain = InfoItemMapper.streamInfoItemToPlaylistItemData(infoItem, videoId, uploaderId)
+
+                val playlistItemDomain =
+                    InfoItemMapper.streamInfoItemToPlaylistItemData(infoItem, videoId, uploaderId)
                 result.add(playlistItemDomain)
             }
         }
-
         return result
     }
 
-    private fun getId(handler: LinkHandlerFactory, url: String): String {
+    private fun getId(handler: LinkHandlerFactory, url: String?): String {
+        if (url == null) return ""
+
         return try {
             handler.getId(url)
         } catch (e: ParsingException) {
             throw NewPipeException.ParsingException("getId from PlaylistItemPager", e)
         }
     }
+
 }
