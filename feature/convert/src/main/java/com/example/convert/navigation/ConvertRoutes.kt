@@ -14,4 +14,6 @@ sealed class ConvertRoutes(val route: String) {
     data object ChannelScreen: ConvertRoutes("convert_channel_screen/{channelId}") {
         fun createRoute(channelId: String) = "convert_channel_screen/$channelId"
     }
+    data object SettingsScreen : ConvertRoutes("settings_screen")
+
 }
