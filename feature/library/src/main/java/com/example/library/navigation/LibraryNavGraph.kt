@@ -15,11 +15,14 @@ import com.example.library.my_playlist_item.LibraryMyPlaylistItemScreen
 import com.example.ui.screen.channel.ChannelScreen
 import com.example.ui.screen.playlist_info.PlaylistInfoScreen
 import com.example.ui.screen.search_result.SearchResultScreen
+import com.example.ui.screen.settings.SettingsScreen
 
 @OptIn(ExperimentalMaterial3Api::class)
 fun NavGraphBuilder.libraryNavGraph(
     bottomSheetState: SheetState,
     libraryNavigationHelper: LibraryNavigationHelper,
+    onUpdateCheckClick: () -> Unit,
+    onContactClick: () -> Unit,
     navigateToHomeTab: () -> Unit
 ) {
     composable(route = LibraryRoutes.MyPlaylist.route,
@@ -127,6 +130,19 @@ fun NavGraphBuilder.libraryNavGraph(
             onNavigateToPlaylistInfoScreen = { playlistId ->
                 libraryNavigationHelper.navigateToPlaylistInfo(playlistId)
             }
+        )
+    }
+
+    composable(
+        route = LibraryRoutes.SettingsScreen.route,
+        enterTransition = { EnterTransition.None },
+        exitTransition = { ExitTransition.None },
+        popEnterTransition = { EnterTransition.None },
+        popExitTransition = { ExitTransition.None },
+    ) {
+        SettingsScreen(
+            onUpdateCheckClick = onUpdateCheckClick,
+            onContactClick = onContactClick
         )
     }
 

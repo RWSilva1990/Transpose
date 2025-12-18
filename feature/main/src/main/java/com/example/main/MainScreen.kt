@@ -97,6 +97,12 @@ fun MainScreen(
 
     var selectedTab by remember { mutableStateOf<MainTab>(MainTab.Home) }
 
+    val activeNavController = when (selectedTab) {
+        MainTab.Home -> homeNavController
+        MainTab.Library -> libraryNavController
+        MainTab.Convert -> convertNavController
+    }
+
 
     var bottomSheetOffset by remember {
         mutableFloatStateOf(0f)
@@ -198,7 +204,6 @@ fun MainScreen(
         }
     }
 
-
     Scaffold(
         containerColor = Color.White,
         modifier = Modifier
@@ -220,27 +225,11 @@ fun MainScreen(
             updateIsSheetLayoutComplete = { isSheetLayoutComplete = it },
             topAppBar = {
                 MainAppBar(
+                    onSettingClicked = {
+                        activeNavController.navigate(settingsRouteFor(selectedTab))
+                    },
                     onSearchClicked = {
-                        when (selectedTab) {
-                            MainTab.Home ->
-                                homeNavController.navigate(
-                                    HomeRoutes.SearchResult.createRoute(
-                                        it
-                                    )
-                                )
-
-                            MainTab.Convert -> convertNavController.navigate(
-                                ConvertRoutes.SearchResult.createRoute(
-                                    it
-                                )
-                            )
-
-                            MainTab.Library -> libraryNavController.navigate(
-                                LibraryRoutes.SearchResult.createRoute(
-                                    it
-                                )
-                            )
-                        }
+                        activeNavController.navigate(searchRouteFor(selectedTab, it))
                         searchBarState = SearchBarState.CLOSED
                     },
                     mainViewModel = mainViewModel,
@@ -257,25 +246,7 @@ fun MainScreen(
             innerPadding = innerPadding,
             bottomSheetState = sheetState,
             onNavigateToChannelScreen = { channelId ->
-                when (selectedTab) {
-                    MainTab.Home -> homeNavController.navigate(
-                        HomeRoutes.ChannelScreen.createRoute(
-                            channelId
-                        )
-                    )
-
-                    MainTab.Convert -> convertNavController.navigate(
-                        ConvertRoutes.ChannelScreen.createRoute(
-                            channelId
-                        )
-                    )
-
-                    MainTab.Library -> libraryNavController.navigate(
-                        LibraryRoutes.ChannelScreen.createRoute(
-                            channelId
-                        )
-                    )
-                }
+                activeNavController.navigate(channelRouteFor(selectedTab, channelId))
             }
         ) { playerBottomSheetScaffoldPadding ->
             when (selectedTab) {
@@ -287,7 +258,8 @@ fun MainScreen(
                             .background(Color.White)
                             .nestedScroll(nestedScrollConnection)
                             .padding(bottom = innerPadding.calculateBottomPadding()),
-
+                        onUpdateCheckClick = {},
+                        onContactClick = {},
                         bottomSheetState = sheetState
                     )
                 }
@@ -301,7 +273,9 @@ fun MainScreen(
                             .nestedScroll(nestedScrollConnection)
                             .padding(bottom = innerPadding.calculateBottomPadding()),
                         bottomSheetState = sheetState,
-                        navigateToHomeTab = { selectedTab = MainTab.Home }
+                        navigateToHomeTab = { selectedTab = MainTab.Home },
+                        onUpdateCheckClick = {},
+                        onContactClick = {},
                     )
                 }
 
@@ -315,10 +289,13 @@ fun MainScreen(
                             .padding(bottom = innerPadding.calculateBottomPadding()),
 
                         bottomSheetState = sheetState,
-                        navigateToHomeTab = { selectedTab = MainTab.Home }
+                        navigateToHomeTab = { selectedTab = MainTab.Home },
+                        onUpdateCheckClick = {},
+                        onContactClick = {},
                     )
                 }
             }
+
 
             playerBottomSheetScaffoldPadding.calculateBottomPadding()
         }
@@ -333,7 +310,6 @@ fun MainScreen(
             }
             return@BackHandler
         }
-
         // 홈 탭 처리
         if (selectedTab == MainTab.Home) {
             if (homeNavController.previousBackStackEntry != null) {
@@ -368,6 +344,8 @@ fun MainScreen(
         }
     }
 }
+
+
 
 private fun calculateDragProgress(
     currentOffset: Float,
@@ -404,5 +382,24 @@ private fun calculateDragProgress(
 
     return result
 }
+
+private fun settingsRouteFor(tab: MainTab) = when (tab) {
+    MainTab.Home -> HomeRoutes.SettingsScreen.route
+    MainTab.Library -> LibraryRoutes.SettingsScreen.route
+    MainTab.Convert -> ConvertRoutes.SettingsScreen.route
+}
+
+private fun searchRouteFor(tab: MainTab, query: String) = when (tab) {
+    MainTab.Home -> HomeRoutes.SearchResult.createRoute(query)
+    MainTab.Library -> LibraryRoutes.SearchResult.createRoute(query)
+    MainTab.Convert -> ConvertRoutes.SearchResult.createRoute(query)
+}
+
+private fun channelRouteFor(tab: MainTab, channelId: String) = when (tab) {
+    MainTab.Home -> HomeRoutes.ChannelScreen.createRoute(channelId)
+    MainTab.Library -> LibraryRoutes.ChannelScreen.createRoute(channelId)
+    MainTab.Convert -> ConvertRoutes.ChannelScreen.createRoute(channelId)
+}
+
 
 

@@ -1,35 +1,27 @@
-package com.example.home.navigation
+package com.example.setting.navigation
 
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.SheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
-import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeNavHost(
-    navController: NavHostController,
-    modifier: Modifier,
-    onUpdateCheckClick: () -> Unit,
-    onContactClick: () -> Unit,
+fun SettingsNavHost(
     bottomSheetState: SheetState,
+    navController: NavHostController,
+    onUpdateCheckClick: () -> Unit = {},
+    onContactClick: () -> Unit = {}
 ) {
-
-    val homeNavigationHelper = remember {
-        HomeNavigationHelper(navController)
-    }
-
     NavHost(
         navController = navController,
-        startDestination = HomeRoutes.Playlist.route,
-        modifier = modifier
+        startDestination = SettingsRoutes.Main.route
     ) {
-        homeNavGraph(
+        settingNavGraph(
             bottomSheetState = bottomSheetState,
-            homeNavigationHelper = homeNavigationHelper,
+            settingsNavigationHelper = SettingsNavigationHelper(navController),
+            navigateToHomeTab = { },
             onUpdateCheckClick = onUpdateCheckClick,
             onContactClick = onContactClick
         )

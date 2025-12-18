@@ -14,6 +14,8 @@ fun LibraryNavHost(
     navController: NavHostController,
     modifier: Modifier,
     bottomSheetState: SheetState,
+    onUpdateCheckClick: () -> Unit,
+    onContactClick: () -> Unit,
     navigateToHomeTab: () -> Unit
 ) {
     val libraryNavigationHelper = remember {
@@ -27,7 +29,9 @@ fun LibraryNavHost(
         libraryNavGraph(
             bottomSheetState = bottomSheetState,
             libraryNavigationHelper = libraryNavigationHelper,
-            navigateToHomeTab = navigateToHomeTab
+            navigateToHomeTab = navigateToHomeTab,
+            onContactClick = onContactClick,
+            onUpdateCheckClick = onUpdateCheckClick
         )
     }
 }
