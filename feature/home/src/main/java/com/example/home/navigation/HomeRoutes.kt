@@ -11,4 +11,6 @@ sealed class HomeRoutes(val route: String) {
     data object ChannelScreen : HomeRoutes("home_channel_screen/{channelId}") {
         fun createRoute(channelId: String) = "home_channel_screen/$channelId"
     }
+    data object SettingsScreen : HomeRoutes("settings_screen")
+
 }

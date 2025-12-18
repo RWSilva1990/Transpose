@@ -26,12 +26,8 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -46,7 +42,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.main.MainViewModel
 import com.example.main.R
 import com.example.ui.components.items.SearchSuggestionItem
-import com.example.util.Logger
 import com.example.util.ToastUtil
 import com.example.util.constants.AppColors
 
@@ -54,6 +49,7 @@ import com.example.util.constants.AppColors
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainAppBar(
+    onSettingClicked: () -> Unit,
     onSearchClicked: (String) -> Unit,
     mainViewModel: MainViewModel,
     searchBarState: SearchBarState,
@@ -68,6 +64,7 @@ fun MainAppBar(
         when (searchBarState) {
             SearchBarState.CLOSED -> {
                 DefaultAppBar(
+                    onSettingClicked = { onSettingClicked() },
                     onSearchClicked = { updateSearchBarState(SearchBarState.OPENED) },
                     scrollBehavior = scrollBehavior
                 )
@@ -173,6 +170,7 @@ fun CustomSearchAppBar(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DefaultAppBar(
+    onSettingClicked: () -> Unit,
     onSearchClicked: () -> Unit,
     scrollBehavior: TopAppBarScrollBehavior
 ) {
@@ -213,7 +211,7 @@ fun DefaultAppBar(
                 )
 
             }
-            IconButton(onClick = { ToastUtil.showNotImplemented(context) }) {
+            IconButton(onClick = { onSettingClicked() }) {
                 Icon(
                     imageVector = Icons.Outlined.Settings,
                     contentDescription = "Setting",

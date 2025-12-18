@@ -19,4 +19,6 @@ sealed class LibraryRoutes(val route: String) {
     data object ChannelScreen : LibraryRoutes("library_channel_screen/{channelId}") {
         fun createRoute(channelId: String) = "library_channel_screen/$channelId"
     }
+    data object SettingsScreen : LibraryRoutes("settings_screen")
+
 }

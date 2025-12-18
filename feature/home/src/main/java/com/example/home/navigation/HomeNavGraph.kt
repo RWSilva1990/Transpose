@@ -13,10 +13,13 @@ import com.example.home.home_playlist.HomePlaylistScreen
 import com.example.ui.screen.channel.ChannelScreen
 import com.example.ui.screen.playlist_info.PlaylistInfoScreen
 import com.example.ui.screen.search_result.SearchResultScreen
+import com.example.ui.screen.settings.SettingsScreen
 
 @OptIn(ExperimentalMaterial3Api::class)
 fun NavGraphBuilder.homeNavGraph(
     bottomSheetState: SheetState,
+    onUpdateCheckClick: () -> Unit,
+    onContactClick: () -> Unit,
     homeNavigationHelper: HomeNavigationHelper
 ) {
 
@@ -88,6 +91,18 @@ fun NavGraphBuilder.homeNavGraph(
             onNavigateToPlaylistInfoScreen = { playlistId ->
                 homeNavigationHelper.navigateToPlaylistInfo(playlistId)
             }
+        )
+    }
+    composable(
+        route = HomeRoutes.SettingsScreen.route,
+        enterTransition = { EnterTransition.None },
+        exitTransition = { ExitTransition.None },
+        popEnterTransition = { EnterTransition.None },
+        popExitTransition = { ExitTransition.None },
+    ) {
+        SettingsScreen(
+            onUpdateCheckClick = onUpdateCheckClick,
+            onContactClick = onContactClick
         )
     }
 }
