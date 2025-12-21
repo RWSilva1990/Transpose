@@ -35,11 +35,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.domain.model.preferences.VideoQuality
+import com.example.transpose.core.ui.R
+import com.example.ui.util.getDisplayString
+import com.example.ui.util.getDisplayStringResId
 import com.example.util.ToastUtil
 
 @Composable
@@ -60,10 +65,10 @@ fun SettingsScreen(
                 .padding(paddingValues)
                 .verticalScroll(rememberScrollState())
         ) {
-            SettingsSection(title = "재생 설정") {
+            SettingsSection(title = stringResource(R.string.settings_playback)) {
                 SettingsItem(
-                    title = "기본 해상도",
-                    subtitle = currentQuality,
+                    title = stringResource(R.string.settings_default_resolution),
+                    subtitle = currentQuality.getDisplayString(context),
                     onClick = { showQualityDialog = true }
                 )
             }
@@ -73,10 +78,10 @@ fun SettingsScreen(
                 color = Color(0xFFF5F5F5)
             )
 
-            SettingsSection(title = "앱 설정") {
+            SettingsSection(title = stringResource(R.string.settings_app)) {
                 SettingsItem(
-                    title = "앱 디자인",
-                    subtitle = "라이트/다크 모드",
+                    title = stringResource(R.string.settings_app_design),
+                    subtitle = stringResource(R.string.settings_light_dark_mode),
                     onClick = { ToastUtil.showNotImplemented(context) }
                 )
             }
@@ -86,9 +91,9 @@ fun SettingsScreen(
                 color = Color(0xFFF5F5F5)
             )
 
-            SettingsSection(title = "정보") {
+            SettingsSection(title = stringResource(R.string.settings_info)) {
                 SettingsItem(
-                    title = "업데이트 확인",
+                    title = stringResource(R.string.settings_check_update),
                     onClick = onUpdateCheckClick
                 )
 
@@ -99,7 +104,7 @@ fun SettingsScreen(
                 )
 
                 SettingsItem(
-                    title = "문의하기",
+                    title = stringResource(R.string.settings_contact),
                     onClick = onContactClick
                 )
             }
@@ -182,18 +187,18 @@ fun SettingsItem(
 
 @Composable
 fun VideoQualityDialog(
-    currentQuality: String,
-    onQualitySelected: (String) -> Unit,
+    currentQuality: VideoQuality,
+    onQualitySelected: (VideoQuality) -> Unit,
     onDismiss: () -> Unit
 ) {
-    val qualityOptions = listOf("360p", "480p", "720p", "1080p")
+    val qualityOptions = VideoQuality.selectableQualities
     var selectedQuality by remember { mutableStateOf(currentQuality) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(
-                text = "기본 해상도 설정",
+                text = stringResource(R.string.video_quality_dialog_title),
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold
             )
@@ -221,7 +226,7 @@ fun VideoQualityDialog(
                         )
                         Spacer(modifier = Modifier.width(16.dp))
                         Text(
-                            text = quality,
+                            text = stringResource(quality.getDisplayStringResId()),
                             fontSize = 16.sp,
                             modifier = Modifier.fillMaxWidth()
                         )
@@ -233,12 +238,12 @@ fun VideoQualityDialog(
             TextButton(
                 onClick = { onQualitySelected(selectedQuality) }
             ) {
-                Text("확인")
+                Text(stringResource(R.string.confirm_button))
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("취소")
+                Text(stringResource(R.string.cancel_button))
             }
         }
     )

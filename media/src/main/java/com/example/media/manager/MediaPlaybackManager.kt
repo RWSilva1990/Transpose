@@ -14,6 +14,7 @@ import androidx.media3.datasource.HttpDataSource
 import androidx.media3.exoplayer.source.BehindLiveWindowException
 import androidx.media3.session.MediaController
 import com.example.domain.model.preferences.RepeatMode
+import com.example.domain.model.preferences.VideoQuality
 import com.example.domain.model.youtube.video.Video
 import com.example.media.state_holder.NowPlayingStateHolder
 import com.example.media.state_holder.PlaybackType
@@ -172,17 +173,14 @@ class MediaPlaybackManager @Inject constructor(
         videoDefaultStreamUrl: String,
         videoOnlyStreamUrl: String?,
         audioOnlyStreamUrl: String?,
-        videoQuality: String,
-        videoManifestString: String,
-        videoManifestUrl: String?,
-        audioManifestsString: String,
-        audioManifestUrl: String?,
+        videoQuality: VideoQuality,
+        videoManifestString: String?,
+        audioManifestsString: String?,
     ) {
         val ctrl = mediaControllerFlow.value ?: return
         val currentPosition = ctrl.currentPosition
 
         updateMediaItemJob?.cancel()
-
 
         ctrl.addListener(object : Player.Listener {
             override fun onTimelineChanged(timeline: Timeline, reason: Int) {
@@ -191,7 +189,8 @@ class MediaPlaybackManager @Inject constructor(
             }
         })
 
-        if (videoQuality == "AUTO") {
+        if (videoQuality.isAuto) {
+            Logger.d("MediaPlaybackManager: Switching to AUTO (Progressive) source")
             updateMediaItemJob = scope.launch {
                 val currentIndex = ctrl.currentMediaItemIndex
 
@@ -201,18 +200,19 @@ class MediaPlaybackManager @Inject constructor(
                 if (currentItem.mediaId == itemId) {
                     val updatedMetadata = currentItem.mediaMetadata.buildUpon()
                         .setExtras(android.os.Bundle().apply {
-                            putString("videoQuality", videoQuality)
+                            putString("videoQuality", videoQuality.name)
                         })
                         .build()
                     val updatedMediaItem = currentItem.buildUpon()
                         .setUri(videoDefaultStreamUrl)
+                        .setMediaMetadata(updatedMetadata)
                         .build()
-                    Logger.d("quality 고정일 때 로그창")
 
                     ctrl.replaceMediaItem(currentIndex, updatedMediaItem)
                 }
             }
         } else {
+            Logger.d("MediaPlaybackManager: Switching to ${videoQuality.displayName} (DASH) source")
             updateMediaItemJob = scope.launch {
                 val currentIndex = ctrl.currentMediaItemIndex
 
@@ -220,13 +220,10 @@ class MediaPlaybackManager @Inject constructor(
 
                 val currentItem = ctrl.getMediaItemAt(currentIndex)
                 if (currentItem.mediaId == itemId) {
-                    Logger.d("quality 바뀌었을 때 로그창 $videoManifestString")
                     val updatedMetadata = currentItem.mediaMetadata.buildUpon()
                         .setExtras(android.os.Bundle().apply {
-                            putString("videoQuality", videoQuality)
-                            putString("videoManifestUrl", videoManifestUrl)
+                            putString("videoQuality", videoQuality.name)
                             putString("videoManifestString", videoManifestString)
-                            putString("audioManifestUrl", audioManifestUrl)
                             putString("audioManifestString", audioManifestsString)
                             putString("videoUrl", videoOnlyStreamUrl)
                             putString("audioUrl", audioOnlyStreamUrl)
@@ -237,7 +234,6 @@ class MediaPlaybackManager @Inject constructor(
                         .setUri(videoOnlyStreamUrl)
                         .setMediaMetadata(updatedMetadata)
                         .build()
-                    Logger.d("quality 바뀌었을 때 로그창")
 
                     ctrl.replaceMediaItem(currentIndex, updatedMediaItem)
                 }
