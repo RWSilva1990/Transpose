@@ -68,7 +68,7 @@ fun PlayerBottomSheetScaffold(
 
     val scaffoldBottomPadding = remember(bottomSheetState.currentValue, bottomSheetOffset) {
         when {
-            bottomSheetState.currentValue == SheetValue.Hidden -> 0.dp
+            bottomSheetState.currentValue == SheetValue.Hidden -> 56.dp
 
             bottomSheetOffset() >= 1.0f -> 56.dp
 
