@@ -5,7 +5,9 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.session.MediaController
+import com.example.domain.model.preferences.AudioQuality
 import com.example.domain.model.preferences.RepeatMode
+import com.example.domain.model.preferences.VideoQuality
 import com.example.domain.model.youtube.video.Video
 import com.example.domain.model.youtube.video_detail.VideoDetail
 import com.example.domain.repository.ChannelRepository
@@ -15,6 +17,7 @@ import com.example.domain.repository.SuggestionKeywordRepository
 import com.example.domain.repository.UpdateInfo
 import com.example.domain.repository.UpdateRepository
 import com.example.domain.repository.VideoRepository
+import com.example.domain.usecase.SelectStreamUseCase
 import com.example.main.components.bottomsheet.state.VideoDetailUiState
 import com.example.media.manager.AudioEffectsManager
 import com.example.media.manager.MediaPlaybackManager
@@ -37,7 +40,6 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import org.schabi.newpipe.extractor.services.youtube.dashmanifestcreators.YoutubeProgressiveDashManifestCreator
-import org.schabi.newpipe.extractor.stream.DeliveryMethod
 import javax.inject.Inject
 
 private const val SEARCH_QUERY = "search_query"
@@ -91,81 +93,80 @@ class MainViewModel @Inject constructor(
     private val _searchQuery = MutableStateFlow("")
     val searchQuery = _searchQuery.asStateFlow()
 
-    private fun updateMediaItemWithFullInfo(
-        videoDetail: VideoDetail?,
-    ){
+    private val selectStreamUseCase = SelectStreamUseCase()
+
+    private fun updateMediaItemWithFullInfo(videoDetail: VideoDetail?) {
         videoDetail ?: return
 
-        val videoQuality = videoQuality.value
+        val currentVideoQuality = videoQuality.value
+        val currentAudioQuality = audioQuality.value
 
-        val videoQualityToItag = mapOf(
-            "AUTO" to 136,
-            "1080p" to 137,
-            "720p" to 136,
-            "480p" to 135,
-            "360p" to 134,
-            "240p" to 133,
-            "144p" to 160
-        )
+        Logger.d("Quality change requested: video=${currentVideoQuality.displayName}, audio=${currentAudioQuality.displayName}")
 
-        val audioQualityToItag = mapOf(
-            "48kbps" to 139,
-            "50kbps" to 249,
-            "128kbps" to 140,
-            "160kbps" to 251,
-            "AUTO" to 140
-        )
-
-        val videoItag = videoQualityToItag[videoQuality] ?: 136
-
-        val audioItag = 140
-
-        val videoOnlyStream = videoDetail.videoOnlyStreams?.firstOrNull { it.itag == videoItag }
-        val audioOnlyStream = videoDetail.audioOnlyStreams?.firstOrNull { it.itag == audioItag }
-
-        videoOnlyStream ?: return
-        audioOnlyStream ?: return
-
-        Logger.d("quality changed ${videoOnlyStream.itag} ${videoOnlyStream.quality}")
-        val deliveryMethod = videoOnlyStream.deliveryMethod
-
-        when (deliveryMethod) {
-            DeliveryMethod.PROGRESSIVE_HTTP -> {
-
-                val videoManifestString = YoutubeProgressiveDashManifestCreator
-                    .fromProgressiveStreamingUrl(
-                        videoOnlyStream.content,
-                        videoOnlyStream.itagItem!!,
-                        videoDetail.duration
-                    )
-                val audioManifestString = YoutubeProgressiveDashManifestCreator
-                    .fromProgressiveStreamingUrl(
-                        audioOnlyStream.content,
-                        audioOnlyStream.itagItem!!,
-                        videoDetail.duration
-                    )
-
-                Logger.d("videoManifestString: $videoManifestString")
-                Logger.d("audioManifestString: $audioManifestString")
-
-                mediaPlaybackManager.updateMediaItemWithFullInfo(
-                    itemId = videoDetail.id,
-                    videoQuality = videoQuality,
-                    videoDefaultStreamUrl = videoDetail.videoStreamContent!!,
-                    videoOnlyStreamUrl = videoOnlyStream.content,
-                    audioOnlyStreamUrl = audioOnlyStream.content,
-                    videoManifestString = videoManifestString,
-                    videoManifestUrl = videoOnlyStream.manifestUrl,
-                    audioManifestsString = audioManifestString,
-                    audioManifestUrl = audioOnlyStream.manifestUrl,
-                )
-            }
-
-            DeliveryMethod.DASH -> {}
-            DeliveryMethod.HLS -> {}
-            DeliveryMethod.SS -> {}
-            DeliveryMethod.TORRENT -> {}
+        // AUTO: Progressive 소스 사용 (videoStreamContent만 재생)
+        if (currentVideoQuality.isAuto) {
+            Logger.d("Using Progressive source (AUTO)")
+            mediaPlaybackManager.updateMediaItemWithFullInfo(
+                itemId = videoDetail.id,
+                videoQuality = currentVideoQuality,
+                videoDefaultStreamUrl = videoDetail.videoStreamContent!!,
+                videoOnlyStreamUrl = null,
+                audioOnlyStreamUrl = null,
+                videoManifestString = null,
+                audioManifestsString = null,
+            )
+            return
         }
+
+        // 특정 화질 선택: DASH 소스 사용 (video + audio 병합)
+        val selectedStreams = selectStreamUseCase.selectStreams(
+            videoStreams = videoDetail.videoOnlyStreams,
+            audioStreams = videoDetail.audioOnlyStreams,
+            videoQuality = currentVideoQuality,
+            audioQuality = currentAudioQuality
+        )
+
+        val videoStream = selectedStreams.videoStream
+        val audioStream = selectedStreams.audioStream
+
+        if (videoStream == null || audioStream == null) {
+            Logger.d("Selected stream not found, falling back to Progressive")
+            mediaPlaybackManager.updateMediaItemWithFullInfo(
+                itemId = videoDetail.id,
+                videoQuality = currentVideoQuality,
+                videoDefaultStreamUrl = videoDetail.videoStreamContent!!,
+                videoOnlyStreamUrl = null,
+                audioOnlyStreamUrl = null,
+                videoManifestString = null,
+                audioManifestsString = null,
+            )
+            return
+        }
+
+        Logger.d("Using DASH source: video=${videoStream.itag} ${videoStream.quality}, audio=${audioStream.itag}")
+
+        val videoManifestString = YoutubeProgressiveDashManifestCreator
+            .fromProgressiveStreamingUrl(
+                videoStream.content,
+                videoStream.itagItem!!,
+                videoDetail.duration
+            )
+        val audioManifestString = YoutubeProgressiveDashManifestCreator
+            .fromProgressiveStreamingUrl(
+                audioStream.content,
+                audioStream.itagItem!!,
+                videoDetail.duration
+            )
+
+        mediaPlaybackManager.updateMediaItemWithFullInfo(
+            itemId = videoDetail.id,
+            videoQuality = currentVideoQuality,
+            videoDefaultStreamUrl = videoDetail.videoStreamContent!!,
+            videoOnlyStreamUrl = videoStream.content,
+            audioOnlyStreamUrl = audioStream.content,
+            videoManifestString = videoManifestString,
+            audioManifestsString = audioManifestString,
+        )
     }
 
     @OptIn(FlowPreview::class)
@@ -206,7 +207,9 @@ class MainViewModel @Inject constructor(
 
     val shuffleMode: StateFlow<Boolean> = playbackPreferencesRepository.shuffleMode
 
-    val videoQuality: StateFlow<String> = playbackPreferencesRepository.videoQuality
+    val videoQuality: StateFlow<VideoQuality> = playbackPreferencesRepository.videoQuality
+
+    val audioQuality: StateFlow<AudioQuality> = playbackPreferencesRepository.audioQuality
 
 
     init {
@@ -232,7 +235,7 @@ class MainViewModel @Inject constructor(
         }
     }
 
-    fun setVideoQuality(quality: String) {
+    fun setVideoQuality(quality: VideoQuality) {
         viewModelScope.launch {
             playbackPreferencesRepository.setVideoQuality(quality)
         }
