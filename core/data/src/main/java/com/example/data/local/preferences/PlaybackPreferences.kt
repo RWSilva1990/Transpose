@@ -8,7 +8,9 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.example.domain.model.preferences.AudioQuality
 import com.example.domain.model.preferences.RepeatMode
+import com.example.domain.model.preferences.VideoQuality
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -44,15 +46,15 @@ class PlaybackPreferences(private val dataStore: DataStore<Preferences>) {
         }
     }
 
-    suspend fun setVideoQuality(quality: String) {
+    suspend fun setVideoQuality(quality: VideoQuality) {
         dataStore.edit { preferences ->
-            preferences[VIDEO_QUALITY] = quality
+            preferences[VIDEO_QUALITY] = quality.name
         }
     }
 
-    suspend fun setAudioQuality(quality: String) {
+    suspend fun setAudioQuality(quality: AudioQuality) {
         dataStore.edit { preferences ->
-            preferences[AUDIO_QUALITY] = quality
+            preferences[AUDIO_QUALITY] = quality.name
         }
     }
 
@@ -77,23 +79,33 @@ class PlaybackPreferences(private val dataStore: DataStore<Preferences>) {
             initialValue = false
         )
 
-    val videoQuality: StateFlow<String> = dataStore.data
+    val videoQuality: StateFlow<VideoQuality> = dataStore.data
         .map { preferences ->
-            preferences[VIDEO_QUALITY] ?: "AUTO"
+            val name = preferences[VIDEO_QUALITY] ?: VideoQuality.AUTO.name
+            try {
+                VideoQuality.valueOf(name)
+            } catch (e: IllegalArgumentException) {
+                VideoQuality.AUTO
+            }
         }
         .stateIn(
             scope = scope,
             started = SharingStarted.WhileSubscribed(5000),
-            initialValue = "AUTO"
+            initialValue = VideoQuality.AUTO
         )
 
-    val audioQuality: StateFlow<String> = dataStore.data
+    val audioQuality: StateFlow<AudioQuality> = dataStore.data
         .map { preferences ->
-            preferences[AUDIO_QUALITY] ?: "AUTO"
+            val name = preferences[AUDIO_QUALITY] ?: AudioQuality.MEDIUM.name
+            try {
+                AudioQuality.valueOf(name)
+            } catch (e: IllegalArgumentException) {
+                AudioQuality.MEDIUM
+            }
         }
         .stateIn(
             scope = scope,
             started = SharingStarted.WhileSubscribed(5000),
-            initialValue = "AUTO"
+            initialValue = AudioQuality.MEDIUM
         )
 }
