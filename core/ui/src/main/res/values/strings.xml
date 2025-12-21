@@ -209,6 +209,32 @@
     <string name="settings_permission_message">Please allow storage access permission in settings.</string>
     <string name="go_to_settings_button">Go to Settings</string>
 
+    <!-- Video Quality -->
+    <string name="video_quality_auto">Auto</string>
+    <string name="video_quality_1080p">1080p</string>
+    <string name="video_quality_720p">720p</string>
+    <string name="video_quality_480p">480p</string>
+    <string name="video_quality_360p">360p</string>
+    <string name="video_quality_240p">240p</string>
+    <string name="video_quality_144p">144p</string>
+    <string name="video_quality_title">Quality</string>
+    <string name="video_quality_selected">Selected</string>
+    <string name="video_quality_dialog_title">Default Resolution</string>
+
+    <!-- Audio Quality -->
+    <string name="audio_quality_low">Low (48kbps)</string>
+    <string name="audio_quality_medium">Medium (128kbps)</string>
+    <string name="audio_quality_high">High (160kbps)</string>
+
+    <!-- Settings -->
+    <string name="settings_playback">Playback Settings</string>
+    <string name="settings_default_resolution">Default Resolution</string>
+    <string name="settings_app">App Settings</string>
+    <string name="settings_app_design">App Design</string>
+    <string name="settings_light_dark_mode">Light/Dark Mode</string>
+    <string name="settings_info">Info</string>
+    <string name="settings_check_update">Check for Updates</string>
+    <string name="settings_contact">Contact Us</string>
 
     <string name="patch_title">Patch Notes</string>
     <string name="app_usage_guide">App Usage Guide</string>

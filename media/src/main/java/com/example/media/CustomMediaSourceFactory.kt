@@ -23,6 +23,7 @@ import androidx.media3.exoplayer.source.MergingMediaSource
 import androidx.media3.exoplayer.source.ProgressiveMediaSource
 import androidx.media3.exoplayer.upstream.DefaultBandwidthMeter
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy
+import com.example.domain.model.preferences.VideoQuality
 import com.example.util.Logger
 import java.io.ByteArrayInputStream
 import java.io.File
@@ -51,15 +52,15 @@ class CustomMediaSourceFactory(
         bandwidthMeter = DefaultBandwidthMeter.Builder(context).build()
 
         cacheFactory = CacheDataSource.Factory()
-            .setUpstreamDataSourceFactory(dataSourceFactory)
+            .setUpstreamDataSourceFactory(DefaultHttpDataSource.Factory())
             .setCache(cache!!)
 
         defaultDashChunkSourceFactory = DefaultDashChunkSource.Factory(cacheFactory!!)
 
-        youtubeDashMediaSource = DashMediaSource.Factory(
-            defaultDashChunkSourceFactory!!,
-            cacheFactory
-        )
+//        youtubeDashMediaSource = DashMediaSource.Factory(
+//            defaultDashChunkSourceFactory!!,
+//            cacheFactory
+//        )
     }
 
 
@@ -95,20 +96,26 @@ class CustomMediaSourceFactory(
         // extras에 "videoUrl", "audioUrl"가 들어있다면 각각 사용
         val extras: Bundle? = mediaItem.mediaMetadata.extras
 
-        val videoQuality = extras?.getString("videoQuality")
+        val videoQualityName = extras?.getString("videoQuality")
+        val videoQuality = videoQualityName?.let {
+            try {
+                VideoQuality.valueOf(it)
+            } catch (e: IllegalArgumentException) {
+                VideoQuality.AUTO
+            }
+        } ?: VideoQuality.AUTO
 
-        if (videoQuality == "AUTO") {
+        if (videoQuality.isAuto) {
+            Logger.d("CustomMediaSourceFactory: Using Progressive source (AUTO quality)")
             return ProgressiveMediaSource.Factory(DefaultHttpDataSource.Factory())
                 .createMediaSource(mediaItem)
         }
 
-        val videoManifestUrl = extras?.getString("videoManifestUrl")
+        Logger.d("CustomMediaSourceFactory: Using DASH source (${videoQuality.displayName})")
+
         val videoManifestString = extras?.getString("videoManifestString")
-        val audioManifestUrl = extras?.getString("audioManifestUrl")
         val audioManifestString = extras?.getString("audioManifestString")
 
-        Logger.d("CustomMediaSourceFactory.createMediaSource: videoManifestUrl: $videoManifestUrl, videoManifestString: $videoManifestString")
-        Logger.d("CustomMediaSourceFactory.createMediaSource: audioManifestString: $audioManifestString, audioManifestUrl: $audioManifestUrl")
         val videoUri = extras?.getString("videoUrl")
         val audioUri = extras?.getString("audioUrl")
         Logger.d("CustomMediaSourceFactory.createMediaSource: videoUri: $videoUri, audioUri: $audioUri")
@@ -133,13 +140,15 @@ class CustomMediaSourceFactory(
         val videoMediaSource = try {
             Logger.d("Creating video media source with:")
             Logger.d("  - videoManifestString: ${videoManifestString?.take(200)}...")
-            Logger.d("  - videoManifestUrl: $videoManifestUrl")
             Logger.d("  - videoUri: ${videoMediaItem.localConfiguration?.uri}")
 
-            val manifest = createDashManifest(videoManifestString, videoManifestUrl)
+            val manifest = createDashManifest(videoManifestString, null)
             Logger.d("Video manifest created successfully")
-
-            val source = youtubeDashMediaSource?.createMediaSource(manifest, videoMediaItem)
+            val source = DashMediaSource.Factory(
+                defaultDashChunkSourceFactory!!,
+                cacheFactory
+            ).createMediaSource(manifest, videoMediaItem)
+//             youtubeDashMediaSource?.createMediaSource(manifest, videoMediaItem)
             Logger.d("Video media source created: $source")
             source
         } catch (e: Exception) {
@@ -156,13 +165,16 @@ class CustomMediaSourceFactory(
             try {
                 Logger.d("Creating audio media source with:")
                 Logger.d("  - audioManifestString: ${audioManifestString.take(200)}...")
-                Logger.d("  - audioManifestUrl: $audioManifestUrl")
                 Logger.d("  - audioUri: ${audioMediaItem.localConfiguration?.uri}")
 
-                val manifest = createDashManifest(audioManifestString, audioManifestUrl)
+                val manifest = createDashManifest(audioManifestString, null)
                 Logger.d("Audio manifest created successfully")
 
-                val source = youtubeDashMediaSource?.createMediaSource(manifest, audioMediaItem)
+                val source = DashMediaSource.Factory(
+                    defaultDashChunkSourceFactory!!,
+                    cacheFactory
+                ).createMediaSource(manifest, audioMediaItem)
+
                 Logger.d("Audio media source created: $source")
                 source
             } catch (e: Exception) {

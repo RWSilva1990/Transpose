@@ -23,11 +23,15 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.example.main.MainViewModel
 import androidx.compose.material3.Surface
 import androidx.compose.ui.graphics.Color
+import com.example.domain.model.preferences.VideoQuality
 import com.example.main.components.bottomsheet.state.VideoDetailUiState
+import com.example.transpose.core.ui.R
+import com.example.ui.util.getDisplayStringResId
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -38,19 +42,23 @@ fun VideoQualityBottomSheet(
     val videoDetailUiState by mainViewModel.videoDetailUiState.collectAsState()
     val currentQuality by mainViewModel.videoQuality.collectAsState()
 
-    val itagResolutionMap = mapOf(
-        137 to "1080p", 248 to "1080p",
-        136 to "720p", 247 to "720p",
-        135 to "480p", 244 to "480p",
-        134 to "360p", 243 to "360p",
-        133 to "240p", 242 to "240p",
-        160 to "144p", 278 to "144p"
+    // itag -> VideoQuality mapping
+    val itagToQualityMap = mapOf(
+        137 to VideoQuality.P1080, 248 to VideoQuality.P1080,
+        136 to VideoQuality.P720, 247 to VideoQuality.P720,
+        135 to VideoQuality.P480, 244 to VideoQuality.P480,
+        134 to VideoQuality.P360, 243 to VideoQuality.P360,
+        133 to VideoQuality.P240, 242 to VideoQuality.P240,
+        160 to VideoQuality.P144, 278 to VideoQuality.P144
     )
 
     when (val state = videoDetailUiState) {
         is VideoDetailUiState.Success -> {
             val itagList = state.videoDetail?.videoOnlyStreams?.map { it.itag }
-            val resolutions = itagList?.mapNotNull { itagResolutionMap[it] }?.distinct()
+            val availableQualities = itagList
+                ?.mapNotNull { itagToQualityMap[it] }
+                ?.distinct()
+                ?: emptyList()
 
             ModalBottomSheet(
                 onDismissRequest = onDismiss,
@@ -69,7 +77,7 @@ fun VideoQualityBottomSheet(
                             .padding(vertical = 16.dp)
                     ) {
                         Text(
-                            text = "화질",
+                            text = stringResource(R.string.video_quality_title),
                             style = MaterialTheme.typography.titleLarge,
                             modifier = Modifier.align(Alignment.Center)
                         )
@@ -81,10 +89,10 @@ fun VideoQualityBottomSheet(
                     )
 
                     QualityItem(
-                        qualityLabel = "자동",
-                        isSelected = currentQuality == "AUTO",
+                        qualityLabel = stringResource(R.string.video_quality_auto),
+                        isSelected = currentQuality.isAuto,
                         onClick = {
-                            mainViewModel.setVideoQuality("AUTO")
+                            mainViewModel.setVideoQuality(VideoQuality.AUTO)
                             onDismiss()
                         }
                     )
@@ -94,9 +102,9 @@ fun VideoQualityBottomSheet(
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
                     )
 
-                    resolutions?.forEach { quality ->
+                    availableQualities.forEach { quality ->
                         QualityItem(
-                            qualityLabel = quality,  // "1080p", "720p" 등
+                            qualityLabel = stringResource(quality.getDisplayStringResId()),
                             isSelected = currentQuality == quality,
                             onClick = {
                                 mainViewModel.setVideoQuality(quality)
@@ -150,7 +158,7 @@ fun QualityItem(
             if (isSelected) {
                 Icon(
                     imageVector = Icons.Default.Check,
-                    contentDescription = "선택됨",
+                    contentDescription = stringResource(R.string.video_quality_selected),
                     tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(24.dp)
                 )
