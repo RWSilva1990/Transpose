@@ -8,8 +8,9 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.ui.graphics.graphicsLayer
+import com.example.main.components.bottomsheet.GraphicsLayerConstants
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.TopAppBarDefaults
@@ -105,7 +106,7 @@ fun MainScreen(
 
 
     var bottomSheetOffset by remember {
-        mutableFloatStateOf(0f)
+        mutableFloatStateOf(-1f)
     }
 
     var searchBarState by remember {
@@ -249,6 +250,9 @@ fun MainScreen(
                 activeNavController.navigate(channelRouteFor(selectedTab, channelId))
             }
         ) { playerBottomSheetScaffoldPadding ->
+            val baseBottomPaddingPx = with(density) { innerPadding.calculateBottomPadding().roundToPx() }
+            val miniPlayerHeightPx = with(density) { GraphicsLayerConstants.PEEK_HEIGHT.roundToPx() }
+
             when (selectedTab) {
                 MainTab.Home -> {
                     HomeNavHost(
@@ -257,7 +261,11 @@ fun MainScreen(
                             .fillMaxSize()
                             .background(Color.White)
                             .nestedScroll(nestedScrollConnection)
-                            .padding(bottom = innerPadding.calculateBottomPadding()),
+                            .dynamicBottomPadding(
+                                baseBottomPaddingPx = baseBottomPaddingPx,
+                                miniPlayerHeightPx = miniPlayerHeightPx,
+                                bottomSheetOffset = { bottomSheetOffset }
+                            ),
                         onUpdateCheckClick = {},
                         onContactClick = {},
                         bottomSheetState = sheetState
@@ -271,7 +279,11 @@ fun MainScreen(
                             .fillMaxSize()
                             .background(Color.White)
                             .nestedScroll(nestedScrollConnection)
-                            .padding(bottom = innerPadding.calculateBottomPadding()),
+                            .dynamicBottomPadding(
+                                baseBottomPaddingPx = baseBottomPaddingPx,
+                                miniPlayerHeightPx = miniPlayerHeightPx,
+                                bottomSheetOffset = { bottomSheetOffset }
+                            ),
                         bottomSheetState = sheetState,
                         navigateToHomeTab = { selectedTab = MainTab.Home },
                         onUpdateCheckClick = {},
@@ -286,8 +298,11 @@ fun MainScreen(
                             .fillMaxSize()
                             .background(Color.White)
                             .nestedScroll(nestedScrollConnection)
-                            .padding(bottom = innerPadding.calculateBottomPadding()),
-
+                            .dynamicBottomPadding(
+                                baseBottomPaddingPx = baseBottomPaddingPx,
+                                miniPlayerHeightPx = miniPlayerHeightPx,
+                                bottomSheetOffset = { bottomSheetOffset }
+                            ),
                         bottomSheetState = sheetState,
                         navigateToHomeTab = { selectedTab = MainTab.Home },
                         onUpdateCheckClick = {},
@@ -399,6 +414,33 @@ private fun channelRouteFor(tab: MainTab, channelId: String) = when (tab) {
     MainTab.Home -> HomeRoutes.ChannelScreen.createRoute(channelId)
     MainTab.Library -> LibraryRoutes.ChannelScreen.createRoute(channelId)
     MainTab.Convert -> ConvertRoutes.ChannelScreen.createRoute(channelId)
+}
+
+/**
+ * BottomSheet offset에 따라 동적으로 bottom padding(translationY)을 조절하는 Modifier
+ *
+ * bottomSheetOffset 값:
+ * - 1.0 ~ 0.0: Expanded → PartiallyExpanded (mini player 높이만큼 위로 이동)
+ * - 0.0 ~ -1.0: PartiallyExpanded → Hidden (점진적으로 원위치)
+ *
+ * graphicsLayer를 사용하여 recomposition 없이 draw 단계에서만 처리
+ */
+private fun Modifier.dynamicBottomPadding(
+    baseBottomPaddingPx: Int,
+    miniPlayerHeightPx: Int,
+    bottomSheetOffset: () -> Float
+): Modifier = this.graphicsLayer {
+    val offset = bottomSheetOffset()
+
+    val additionalPadding = when {
+        offset >= 0f -> miniPlayerHeightPx.toFloat()
+        else -> {
+            val progress = (offset + 1f).coerceIn(0f, 1f)
+            miniPlayerHeightPx * progress
+        }
+    }
+
+    translationY = -additionalPadding
 }
 
 
