@@ -27,7 +27,9 @@ class AudioEffectsManager @Inject constructor(
     // Pitch / Tempo
     // =========================
 
-    private val _pitchValue = MutableStateFlow(100)
+    private val DEFAULT_PITCH_VALUE = 80
+
+    private val _pitchValue = MutableStateFlow(DEFAULT_PITCH_VALUE)
     val pitchValue: StateFlow<Int> = _pitchValue.asStateFlow()
 
     private val _tempoValue = MutableStateFlow(100)
@@ -45,7 +47,7 @@ class AudioEffectsManager @Inject constructor(
 
     fun initPitchValue() {
         sendSessionAction(MediaSessionCallback.INIT_PITCH_VALUE)
-        _pitchValue.value = 100
+        _pitchValue.value = DEFAULT_PITCH_VALUE
     }
 
     fun pitchPlusOne() {

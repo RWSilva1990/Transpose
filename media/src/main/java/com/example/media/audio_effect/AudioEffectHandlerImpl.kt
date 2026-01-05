@@ -16,7 +16,10 @@ import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import com.example.domain.repository.AudioEffectHandler
+import com.example.media.audio.PlaybackMode
+import com.example.media.audio.PlaybackModeController
 import com.example.util.Logger
+import dagger.Lazy
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.math.log2
@@ -25,7 +28,8 @@ import kotlin.math.pow
 @OptIn(UnstableApi::class)
 @Singleton
 class AudioEffectHandlerImpl @Inject constructor(
-    private val exoPlayer: ExoPlayer
+    private val exoPlayer: ExoPlayer,
+    private val playbackModeController: Lazy<PlaybackModeController>
 ) : AudioEffectHandler {
 
     private val audioSessionId: Int
@@ -40,80 +44,132 @@ class AudioEffectHandlerImpl @Inject constructor(
     private var dynamicsProcessing: DynamicsProcessing? = null
     private var hapticGenerator: HapticGenerator? = null
 
+    private var currentPitchSemitones = -2.0
+    private var currentTempoSemitones = 0.0
+
+    private fun valueToSemitones(value: Int): Double = (value - 100) * 0.1
+    private fun semitonesToRatio(semitones: Double): Float = 2.0.pow(semitones / 12.0).toFloat()
+
     override fun setPitch(value: Int) {
-        val semitonesFromCenter = (value - 100) * 0.1
-        val adjustedPitch = 2.0.pow(semitonesFromCenter / 12.0).toFloat()
-        val currentTempoValue = exoPlayer.playbackParameters.speed
-        exoPlayer.playbackParameters = PlaybackParameters(currentTempoValue, adjustedPitch)
+        val semitones = valueToSemitones(value)
+        currentPitchSemitones = semitones
+        val pitchRatio = semitonesToRatio(semitones)
+
+        when (playbackModeController.get().currentMode) {
+            PlaybackMode.AUDIO -> {
+                playbackModeController.get().setPitch(pitchRatio)
+            }
+            PlaybackMode.VIDEO -> {
+                val currentTempo = exoPlayer.playbackParameters.speed
+                exoPlayer.playbackParameters = PlaybackParameters(currentTempo, pitchRatio)
+            }
+        }
     }
 
     override fun setTempo(value: Int) {
-        val semitonesFromCenter = (value - 100) * 0.1
-        val adjustedTempo = 2.0.pow(semitonesFromCenter / 12.0).toFloat()
-        val currentPitchValue = exoPlayer.playbackParameters.pitch
-        exoPlayer.playbackParameters = PlaybackParameters(adjustedTempo, currentPitchValue)
+        val semitones = valueToSemitones(value)
+        currentTempoSemitones = semitones
+        val tempoRatio = semitonesToRatio(semitones)
+
+        when (playbackModeController.get().currentMode) {
+            PlaybackMode.AUDIO -> {
+                playbackModeController.get().setTempo(tempoRatio)
+            }
+            PlaybackMode.VIDEO -> {
+                val currentPitch = exoPlayer.playbackParameters.pitch
+                exoPlayer.playbackParameters = PlaybackParameters(tempoRatio, currentPitch)
+            }
+        }
     }
 
     override fun pitchPlusOne() {
-        val currentPitch = exoPlayer.playbackParameters.pitch
-        val currentTempoValue = exoPlayer.playbackParameters.speed
+        currentPitchSemitones += 1
+        val pitchRatio = semitonesToRatio(currentPitchSemitones)
 
-        val currentSemitones = 12 * log2(currentPitch.toDouble())
-
-        val newSemitones = currentSemitones + 1
-
-        val newPitch = 2.0.pow(newSemitones / 12.0).toFloat()
-
-        exoPlayer.playbackParameters = PlaybackParameters(currentTempoValue, newPitch)
+        when (playbackModeController.get().currentMode) {
+            PlaybackMode.AUDIO -> {
+                playbackModeController.get().setPitch(pitchRatio)
+            }
+            PlaybackMode.VIDEO -> {
+                val currentTempo = exoPlayer.playbackParameters.speed
+                exoPlayer.playbackParameters = PlaybackParameters(currentTempo, pitchRatio)
+            }
+        }
     }
 
     override fun initPitchValue() {
-        val currentTempo = exoPlayer.playbackParameters.speed
-        exoPlayer.playbackParameters = PlaybackParameters(currentTempo, 1f)
+        currentPitchSemitones = -2.0
+        val pitchRatio = semitonesToRatio(currentPitchSemitones)
+
+        when (playbackModeController.get().currentMode) {
+            PlaybackMode.AUDIO -> {
+                playbackModeController.get().setPitch(pitchRatio)
+            }
+            PlaybackMode.VIDEO -> {
+                val currentTempo = exoPlayer.playbackParameters.speed
+                exoPlayer.playbackParameters = PlaybackParameters(currentTempo, pitchRatio)
+            }
+        }
     }
 
     override fun pitchMinusOne() {
-        val currentPitch = exoPlayer.playbackParameters.pitch
-        val currentTempoValue = exoPlayer.playbackParameters.speed
+        currentPitchSemitones -= 1
+        val pitchRatio = semitonesToRatio(currentPitchSemitones)
 
-        val currentSemitones = 12 * log2(currentPitch.toDouble())
-
-        val newSemitones = currentSemitones - 1
-
-        val newPitch = 2.0.pow(newSemitones / 12.0).toFloat()
-
-        exoPlayer.playbackParameters = PlaybackParameters(currentTempoValue, newPitch)
+        when (playbackModeController.get().currentMode) {
+            PlaybackMode.AUDIO -> {
+                playbackModeController.get().setPitch(pitchRatio)
+            }
+            PlaybackMode.VIDEO -> {
+                val currentTempo = exoPlayer.playbackParameters.speed
+                exoPlayer.playbackParameters = PlaybackParameters(currentTempo, pitchRatio)
+            }
+        }
     }
 
     override fun tempoPlusOne() {
-        val currentPitch = exoPlayer.playbackParameters.pitch
-        val currentTempoValue = exoPlayer.playbackParameters.speed
+        currentTempoSemitones += 1
+        val tempoRatio = semitonesToRatio(currentTempoSemitones)
 
-        val currentSemitones = 12 * log2(currentTempoValue.toDouble())
-
-        val newSemitones = currentSemitones + 1
-
-        val newTempo = 2.0.pow(newSemitones / 12.0).toFloat()
-
-        exoPlayer.playbackParameters = PlaybackParameters(newTempo, currentPitch)
+        when (playbackModeController.get().currentMode) {
+            PlaybackMode.AUDIO -> {
+                playbackModeController.get().setTempo(tempoRatio)
+            }
+            PlaybackMode.VIDEO -> {
+                val currentPitch = exoPlayer.playbackParameters.pitch
+                exoPlayer.playbackParameters = PlaybackParameters(tempoRatio, currentPitch)
+            }
+        }
     }
 
     override fun initTempoValue() {
-        val currentPitch = exoPlayer.playbackParameters.pitch
-        exoPlayer.playbackParameters = PlaybackParameters(1f, currentPitch)
+        currentTempoSemitones = 0.0
+        val tempoRatio = semitonesToRatio(currentTempoSemitones)
+
+        when (playbackModeController.get().currentMode) {
+            PlaybackMode.AUDIO -> {
+                playbackModeController.get().setTempo(tempoRatio)
+            }
+            PlaybackMode.VIDEO -> {
+                val currentPitch = exoPlayer.playbackParameters.pitch
+                exoPlayer.playbackParameters = PlaybackParameters(tempoRatio, currentPitch)
+            }
+        }
     }
 
     override fun tempoMinusOne() {
-        val currentPitch = exoPlayer.playbackParameters.pitch
-        val currentTempoValue = exoPlayer.playbackParameters.speed
+        currentTempoSemitones -= 1
+        val tempoRatio = semitonesToRatio(currentTempoSemitones)
 
-        val currentSemitones = 12 * log2(currentTempoValue.toDouble())
-
-        val newSemitones = currentSemitones - 1
-
-        val newTempo = 2.0.pow(newSemitones / 12.0).toFloat()
-
-        exoPlayer.playbackParameters = PlaybackParameters(newTempo, currentPitch)
+        when (playbackModeController.get().currentMode) {
+            PlaybackMode.AUDIO -> {
+                playbackModeController.get().setTempo(tempoRatio)
+            }
+            PlaybackMode.VIDEO -> {
+                val currentPitch = exoPlayer.playbackParameters.pitch
+                exoPlayer.playbackParameters = PlaybackParameters(tempoRatio, currentPitch)
+            }
+        }
     }
 
 

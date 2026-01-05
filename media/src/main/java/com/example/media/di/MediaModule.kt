@@ -11,7 +11,14 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import com.example.media.CustomHttpDataSource
 import com.example.media.CustomMediaSourceFactory
+import com.example.media.audio.HybridAudioSink
+import com.example.media.audio.HybridRenderersFactory
+import com.example.media.audio.PlaybackModeController
+import com.example.media.audio.SuperpoweredBridge
+import com.example.media.audio.SuperpoweredBridgeImpl
+import com.example.audio.SuperpoweredAudioEngine
 import com.example.media.audio_effect.AudioEffectHandlerImpl
+import dagger.Lazy
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -52,21 +59,22 @@ class MediaModule {
     fun provideExoPlayer(
         @ApplicationContext context: Context,
         audioAttributes: AudioAttributes,
-        customMediaSourceFactory: CustomMediaSourceFactory
-    ): ExoPlayer = ExoPlayer.Builder(context)
+        customMediaSourceFactory: CustomMediaSourceFactory,
+        hybridRenderersFactory: HybridRenderersFactory  // 추가
+    ): ExoPlayer = ExoPlayer.Builder(context, hybridRenderersFactory)  // 수정
         .setAudioAttributes(audioAttributes, true)
         .setHandleAudioBecomingNoisy(true)
         .setLoadControl(
             DefaultLoadControl.Builder()
                 .setBufferDurationsMs(
-                    5_000,   // minBufferMs: 5초로 줄임 (빠른 시작)
-                    30_000,  // maxBufferMs: 30초로 줄임 (메모리 절약)
-                    1_000,   // bufferForPlaybackMs: 1초로 줄임 (빠른 재생 시작)
-                    2_000    // bufferForPlaybackAfterRebufferMs: 2초로 줄임
+                    5_000,
+                    30_000,
+                    1_000,
+                    2_000
                 )
-                .setTargetBufferBytes(5 * 1024 * 1024) // 5MB로 줄임
-                .setPrioritizeTimeOverSizeThresholds(false) // 크기 기반 우선
-                .setBackBuffer(10_000, true) // 10초 백버퍼 설정
+                .setTargetBufferBytes(5 * 1024 * 1024)
+                .setPrioritizeTimeOverSizeThresholds(false)
+                .setBackBuffer(10_000, true)
                 .build()
         )
         .setMediaSourceFactory(customMediaSourceFactory)
@@ -80,7 +88,35 @@ class MediaModule {
 
     @Provides
     @Singleton
-    fun provideAudioEffectHandler(player: Player): AudioEffectHandlerImpl =
-        AudioEffectHandlerImpl(player as ExoPlayer)
+    fun provideAudioEffectHandler(
+        player: Player,
+        playbackModeController: Lazy<PlaybackModeController>
+    ): AudioEffectHandlerImpl =
+        AudioEffectHandlerImpl(player as ExoPlayer, playbackModeController)
 
+    @Provides
+    @Singleton
+    fun provideSuperpoweredBridge(engine: SuperpoweredAudioEngine): SuperpoweredBridge {
+        return SuperpoweredBridgeImpl(engine)
+    }
+
+    @OptIn(UnstableApi::class)
+    @Provides
+    @Singleton
+    fun provideHybridAudioSink(
+        @ApplicationContext context: Context,
+        superpoweredBridge: SuperpoweredBridge
+    ): HybridAudioSink {
+        return HybridAudioSink(context, superpoweredBridge)
+    }
+
+    @OptIn(UnstableApi::class)
+    @Provides
+    @Singleton
+    fun provideHybridRenderersFactory(
+        @ApplicationContext context: Context,
+        hybridAudioSink: HybridAudioSink
+    ): HybridRenderersFactory {
+        return HybridRenderersFactory(context, hybridAudioSink)
+    }
 }

@@ -31,9 +31,11 @@ class LocalFileRepositoryImpl @Inject constructor(
 
     private fun queryMediaStore(uri: Uri, isAudio: Boolean): Result<List<LocalFileData>> {
         return runCatching {
+            @Suppress("DEPRECATION")
             val projection = arrayOf(
                 MediaStore.MediaColumns._ID,
                 MediaStore.MediaColumns.TITLE,
+                MediaStore.MediaColumns.DATA, // 실제 파일 경로 (deprecated but still works)
                 MediaStore.MediaColumns.MIME_TYPE,
                 MediaStore.MediaColumns.SIZE,
                 MediaStore.MediaColumns.DURATION,
@@ -63,6 +65,8 @@ class LocalFileRepositoryImpl @Inject constructor(
             )?.use { cursor ->
                 val idColumn = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns._ID)
                 val titleColumn = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.TITLE)
+                @Suppress("DEPRECATION")
+                val dataColumn = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.DATA)
                 val mimeTypeColumn = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.MIME_TYPE)
                 val sizeColumn = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.SIZE)
                 val durationColumn = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.DURATION)
@@ -91,6 +95,7 @@ class LocalFileRepositoryImpl @Inject constructor(
                         id = id,
                         title = cursor.getString(titleColumn),
                         uri = contentUri,
+                        filePath = cursor.getString(dataColumn),
                         mimeType = cursor.getString(mimeTypeColumn),
                         size = cursor.getLong(sizeColumn),
                         duration = cursor.getLong(durationColumn),

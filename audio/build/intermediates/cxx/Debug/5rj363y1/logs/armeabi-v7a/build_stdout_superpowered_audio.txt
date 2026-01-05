@@ -1,0 +1,3 @@
+ninja: Entering directory `/Users/joh/Desktop/joh9911/MyProject/Transpose/Transpose/audio/.cxx/Debug/5rj363y1/armeabi-v7a'
+[1/2] Building CXX object CMakeFiles/superpowered_audio.dir/SuperpoweredAudioBridge.cpp.o
+[2/2] Linking CXX shared library /Users/joh/Desktop/joh9911/MyProject/Transpose/Transpose/audio/build/intermediates/cxx/Debug/5rj363y1/obj/armeabi-v7a/libsuperpowered_audio.so
