@@ -90,10 +90,20 @@ class MediaPlaybackManager @Inject constructor(
         }
 
         override fun onIsPlayingChanged(isPlaying: Boolean) {
+            Logger.d("🎵 isPlaying: $isPlaying")
             nowPlayingStateHolder.setIsPlaying(isPlaying)
         }
 
         override fun onPlaybackStateChanged(playbackState: Int) {
+            val stateName = when (playbackState) {
+                Player.STATE_IDLE -> "IDLE"
+                Player.STATE_BUFFERING -> "BUFFERING"
+                Player.STATE_READY -> "READY"
+                Player.STATE_ENDED -> "ENDED"
+                else -> "UNKNOWN($playbackState)"
+            }
+            Logger.d("🎵 PlaybackState: $stateName")
+            
             val ctrl = mediaControllerFlow.value ?: return
             throttledUpdatePlaybackState(ctrl)
 
@@ -191,6 +201,8 @@ class MediaPlaybackManager @Inject constructor(
 
         if (videoQuality.isAuto) {
             Logger.d("MediaPlaybackManager: Switching to AUTO (Progressive) source")
+            Logger.d("videoDefaultStreamUrl: $videoDefaultStreamUrl")
+            Logger.d("audioOnlyStreamUrl: $audioOnlyStreamUrl")  // ← 이거 추가
             updateMediaItemJob = scope.launch {
                 val currentIndex = ctrl.currentMediaItemIndex
 
@@ -204,7 +216,7 @@ class MediaPlaybackManager @Inject constructor(
                         })
                         .build()
                     val updatedMediaItem = currentItem.buildUpon()
-                        .setUri(videoDefaultStreamUrl)
+                        .setUri(audioOnlyStreamUrl)
                         .setMediaMetadata(updatedMetadata)
                         .build()
 

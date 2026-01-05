@@ -19,6 +19,7 @@ import com.example.domain.repository.UpdateRepository
 import com.example.domain.repository.VideoRepository
 import com.example.domain.usecase.SelectStreamUseCase
 import com.example.main.components.bottomsheet.state.VideoDetailUiState
+import com.example.media.audio.PlaybackModeController
 import com.example.media.manager.AudioEffectsManager
 import com.example.media.manager.MediaPlaybackManager
 import com.example.media.state_holder.NowPlayingStateHolder
@@ -57,8 +58,21 @@ class MainViewModel @Inject constructor(
     private val nowPlayingStateHolder: NowPlayingStateHolder,
     private val playbackPreferencesRepository: PlaybackPreferencesRepository,
     private val updateRepository: UpdateRepository,
+    private val playbackModeController: PlaybackModeController,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
+
+    fun onVideoModeSelected() {
+        playbackModeController.switchToVideoMode()
+    }
+
+    fun onAudioModeSelected() {
+        playbackModeController.switchToAudioMode()
+    }
+
+    fun onPitchChanged(pitch: Float) {
+        playbackModeController.setPitch(pitch)
+    }
 
     private val _updateDialogState = MutableStateFlow<UpdateDialogState>(UpdateDialogState.Hidden)
     val updateDialogState: StateFlow<UpdateDialogState> = _updateDialogState.asStateFlow()
@@ -103,21 +117,6 @@ class MainViewModel @Inject constructor(
 
         Logger.d("Quality change requested: video=${currentVideoQuality.displayName}, audio=${currentAudioQuality.displayName}")
 
-        // AUTO: Progressive 소스 사용 (videoStreamContent만 재생)
-        if (currentVideoQuality.isAuto) {
-            Logger.d("Using Progressive source (AUTO)")
-            mediaPlaybackManager.updateMediaItemWithFullInfo(
-                itemId = videoDetail.id,
-                videoQuality = currentVideoQuality,
-                videoDefaultStreamUrl = videoDetail.videoStreamContent!!,
-                videoOnlyStreamUrl = null,
-                audioOnlyStreamUrl = null,
-                videoManifestString = null,
-                audioManifestsString = null,
-            )
-            return
-        }
-
         // 특정 화질 선택: DASH 소스 사용 (video + audio 병합)
         val selectedStreams = selectStreamUseCase.selectStreams(
             videoStreams = videoDetail.videoOnlyStreams,
@@ -128,6 +127,27 @@ class MainViewModel @Inject constructor(
 
         val videoStream = selectedStreams.videoStream
         val audioStream = selectedStreams.audioStream
+
+        // AUTO: Progressive 소스 사용 (videoStreamContent만 재생)
+        if (currentVideoQuality.isAuto) {
+
+            val audioStream = videoDetail.audioOnlyStreams
+                ?.find { it.itag == currentAudioQuality.itag }
+                ?: videoDetail.audioOnlyStreams?.firstOrNull()
+
+            Logger.d("Using Progressive source (AUTO)")
+            mediaPlaybackManager.updateMediaItemWithFullInfo(
+                itemId = videoDetail.id,
+                videoQuality = currentVideoQuality,
+                videoDefaultStreamUrl = videoDetail.videoStreamContent!!,
+                videoOnlyStreamUrl = videoStream?.content,
+                audioOnlyStreamUrl = audioStream?.content,
+                videoManifestString = null,
+                audioManifestsString = null,
+            )
+            return
+        }
+
 
         if (videoStream == null || audioStream == null) {
             Logger.d("Selected stream not found, falling back to Progressive")
@@ -142,6 +162,8 @@ class MainViewModel @Inject constructor(
             )
             return
         }
+
+
 
         Logger.d("Using DASH source: video=${videoStream.itag} ${videoStream.quality}, audio=${audioStream.itag}")
 

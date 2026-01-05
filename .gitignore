@@ -126,3 +126,6 @@ thumbs.db
 # Generated Java source files (e.g. from annotation processors)
 **/generated/source/
 **/generated/ap_generated_sources/
+
+# Superpowered SDK (cloned for development)
+superpowered-sdk/

@@ -1,0 +1,158 @@
+[
+  {
+    "level_": 0,
+    "message_": "Start JSON generation. Platform version: 24 min SDK version: x86",
+    "file_": "/Users/joh/Desktop/joh9911/MyProject/Transpose/Transpose/audio/src/main/cpp/CMakeLists.txt",
+    "tag_": "release|x86",
+    "diagnosticCode_": 0,
+    "memoizedIsInitialized": 1,
+    "unknownFields": {
+      "fields": {}
+    },
+    "memoizedSize": -1,
+    "memoizedHashCode": 0
+  },
+  {
+    "level_": 0,
+    "message_": "rebuilding JSON /Users/joh/Desktop/joh9911/MyProject/Transpose/Transpose/audio/.cxx/RelWithDebInfo/6574m945/x86/android_gradle_build.json due to:",
+    "file_": "/Users/joh/Desktop/joh9911/MyProject/Transpose/Transpose/audio/src/main/cpp/CMakeLists.txt",
+    "tag_": "release|x86",
+    "diagnosticCode_": 0,
+    "memoizedIsInitialized": 1,
+    "unknownFields": {
+      "fields": {}
+    },
+    "memoizedSize": -1,
+    "memoizedHashCode": 0
+  },
+  {
+    "level_": 0,
+    "message_": "- no fingerprint file, will remove stale configuration folder",
+    "file_": "/Users/joh/Desktop/joh9911/MyProject/Transpose/Transpose/audio/src/main/cpp/CMakeLists.txt",
+    "tag_": "release|x86",
+    "diagnosticCode_": 0,
+    "memoizedIsInitialized": 1,
+    "unknownFields": {
+      "fields": {}
+    },
+    "memoizedSize": -1,
+    "memoizedHashCode": 0
+  },
+  {
+    "level_": 0,
+    "message_": "removing stale contents from \u0027/Users/joh/Desktop/joh9911/MyProject/Transpose/Transpose/audio/.cxx/RelWithDebInfo/6574m945/x86\u0027",
+    "file_": "/Users/joh/Desktop/joh9911/MyProject/Transpose/Transpose/audio/src/main/cpp/CMakeLists.txt",
+    "tag_": "release|x86",
+    "diagnosticCode_": 0,
+    "memoizedIsInitialized": 1,
+    "unknownFields": {
+      "fields": {}
+    },
+    "memoizedSize": -1,
+    "memoizedHashCode": 0
+  },
+  {
+    "level_": 0,
+    "message_": "created folder \u0027/Users/joh/Desktop/joh9911/MyProject/Transpose/Transpose/audio/.cxx/RelWithDebInfo/6574m945/x86\u0027",
+    "file_": "/Users/joh/Desktop/joh9911/MyProject/Transpose/Transpose/audio/src/main/cpp/CMakeLists.txt",
+    "tag_": "release|x86",
+    "diagnosticCode_": 0,
+    "memoizedIsInitialized": 1,
+    "unknownFields": {
+      "fields": {}
+    },
+    "memoizedSize": -1,
+    "memoizedHashCode": 0
+  },
+  {
+    "level_": 0,
+    "message_": "executing cmake /Users/joh/Library/Android/sdk/cmake/3.22.1/bin/cmake \\\n  -H/Users/joh/Desktop/joh9911/MyProject/Transpose/Transpose/audio/src/main/cpp \\\n  -DCMAKE_SYSTEM_NAME\u003dAndroid \\\n  -DCMAKE_EXPORT_COMPILE_COMMANDS\u003dON \\\n  -DCMAKE_SYSTEM_VERSION\u003d24 \\\n  -DANDROID_ABI\u003dx86 \\\n  -DCMAKE_ANDROID_ARCH_ABI\u003dx86 \\\n  -DANDROID_NDK\u003d/Users/joh/Library/Android/sdk/ndk/27.0.12077973 \\\n  -DCMAKE_ANDROID_NDK\u003d/Users/joh/Library/Android/sdk/ndk/27.0.12077973 \\\n  -DCMAKE_TOOLCHAIN_FILE\u003d/Users/joh/Library/Android/sdk/ndk/27.0.12077973/build/cmake/android.toolchain.cmake \\\n  -DCMAKE_MAKE_PROGRAM\u003d/Users/joh/Library/Android/sdk/cmake/3.22.1/bin/ninja \\\n  \"-DCMAKE_C_FLAGS\u003d-O3 -fsigned-char\" \\\n  -DCMAKE_CXX_FLAGS\u003d-fsigned-char \\\n  -DCMAKE_LIBRARY_OUTPUT_DIRECTORY\u003d/Users/joh/Desktop/joh9911/MyProject/Transpose/Transpose/audio/build/intermediates/cxx/RelWithDebInfo/6574m945/obj/x86 \\\n  -DCMAKE_RUNTIME_OUTPUT_DIRECTORY\u003d/Users/joh/Desktop/joh9911/MyProject/Transpose/Transpose/audio/build/intermediates/cxx/RelWithDebInfo/6574m945/obj/x86 \\\n  -DCMAKE_BUILD_TYPE\u003dRelWithDebInfo \\\n  -B/Users/joh/Desktop/joh9911/MyProject/Transpose/Transpose/audio/.cxx/RelWithDebInfo/6574m945/x86 \\\n  -GNinja \\\n  -DANDROID_PLATFORM\u003dandroid-26 \\\n  -DANDROID_TOOLCHAIN\u003dclang \\\n  -DANDROID_ARM_NEON\u003dTRUE \\\n  -DANDROID_STL\u003dc++_static\n",
+    "file_": "/Users/joh/Desktop/joh9911/MyProject/Transpose/Transpose/audio/src/main/cpp/CMakeLists.txt",
+    "tag_": "release|x86",
+    "diagnosticCode_": 0,
+    "memoizedIsInitialized": 1,
+    "unknownFields": {
+      "fields": {}
+    },
+    "memoizedSize": -1,
+    "memoizedHashCode": 0
+  },
+  {
+    "level_": 0,
+    "message_": "/Users/joh/Library/Android/sdk/cmake/3.22.1/bin/cmake \\\n  -H/Users/joh/Desktop/joh9911/MyProject/Transpose/Transpose/audio/src/main/cpp \\\n  -DCMAKE_SYSTEM_NAME\u003dAndroid \\\n  -DCMAKE_EXPORT_COMPILE_COMMANDS\u003dON \\\n  -DCMAKE_SYSTEM_VERSION\u003d24 \\\n  -DANDROID_ABI\u003dx86 \\\n  -DCMAKE_ANDROID_ARCH_ABI\u003dx86 \\\n  -DANDROID_NDK\u003d/Users/joh/Library/Android/sdk/ndk/27.0.12077973 \\\n  -DCMAKE_ANDROID_NDK\u003d/Users/joh/Library/Android/sdk/ndk/27.0.12077973 \\\n  -DCMAKE_TOOLCHAIN_FILE\u003d/Users/joh/Library/Android/sdk/ndk/27.0.12077973/build/cmake/android.toolchain.cmake \\\n  -DCMAKE_MAKE_PROGRAM\u003d/Users/joh/Library/Android/sdk/cmake/3.22.1/bin/ninja \\\n  \"-DCMAKE_C_FLAGS\u003d-O3 -fsigned-char\" \\\n  -DCMAKE_CXX_FLAGS\u003d-fsigned-char \\\n  -DCMAKE_LIBRARY_OUTPUT_DIRECTORY\u003d/Users/joh/Desktop/joh9911/MyProject/Transpose/Transpose/audio/build/intermediates/cxx/RelWithDebInfo/6574m945/obj/x86 \\\n  -DCMAKE_RUNTIME_OUTPUT_DIRECTORY\u003d/Users/joh/Desktop/joh9911/MyProject/Transpose/Transpose/audio/build/intermediates/cxx/RelWithDebInfo/6574m945/obj/x86 \\\n  -DCMAKE_BUILD_TYPE\u003dRelWithDebInfo \\\n  -B/Users/joh/Desktop/joh9911/MyProject/Transpose/Transpose/audio/.cxx/RelWithDebInfo/6574m945/x86 \\\n  -GNinja \\\n  -DANDROID_PLATFORM\u003dandroid-26 \\\n  -DANDROID_TOOLCHAIN\u003dclang \\\n  -DANDROID_ARM_NEON\u003dTRUE \\\n  -DANDROID_STL\u003dc++_static\n",
+    "file_": "/Users/joh/Desktop/joh9911/MyProject/Transpose/Transpose/audio/src/main/cpp/CMakeLists.txt",
+    "tag_": "release|x86",
+    "diagnosticCode_": 0,
+    "memoizedIsInitialized": 1,
+    "unknownFields": {
+      "fields": {}
+    },
+    "memoizedSize": -1,
+    "memoizedHashCode": 0
+  },
+  {
+    "level_": 0,
+    "message_": "Received process result: 0",
+    "file_": "/Users/joh/Desktop/joh9911/MyProject/Transpose/Transpose/audio/src/main/cpp/CMakeLists.txt",
+    "tag_": "release|x86",
+    "diagnosticCode_": 0,
+    "memoizedIsInitialized": 1,
+    "unknownFields": {
+      "fields": {}
+    },
+    "memoizedSize": -1,
+    "memoizedHashCode": 0
+  },
+  {
+    "level_": 0,
+    "message_": "Exiting generation of /Users/joh/Desktop/joh9911/MyProject/Transpose/Transpose/audio/.cxx/RelWithDebInfo/6574m945/x86/compile_commands.json.bin normally",
+    "file_": "/Users/joh/Desktop/joh9911/MyProject/Transpose/Transpose/audio/src/main/cpp/CMakeLists.txt",
+    "tag_": "release|x86",
+    "diagnosticCode_": 0,
+    "memoizedIsInitialized": 1,
+    "unknownFields": {
+      "fields": {}
+    },
+    "memoizedSize": -1,
+    "memoizedHashCode": 0
+  },
+  {
+    "level_": 0,
+    "message_": "done executing cmake",
+    "file_": "/Users/joh/Desktop/joh9911/MyProject/Transpose/Transpose/audio/src/main/cpp/CMakeLists.txt",
+    "tag_": "release|x86",
+    "diagnosticCode_": 0,
+    "memoizedIsInitialized": 1,
+    "unknownFields": {
+      "fields": {}
+    },
+    "memoizedSize": -1,
+    "memoizedHashCode": 0
+  },
+  {
+    "level_": 0,
+    "message_": "hard linked /Users/joh/Desktop/joh9911/MyProject/Transpose/Transpose/audio/.cxx/RelWithDebInfo/6574m945/x86/compile_commands.json to /Users/joh/Desktop/joh9911/MyProject/Transpose/Transpose/audio/.cxx/tools/release/x86/compile_commands.json",
+    "file_": "/Users/joh/Desktop/joh9911/MyProject/Transpose/Transpose/audio/src/main/cpp/CMakeLists.txt",
+    "tag_": "release|x86",
+    "diagnosticCode_": 0,
+    "memoizedIsInitialized": 1,
+    "unknownFields": {
+      "fields": {}
+    },
+    "memoizedSize": -1,
+    "memoizedHashCode": 0
+  },
+  {
+    "level_": 0,
+    "message_": "JSON generation completed without problems",
+    "file_": "/Users/joh/Desktop/joh9911/MyProject/Transpose/Transpose/audio/src/main/cpp/CMakeLists.txt",
+    "tag_": "release|x86",
+    "diagnosticCode_": 0,
+    "memoizedIsInitialized": 1,
+    "unknownFields": {
+      "fields": {}
+    },
+    "memoizedSize": -1,
+    "memoizedHashCode": 0
+  }
+]

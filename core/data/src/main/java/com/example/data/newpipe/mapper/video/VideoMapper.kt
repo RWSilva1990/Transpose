@@ -74,6 +74,7 @@ object VideoMapper {
         val videoStreams = extractor.videoStreams
         val videoOnlyUrls = extractor.videoOnlyStreams.toList()
         val audioOnlyUrls = extractor.audioStreams.toList()
+        Logger.d("VideoMapper HLS URL: ${extractor.hlsUrl}")
 
         return VideoDetail(
             id = extractor.id,
