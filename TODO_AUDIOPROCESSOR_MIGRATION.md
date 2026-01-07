@@ -1,8 +1,46 @@
 # AudioProcessor 주입 방식으로 전환 작업 계획서
 
-> **브랜치**: `feature/audioprocessor-injection` (새로 생성)
-> **기준 브랜치**: 현재 signalsmith-stretch 브랜치
+> **브랜치**: `feature/audioprocessor-injection`
+> **기준 브랜치**: signalsmith-stretch
 > **작성일**: 2025-01-07
+> **상태**: 구현 완료, 테스트 필요
+
+---
+
+## 진행 상황
+
+| Phase | 상태 | 설명 |
+|:------|:-----|:-----|
+| Phase 1 | ✅ 완료 | `SignalsmithAudioProcessor.kt` 구현 |
+| Phase 2 | ✅ 완료 | `SignalsmithProcessor.cpp` Native 코드 구현 |
+| Phase 3 | ✅ 완료 | `ProcessorRenderersFactory.kt`, DI 모듈 수정 |
+| Phase 4 | ⏸️ 대기 | 기존 코드 정리 (테스트 후 진행) |
+| 테스트 | ❌ 미완료 | Android 빌드 및 기능 테스트 필요 |
+
+### 생성된 파일
+
+```
+media/src/main/java/com/example/media/audio/
+├── SignalsmithAudioProcessor.kt   ← AudioProcessor 구현
+└── ProcessorRenderersFactory.kt   ← AudioProcessor 주입용 팩토리
+
+audio/src/main/cpp/
+└── SignalsmithProcessor.cpp       ← 동기식 Native DSP 처리
+```
+
+### 수정된 파일
+
+```
+audio/src/main/cpp/CMakeLists.txt          ← SignalsmithProcessor.cpp 추가
+media/src/main/java/com/example/media/di/MediaModule.kt  ← DI 설정 추가
+media/src/main/java/com/example/media/audio_effect/AudioEffectHandlerImpl.kt  ← 프로세서 연동
+```
+
+### 다음 단계
+
+1. Android Studio에서 빌드 테스트
+2. 기능 테스트 (Pitch/Tempo 변경, Seek, 일시정지)
+3. 테스트 통과 시 기존 HybridAudioSink 방식 제거
 
 ---
 
