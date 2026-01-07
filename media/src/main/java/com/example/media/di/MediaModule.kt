@@ -15,8 +15,8 @@ import com.example.media.audio.HybridAudioSink
 import com.example.media.audio.HybridRenderersFactory
 import com.example.media.audio.PlaybackModeController
 import com.example.media.audio.SuperpoweredBridge
-import com.example.media.audio.SuperpoweredBridgeImpl
-import com.example.audio.SuperpoweredAudioEngine
+import com.example.media.audio.SignalsmithBridgeImpl
+import com.example.audio.SignalsmithAudioEngine
 import com.example.media.audio_effect.AudioEffectHandlerImpl
 import dagger.Lazy
 import dagger.Module
@@ -96,8 +96,8 @@ class MediaModule {
 
     @Provides
     @Singleton
-    fun provideSuperpoweredBridge(engine: SuperpoweredAudioEngine): SuperpoweredBridge {
-        return SuperpoweredBridgeImpl(engine)
+    fun provideSuperpoweredBridge(engine: SignalsmithAudioEngine): SuperpoweredBridge {
+        return SignalsmithBridgeImpl(engine)
     }
 
     @OptIn(UnstableApi::class)

@@ -16,6 +16,8 @@ import androidx.media3.session.MediaController
 import com.example.domain.model.preferences.RepeatMode
 import com.example.domain.model.preferences.VideoQuality
 import com.example.domain.model.youtube.video.Video
+import com.example.media.audio.PlaybackMode
+import com.example.media.audio.PlaybackModeController
 import com.example.media.state_holder.NowPlayingStateHolder
 import com.example.media.state_holder.PlaybackType
 import com.example.util.Logger
@@ -33,7 +35,8 @@ import javax.inject.Singleton
 @Singleton
 class MediaPlaybackManager @Inject constructor(
     private val controllerProvider: MediaControllerProvider,
-    private val nowPlayingStateHolder: NowPlayingStateHolder
+    private val nowPlayingStateHolder: NowPlayingStateHolder,
+    private val playbackModeController: dagger.Lazy<PlaybackModeController>
 ) {
 
     private val defaultDispatcher = Dispatchers.Default
@@ -200,9 +203,13 @@ class MediaPlaybackManager @Inject constructor(
         })
 
         if (videoQuality.isAuto) {
-            Logger.d("MediaPlaybackManager: Switching to AUTO (Progressive) source")
-            Logger.d("videoDefaultStreamUrl: $videoDefaultStreamUrl")
-            Logger.d("audioOnlyStreamUrl: $audioOnlyStreamUrl")  // ← 이거 추가
+            val currentMode = playbackModeController.get().currentMode
+            val useVideoUrl = currentMode == PlaybackMode.VIDEO || currentMode == PlaybackMode.VIDEO_WITH_DSP
+            val streamUrl = if (useVideoUrl) videoDefaultStreamUrl else audioOnlyStreamUrl
+            
+            Logger.d("MediaPlaybackManager: Switching to AUTO source, mode=$currentMode, useVideo=$useVideoUrl")
+            Logger.d("streamUrl: $streamUrl")
+            
             updateMediaItemJob = scope.launch {
                 val currentIndex = ctrl.currentMediaItemIndex
 
@@ -213,10 +220,13 @@ class MediaPlaybackManager @Inject constructor(
                     val updatedMetadata = currentItem.mediaMetadata.buildUpon()
                         .setExtras(android.os.Bundle().apply {
                             putString("videoQuality", videoQuality.name)
+                            if (useVideoUrl) {
+                                putString("audioUrl", audioOnlyStreamUrl)
+                            }
                         })
                         .build()
                     val updatedMediaItem = currentItem.buildUpon()
-                        .setUri(audioOnlyStreamUrl)
+                        .setUri(streamUrl)
                         .setMediaMetadata(updatedMetadata)
                         .build()
 
