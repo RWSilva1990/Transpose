@@ -18,6 +18,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import com.example.domain.repository.AudioEffectHandler
 import com.example.media.audio.PlaybackMode
 import com.example.media.audio.PlaybackModeController
+import com.example.media.audio.SignalsmithAudioProcessor
 import com.example.util.Logger
 import dagger.Lazy
 import javax.inject.Inject
@@ -29,7 +30,8 @@ import kotlin.math.pow
 @Singleton
 class AudioEffectHandlerImpl @Inject constructor(
     private val exoPlayer: ExoPlayer,
-    private val playbackModeController: Lazy<PlaybackModeController>
+    private val playbackModeController: Lazy<PlaybackModeController>,
+    private val signalsmithProcessor: Lazy<SignalsmithAudioProcessor>
 ) : AudioEffectHandler {
 
     private val audioSessionId: Int
@@ -55,6 +57,8 @@ class AudioEffectHandlerImpl @Inject constructor(
         currentPitchSemitones = semitones
         val pitchRatio = semitonesToRatio(semitones)
 
+        signalsmithProcessor.get().setPitchSemitones(semitones.toFloat())
+
         when (playbackModeController.get().currentMode) {
             PlaybackMode.AUDIO, PlaybackMode.VIDEO_WITH_DSP -> {
                 playbackModeController.get().setPitch(pitchRatio)
@@ -71,6 +75,8 @@ class AudioEffectHandlerImpl @Inject constructor(
         currentTempoSemitones = semitones
         val tempoRatio = semitonesToRatio(semitones)
 
+        signalsmithProcessor.get().setTempoRate(tempoRatio)
+
         when (playbackModeController.get().currentMode) {
             PlaybackMode.AUDIO, PlaybackMode.VIDEO_WITH_DSP -> {
                 playbackModeController.get().setTempo(tempoRatio)
@@ -85,6 +91,7 @@ class AudioEffectHandlerImpl @Inject constructor(
     override fun pitchPlusOne() {
         currentPitchSemitones += 1
         val pitchRatio = semitonesToRatio(currentPitchSemitones)
+        signalsmithProcessor.get().setPitchSemitones(currentPitchSemitones.toFloat())
 
         when (playbackModeController.get().currentMode) {
             PlaybackMode.AUDIO, PlaybackMode.VIDEO_WITH_DSP -> {
@@ -100,6 +107,7 @@ class AudioEffectHandlerImpl @Inject constructor(
     override fun initPitchValue() {
         currentPitchSemitones = -2.0
         val pitchRatio = semitonesToRatio(currentPitchSemitones)
+        signalsmithProcessor.get().setPitchSemitones(currentPitchSemitones.toFloat())
 
         when (playbackModeController.get().currentMode) {
             PlaybackMode.AUDIO, PlaybackMode.VIDEO_WITH_DSP -> {
@@ -115,6 +123,7 @@ class AudioEffectHandlerImpl @Inject constructor(
     override fun pitchMinusOne() {
         currentPitchSemitones -= 1
         val pitchRatio = semitonesToRatio(currentPitchSemitones)
+        signalsmithProcessor.get().setPitchSemitones(currentPitchSemitones.toFloat())
 
         when (playbackModeController.get().currentMode) {
             PlaybackMode.AUDIO, PlaybackMode.VIDEO_WITH_DSP -> {
@@ -130,6 +139,7 @@ class AudioEffectHandlerImpl @Inject constructor(
     override fun tempoPlusOne() {
         currentTempoSemitones += 1
         val tempoRatio = semitonesToRatio(currentTempoSemitones)
+        signalsmithProcessor.get().setTempoRate(tempoRatio)
 
         when (playbackModeController.get().currentMode) {
             PlaybackMode.AUDIO, PlaybackMode.VIDEO_WITH_DSP -> {
@@ -145,6 +155,7 @@ class AudioEffectHandlerImpl @Inject constructor(
     override fun initTempoValue() {
         currentTempoSemitones = 0.0
         val tempoRatio = semitonesToRatio(currentTempoSemitones)
+        signalsmithProcessor.get().setTempoRate(tempoRatio)
 
         when (playbackModeController.get().currentMode) {
             PlaybackMode.AUDIO, PlaybackMode.VIDEO_WITH_DSP -> {
@@ -160,6 +171,7 @@ class AudioEffectHandlerImpl @Inject constructor(
     override fun tempoMinusOne() {
         currentTempoSemitones -= 1
         val tempoRatio = semitonesToRatio(currentTempoSemitones)
+        signalsmithProcessor.get().setTempoRate(tempoRatio)
 
         when (playbackModeController.get().currentMode) {
             PlaybackMode.AUDIO, PlaybackMode.VIDEO_WITH_DSP -> {

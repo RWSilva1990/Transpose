@@ -17,6 +17,7 @@ add_library(
     signalsmith_audio
     SHARED
     SignalsmithAudioBridge.cpp
+    SignalsmithProcessor.cpp
 )
 
 target_compile_options(signalsmith_audio PRIVATE

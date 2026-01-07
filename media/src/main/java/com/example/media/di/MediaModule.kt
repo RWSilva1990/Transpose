@@ -16,6 +16,8 @@ import com.example.media.audio.HybridRenderersFactory
 import com.example.media.audio.PlaybackModeController
 import com.example.media.audio.SuperpoweredBridge
 import com.example.media.audio.SignalsmithBridgeImpl
+import com.example.media.audio.SignalsmithAudioProcessor
+import com.example.media.audio.ProcessorRenderersFactory
 import com.example.audio.SignalsmithAudioEngine
 import com.example.media.audio_effect.AudioEffectHandlerImpl
 import dagger.Lazy
@@ -90,9 +92,10 @@ class MediaModule {
     @Singleton
     fun provideAudioEffectHandler(
         player: Player,
-        playbackModeController: Lazy<PlaybackModeController>
+        playbackModeController: Lazy<PlaybackModeController>,
+        signalsmithProcessor: Lazy<SignalsmithAudioProcessor>
     ): AudioEffectHandlerImpl =
-        AudioEffectHandlerImpl(player as ExoPlayer, playbackModeController)
+        AudioEffectHandlerImpl(player as ExoPlayer, playbackModeController, signalsmithProcessor)
 
     @Provides
     @Singleton
@@ -118,5 +121,21 @@ class MediaModule {
         hybridAudioSink: HybridAudioSink
     ): HybridRenderersFactory {
         return HybridRenderersFactory(context, hybridAudioSink)
+    }
+
+    @Provides
+    @Singleton
+    fun provideSignalsmithAudioProcessor(): SignalsmithAudioProcessor {
+        return SignalsmithAudioProcessor()
+    }
+
+    @OptIn(UnstableApi::class)
+    @Provides
+    @Singleton
+    fun provideProcessorRenderersFactory(
+        @ApplicationContext context: Context,
+        signalsmithProcessor: SignalsmithAudioProcessor
+    ): ProcessorRenderersFactory {
+        return ProcessorRenderersFactory(context, signalsmithProcessor)
     }
 }
