@@ -1,7 +1,7 @@
 package com.example.audio.di
 
 import android.content.Context
-import com.example.audio.SuperpoweredAudioEngine
+import com.example.audio.SignalsmithAudioEngine
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -15,9 +15,9 @@ object AudioModule {
 
     @Provides
     @Singleton
-    fun provideSuperpoweredAudioEngine(
+    fun provideSignalsmithAudioEngine(
         @ApplicationContext context: Context
-    ): SuperpoweredAudioEngine {
-        return SuperpoweredAudioEngine(context)
+    ): SignalsmithAudioEngine {
+        return SignalsmithAudioEngine(context)
     }
 }

@@ -69,6 +69,10 @@ class MainViewModel @Inject constructor(
     fun onAudioModeSelected() {
         playbackModeController.switchToAudioMode()
     }
+    
+    fun onVideoWithDspModeSelected() {
+        playbackModeController.switchToVideoWithDspMode()
+    }
 
     fun onPitchChanged(pitch: Float) {
         playbackModeController.setPitch(pitch)

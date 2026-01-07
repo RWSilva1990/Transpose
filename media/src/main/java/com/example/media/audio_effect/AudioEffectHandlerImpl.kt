@@ -56,7 +56,7 @@ class AudioEffectHandlerImpl @Inject constructor(
         val pitchRatio = semitonesToRatio(semitones)
 
         when (playbackModeController.get().currentMode) {
-            PlaybackMode.AUDIO -> {
+            PlaybackMode.AUDIO, PlaybackMode.VIDEO_WITH_DSP -> {
                 playbackModeController.get().setPitch(pitchRatio)
             }
             PlaybackMode.VIDEO -> {
@@ -72,7 +72,7 @@ class AudioEffectHandlerImpl @Inject constructor(
         val tempoRatio = semitonesToRatio(semitones)
 
         when (playbackModeController.get().currentMode) {
-            PlaybackMode.AUDIO -> {
+            PlaybackMode.AUDIO, PlaybackMode.VIDEO_WITH_DSP -> {
                 playbackModeController.get().setTempo(tempoRatio)
             }
             PlaybackMode.VIDEO -> {
@@ -87,7 +87,7 @@ class AudioEffectHandlerImpl @Inject constructor(
         val pitchRatio = semitonesToRatio(currentPitchSemitones)
 
         when (playbackModeController.get().currentMode) {
-            PlaybackMode.AUDIO -> {
+            PlaybackMode.AUDIO, PlaybackMode.VIDEO_WITH_DSP -> {
                 playbackModeController.get().setPitch(pitchRatio)
             }
             PlaybackMode.VIDEO -> {
@@ -102,7 +102,7 @@ class AudioEffectHandlerImpl @Inject constructor(
         val pitchRatio = semitonesToRatio(currentPitchSemitones)
 
         when (playbackModeController.get().currentMode) {
-            PlaybackMode.AUDIO -> {
+            PlaybackMode.AUDIO, PlaybackMode.VIDEO_WITH_DSP -> {
                 playbackModeController.get().setPitch(pitchRatio)
             }
             PlaybackMode.VIDEO -> {
@@ -117,7 +117,7 @@ class AudioEffectHandlerImpl @Inject constructor(
         val pitchRatio = semitonesToRatio(currentPitchSemitones)
 
         when (playbackModeController.get().currentMode) {
-            PlaybackMode.AUDIO -> {
+            PlaybackMode.AUDIO, PlaybackMode.VIDEO_WITH_DSP -> {
                 playbackModeController.get().setPitch(pitchRatio)
             }
             PlaybackMode.VIDEO -> {
@@ -132,7 +132,7 @@ class AudioEffectHandlerImpl @Inject constructor(
         val tempoRatio = semitonesToRatio(currentTempoSemitones)
 
         when (playbackModeController.get().currentMode) {
-            PlaybackMode.AUDIO -> {
+            PlaybackMode.AUDIO, PlaybackMode.VIDEO_WITH_DSP -> {
                 playbackModeController.get().setTempo(tempoRatio)
             }
             PlaybackMode.VIDEO -> {
@@ -147,7 +147,7 @@ class AudioEffectHandlerImpl @Inject constructor(
         val tempoRatio = semitonesToRatio(currentTempoSemitones)
 
         when (playbackModeController.get().currentMode) {
-            PlaybackMode.AUDIO -> {
+            PlaybackMode.AUDIO, PlaybackMode.VIDEO_WITH_DSP -> {
                 playbackModeController.get().setTempo(tempoRatio)
             }
             PlaybackMode.VIDEO -> {
@@ -162,7 +162,7 @@ class AudioEffectHandlerImpl @Inject constructor(
         val tempoRatio = semitonesToRatio(currentTempoSemitones)
 
         when (playbackModeController.get().currentMode) {
-            PlaybackMode.AUDIO -> {
+            PlaybackMode.AUDIO, PlaybackMode.VIDEO_WITH_DSP -> {
                 playbackModeController.get().setTempo(tempoRatio)
             }
             PlaybackMode.VIDEO -> {

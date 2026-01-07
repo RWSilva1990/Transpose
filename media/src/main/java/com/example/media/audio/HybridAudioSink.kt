@@ -21,13 +21,15 @@ class HybridAudioSink(
 
     private val defaultAudioSink: DefaultAudioSink = DefaultAudioSink.Builder(context).build()
 
-    var mode: PlaybackMode = PlaybackMode.AUDIO
+    var mode: PlaybackMode = PlaybackMode.VIDEO_WITH_DSP
         set(value) {
             field = value
-            if (value == PlaybackMode.AUDIO) {
+            if (value == PlaybackMode.AUDIO || value == PlaybackMode.VIDEO_WITH_DSP) {
                 superpoweredBridge.init(currentSampleRate, currentChannelCount, DEFAULT_BUFFER_SIZE)
             }
         }
+    
+    private fun usesDsp(): Boolean = mode == PlaybackMode.AUDIO || mode == PlaybackMode.VIDEO_WITH_DSP
 
     private var currentSampleRate = 44100
     private var currentChannelCount = 2
@@ -74,7 +76,7 @@ class HybridAudioSink(
 
         defaultAudioSink.configure(inputFormat, specifiedBufferSize, outputChannels)
 
-        if (mode == PlaybackMode.AUDIO) {
+        if (usesDsp()) {
             superpoweredBridge.init(currentSampleRate, currentChannelCount, specifiedBufferSize)
         }
     }
@@ -82,32 +84,39 @@ class HybridAudioSink(
     // ==================== 재생 제어 ====================
 
     override fun play() {
-        if (mode == PlaybackMode.AUDIO) {
+        if (usesDsp()) {
             superpoweredBridge.play()
         }
-        defaultAudioSink.play()
+        if (mode != PlaybackMode.AUDIO) {
+            defaultAudioSink.play()
+        }
     }
 
     override fun pause() {
-        android.util.Log.w(TAG, "pause() called", Exception("Stack trace"))  // ★ 스택 추적
+        android.util.Log.d(TAG, "pause() called, mode=$mode")
         when (mode) {
             PlaybackMode.VIDEO -> defaultAudioSink.pause()
             PlaybackMode.AUDIO -> superpoweredBridge.pause()
+            PlaybackMode.VIDEO_WITH_DSP -> superpoweredBridge.pause()
         }
     }
 
     override fun flush() {
-        if (mode == PlaybackMode.AUDIO) {
+        if (usesDsp()) {
             superpoweredBridge.flush()
         }
-        defaultAudioSink.flush()
+        if (mode != PlaybackMode.AUDIO) {
+            defaultAudioSink.flush()
+        }
     }
 
     override fun reset() {
-        if (mode == PlaybackMode.AUDIO) {
+        if (usesDsp()) {
             superpoweredBridge.reset()
         }
-        defaultAudioSink.reset()
+        if (mode != PlaybackMode.AUDIO) {
+            defaultAudioSink.reset()
+        }
     }
 
     override fun release() {
@@ -121,12 +130,12 @@ class HybridAudioSink(
         return when (mode) {
             PlaybackMode.VIDEO -> defaultAudioSink.handleBuffer(buffer, presentationTimeUs, encodedAccessUnitCount)
 
-            PlaybackMode.AUDIO -> {
+            PlaybackMode.AUDIO, PlaybackMode.VIDEO_WITH_DSP -> {
                 val size = buffer.remaining()
                 handleBufferCallCount++
                 
                 if (handleBufferCallCount % HANDLE_BUFFER_LOG_INTERVAL == 0) {
-                    android.util.Log.d(TAG, "handleBuffer[$handleBufferCallCount]: size=$size, pts=${presentationTimeUs/1000}ms")
+                    android.util.Log.d(TAG, "handleBuffer[$handleBufferCallCount]: size=$size, pts=${presentationTimeUs/1000}ms, mode=$mode")
                 }
                 
                 var result = false
@@ -155,12 +164,13 @@ class HybridAudioSink(
         if (mode == PlaybackMode.VIDEO) {
             defaultAudioSink.playToEndOfStream()
         }
-        // AUDIO 모드에서는 Superpowered가 버퍼 끝까지 재생하도록 처리
     }
 
     override fun handleDiscontinuity() {
-        defaultAudioSink.handleDiscontinuity()
-        if (mode == PlaybackMode.AUDIO) {
+        if (mode != PlaybackMode.AUDIO) {
+            defaultAudioSink.handleDiscontinuity()
+        }
+        if (usesDsp()) {
             superpoweredBridge.flush()
         }
     }
@@ -172,7 +182,7 @@ class HybridAudioSink(
             PlaybackMode.VIDEO -> {
                 defaultAudioSink.setPlaybackParameters(playbackParameters)
             }
-            PlaybackMode.AUDIO -> {
+            PlaybackMode.AUDIO, PlaybackMode.VIDEO_WITH_DSP -> {
             }
         }
     }
@@ -222,16 +232,18 @@ class HybridAudioSink(
     override fun getCurrentPositionUs(sourceEnded: Boolean): Long {
         val pos = when (mode) {
             PlaybackMode.VIDEO -> defaultAudioSink.getCurrentPositionUs(sourceEnded)
-            PlaybackMode.AUDIO -> superpoweredBridge.getCurrentPositionUs()
+            PlaybackMode.AUDIO, PlaybackMode.VIDEO_WITH_DSP -> superpoweredBridge.getCurrentPositionUs()
         }
-        // ★ 디버그 로그
-        return pos
+        if (pos == Long.MIN_VALUE) {
+            return pos
+        }
+        return maxOf(0L, pos)
     }
 
     override fun isEnded(): Boolean {
         return when (mode) {
             PlaybackMode.VIDEO -> defaultAudioSink.isEnded
-            PlaybackMode.AUDIO -> false // 일단 false로 두고, EOS 신호 처리 추가 후 개선
+            PlaybackMode.AUDIO, PlaybackMode.VIDEO_WITH_DSP -> false
         }
     }
 
@@ -239,7 +251,7 @@ class HybridAudioSink(
     override fun hasPendingData(): Boolean {
         return when (mode) {
             PlaybackMode.VIDEO -> defaultAudioSink.hasPendingData()
-            PlaybackMode.AUDIO -> true  // Superpowered가 자체 버퍼링하므로 항상 pending으로 처리
+            PlaybackMode.AUDIO, PlaybackMode.VIDEO_WITH_DSP -> true
         }
     }
 

@@ -30,38 +30,32 @@ class PlaybackModeController @Inject constructor(
         hybridAudioSink.mode = PlaybackMode.AUDIO
         applyDefaultPitchAndTempo()
     }
+    
+    fun switchToVideoWithDspMode() {
+        hybridAudioSink.mode = PlaybackMode.VIDEO_WITH_DSP
+        applyDefaultPitchAndTempo()
+    }
 
     private fun applyDefaultPitchAndTempo() {
         superpoweredBridge.setPitch(semitonesToRatio(DEFAULT_PITCH_SEMITONES))
         superpoweredBridge.setTempo(semitonesToRatio(DEFAULT_TEMPO_SEMITONES))
     }
 
-    /**
-     * 피치 설정 (현재 모드에 맞게 자동 적용)
-     */
     fun setPitch(pitch: Float) {
         when (hybridAudioSink.mode) {
             PlaybackMode.VIDEO -> {
-                // ExoPlayer는 PlaybackParameters로 설정해야 함
-                // 이건 외부에서 player.setPlaybackParameters() 호출 필요
             }
-
-            PlaybackMode.AUDIO -> {
+            PlaybackMode.AUDIO, PlaybackMode.VIDEO_WITH_DSP -> {
                 superpoweredBridge.setPitch(pitch)
             }
         }
     }
 
-    /**
-     * 템포 설정 (현재 모드에 맞게 자동 적용)
-     */
     fun setTempo(tempo: Float) {
         when (hybridAudioSink.mode) {
             PlaybackMode.VIDEO -> {
-                // ExoPlayer는 PlaybackParameters로 설정해야 함
             }
-
-            PlaybackMode.AUDIO -> {
+            PlaybackMode.AUDIO, PlaybackMode.VIDEO_WITH_DSP -> {
                 superpoweredBridge.setTempo(tempo)
             }
         }
