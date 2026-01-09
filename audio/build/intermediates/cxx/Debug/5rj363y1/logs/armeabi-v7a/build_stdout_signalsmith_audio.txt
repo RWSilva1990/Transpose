@@ -1,0 +1,8 @@
+ninja: Entering directory `/Users/joh/Desktop/joh9911/MyProject/Transpose/Transpose/audio/.cxx/Debug/5rj363y1/armeabi-v7a'
+[1/7] Building CXX object CMakeFiles/signalsmith_audio.dir/DaisySP/Source/Utility/metro.cpp.o
+[2/7] Building CXX object CMakeFiles/signalsmith_audio.dir/DaisySP/Source/Effects/flanger.cpp.o
+[3/7] Building CXX object CMakeFiles/signalsmith_audio.dir/DaisySP/Source/Synthesis/oscillator.cpp.o
+[4/7] Building CXX object CMakeFiles/signalsmith_audio.dir/DaisySP/Source/Effects/tremolo.cpp.o
+[5/7] Building CXX object CMakeFiles/signalsmith_audio.dir/DaisySP/Source/Effects/phaser.cpp.o
+[6/7] Building CXX object CMakeFiles/signalsmith_audio.dir/SignalsmithAudioBridge.cpp.o
+[7/7] Linking CXX shared library /Users/joh/Desktop/joh9911/MyProject/Transpose/Transpose/audio/build/intermediates/cxx/Debug/5rj363y1/obj/armeabi-v7a/libsignalsmith_audio.so
