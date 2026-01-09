@@ -22,8 +22,21 @@ import com.example.convert.audio_edit.components.equalizer.EqualizerSection
 import com.example.convert.audio_edit.components.loudness_enhancer.LoudnessEnhancerSection
 import com.example.convert.audio_edit.components.pitch.PitchSection
 import com.example.convert.audio_edit.components.reverb.ReverbSection
+import com.example.convert.audio_edit.components.signalsmith.AutowahSection
+import com.example.convert.audio_edit.components.signalsmith.ChorusSection
+import com.example.convert.audio_edit.components.signalsmith.CompressorSection
+import com.example.convert.audio_edit.components.signalsmith.CrunchSection
+import com.example.convert.audio_edit.components.signalsmith.DecimatorSection
+import com.example.convert.audio_edit.components.signalsmith.EqSection
+import com.example.convert.audio_edit.components.signalsmith.FlangerSection
+import com.example.convert.audio_edit.components.signalsmith.LimiterSection
+import com.example.convert.audio_edit.components.signalsmith.PhaserSection
+import com.example.convert.audio_edit.components.signalsmith.SignalsmithReverbSection
+import com.example.convert.audio_edit.components.signalsmith.SignalsmithVirtualizerSection
+import com.example.convert.audio_edit.components.signalsmith.TremoloSection
 import com.example.convert.audio_edit.components.tempo.TempoSection
 import com.example.convert.audio_edit.components.virtualizer.VirtualizerSection
+import com.example.transpose.core.ui.R as CoreUiR
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -74,8 +87,60 @@ fun ConvertAudioEditScreen(
         VirtualizerSection(
             convertAudioEditViewModel = convertAudioEditViewModel
         )
-//        HapticGeneratorSection(mediaViewModel = mediaViewModel)
-//        EnvironmentalReverbSection(mediaViewModel = mediaViewModel)
+
+        Spacer(modifier = Modifier.height(10.dp))
+        ChorusSection(
+            title = stringResource(id = CoreUiR.string.chorus_text),
+            convertAudioEditViewModel = convertAudioEditViewModel
+        )
+        LimiterSection(
+            title = stringResource(id = CoreUiR.string.limiter_text),
+            convertAudioEditViewModel = convertAudioEditViewModel
+        )
+        SignalsmithReverbSection(
+            title = stringResource(id = CoreUiR.string.signalsmith_reverb_text),
+            convertAudioEditViewModel = convertAudioEditViewModel
+        )
+        CrunchSection(
+            title = stringResource(id = CoreUiR.string.crunch_text),
+            convertAudioEditViewModel = convertAudioEditViewModel
+        )
+
+        Spacer(modifier = Modifier.height(10.dp))
+        EqSection(
+            title = stringResource(id = CoreUiR.string.eq_title),
+            convertAudioEditViewModel = convertAudioEditViewModel
+        )
+        CompressorSection(
+            title = stringResource(id = CoreUiR.string.compressor_title),
+            convertAudioEditViewModel = convertAudioEditViewModel
+        )
+        SignalsmithVirtualizerSection(
+            title = stringResource(id = CoreUiR.string.hrtf_virtualizer_title),
+            convertAudioEditViewModel = convertAudioEditViewModel
+        )
+
+        Spacer(modifier = Modifier.height(10.dp))
+        PhaserSection(
+            title = stringResource(id = CoreUiR.string.phaser_title),
+            convertAudioEditViewModel = convertAudioEditViewModel
+        )
+        FlangerSection(
+            title = stringResource(id = CoreUiR.string.flanger_title),
+            convertAudioEditViewModel = convertAudioEditViewModel
+        )
+        TremoloSection(
+            title = stringResource(id = CoreUiR.string.tremolo_title),
+            convertAudioEditViewModel = convertAudioEditViewModel
+        )
+        AutowahSection(
+            title = stringResource(id = CoreUiR.string.autowah_title),
+            convertAudioEditViewModel = convertAudioEditViewModel
+        )
+        DecimatorSection(
+            title = stringResource(id = CoreUiR.string.decimator_title),
+            convertAudioEditViewModel = convertAudioEditViewModel
+        )
     }
 
 

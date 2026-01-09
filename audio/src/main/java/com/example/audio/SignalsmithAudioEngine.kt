@@ -238,6 +238,136 @@ class SignalsmithAudioEngine @Inject constructor(
         return nativeGetOutputLatency()
     }
 
+    fun setChorusEnabled(enabled: Boolean) {
+        if (!isInitialized) return
+        nativeSetChorusEnabled(enabled)
+    }
+
+    fun setChorusParams(mix: Float, depthMs: Float, detune: Float, stereo: Float) {
+        if (!isInitialized) return
+        nativeSetChorusParams(mix, depthMs, detune, stereo)
+    }
+
+    fun setLimiterEnabled(enabled: Boolean) {
+        if (!isInitialized) return
+        nativeSetLimiterEnabled(enabled)
+    }
+
+    fun setLimiterParams(inputGainDb: Float, limitDb: Float, attackMs: Float, releaseMs: Float) {
+        if (!isInitialized) return
+        nativeSetLimiterParams(inputGainDb, limitDb, attackMs, releaseMs)
+    }
+
+    fun setReverbEnabled(enabled: Boolean) {
+        if (!isInitialized) return
+        nativeSetReverbEnabled(enabled)
+    }
+
+    fun setReverbParams(dry: Float, wet: Float, roomMs: Float, decaySec: Float) {
+        if (!isInitialized) return
+        nativeSetReverbParams(dry, wet, roomMs, decaySec)
+    }
+
+    fun setCrunchEnabled(enabled: Boolean) {
+        if (!isInitialized) return
+        nativeSetCrunchEnabled(enabled)
+    }
+
+    fun setCrunchParams(driveDb: Float, fuzz: Float, toneHz: Float) {
+        if (!isInitialized) return
+        nativeSetCrunchParams(driveDb, fuzz, toneHz)
+    }
+
+    fun setEqEnabled(enabled: Boolean) {
+        if (!isInitialized) return
+        nativeSetEqEnabled(enabled)
+    }
+
+    fun setEqBand(band: Int, freq: Float, gainDb: Float) {
+        if (!isInitialized) return
+        nativeSetEqBand(band, freq, gainDb)
+    }
+
+    fun setCompressorEnabled(enabled: Boolean) {
+        if (!isInitialized) return
+        nativeSetCompressorEnabled(enabled)
+    }
+
+    fun setCompressorParams(thresholdDb: Float, ratio: Float, attackMs: Float, releaseMs: Float, makeupGainDb: Float) {
+        if (!isInitialized) return
+        nativeSetCompressorParams(thresholdDb, ratio, attackMs, releaseMs, makeupGainDb)
+    }
+
+    fun setPitchDetectionEnabled(enabled: Boolean) {
+        if (!isInitialized) return
+        nativeSetPitchDetectionEnabled(enabled)
+    }
+
+    fun getDetectedPitch(): Float {
+        if (!isInitialized) return 0f
+        return nativeGetDetectedPitch()
+    }
+
+    fun setHrtfEnabled(enabled: Boolean) {
+        if (!isInitialized) return
+        nativeSetHrtfEnabled(enabled)
+    }
+
+    fun setHrtfParams(intensity: Float, azimuth: Int) {
+        if (!isInitialized) return
+        nativeSetHrtfParams(intensity, azimuth)
+    }
+
+    fun setPhaserEnabled(enabled: Boolean) {
+        if (!isInitialized) return
+        nativeSetPhaserEnabled(enabled)
+    }
+
+    fun setPhaserParams(lfoFreq: Float, lfoDepth: Float, feedback: Float, poles: Int) {
+        if (!isInitialized) return
+        nativeSetPhaserParams(lfoFreq, lfoDepth, feedback, poles)
+    }
+
+    fun setFlangerEnabled(enabled: Boolean) {
+        if (!isInitialized) return
+        nativeSetFlangerEnabled(enabled)
+    }
+
+    fun setFlangerParams(lfoFreq: Float, lfoDepth: Float, feedback: Float, delayMs: Float) {
+        if (!isInitialized) return
+        nativeSetFlangerParams(lfoFreq, lfoDepth, feedback, delayMs)
+    }
+
+    fun setTremoloEnabled(enabled: Boolean) {
+        if (!isInitialized) return
+        nativeSetTremoloEnabled(enabled)
+    }
+
+    fun setTremoloParams(freq: Float, depth: Float, waveform: Int) {
+        if (!isInitialized) return
+        nativeSetTremoloParams(freq, depth, waveform)
+    }
+
+    fun setAutowahEnabled(enabled: Boolean) {
+        if (!isInitialized) return
+        nativeSetAutowahEnabled(enabled)
+    }
+
+    fun setAutowahParams(wah: Float, mix: Float, level: Float) {
+        if (!isInitialized) return
+        nativeSetAutowahParams(wah, mix, level)
+    }
+
+    fun setDecimatorEnabled(enabled: Boolean) {
+        if (!isInitialized) return
+        nativeSetDecimatorEnabled(enabled)
+    }
+
+    fun setDecimatorParams(bitcrush: Float, downsample: Float) {
+        if (!isInitialized) return
+        nativeSetDecimatorParams(bitcrush, downsample)
+    }
+
     private external fun nativeInit(inputSampleRate: Int, inputChannelCount: Int, bufferSize: Int)
     private external fun nativeWritePcm(buffer: ByteBuffer, sizeInBytes: Int, presentationTimeUs: Long)
     private external fun nativeProcess(outputArray: ShortArray, outputFrames: Int): Int
@@ -258,4 +388,30 @@ class SignalsmithAudioEngine @Inject constructor(
     private external fun nativeHasPendingData(): Boolean
     private external fun nativeGetInputLatency(): Int
     private external fun nativeGetOutputLatency(): Int
+    private external fun nativeSetChorusEnabled(enabled: Boolean)
+    private external fun nativeSetChorusParams(mix: Float, depthMs: Float, detune: Float, stereo: Float)
+    private external fun nativeSetLimiterEnabled(enabled: Boolean)
+    private external fun nativeSetLimiterParams(inputGainDb: Float, limitDb: Float, attackMs: Float, releaseMs: Float)
+    private external fun nativeSetReverbEnabled(enabled: Boolean)
+    private external fun nativeSetReverbParams(dry: Float, wet: Float, roomMs: Float, decaySec: Float)
+    private external fun nativeSetCrunchEnabled(enabled: Boolean)
+    private external fun nativeSetCrunchParams(driveDb: Float, fuzz: Float, toneHz: Float)
+    private external fun nativeSetEqEnabled(enabled: Boolean)
+    private external fun nativeSetEqBand(band: Int, freq: Float, gainDb: Float)
+    private external fun nativeSetCompressorEnabled(enabled: Boolean)
+    private external fun nativeSetCompressorParams(thresholdDb: Float, ratio: Float, attackMs: Float, releaseMs: Float, makeupGainDb: Float)
+    private external fun nativeSetPitchDetectionEnabled(enabled: Boolean)
+    private external fun nativeGetDetectedPitch(): Float
+    private external fun nativeSetHrtfEnabled(enabled: Boolean)
+    private external fun nativeSetHrtfParams(intensity: Float, azimuth: Int)
+    private external fun nativeSetPhaserEnabled(enabled: Boolean)
+    private external fun nativeSetPhaserParams(lfoFreq: Float, lfoDepth: Float, feedback: Float, poles: Int)
+    private external fun nativeSetFlangerEnabled(enabled: Boolean)
+    private external fun nativeSetFlangerParams(lfoFreq: Float, lfoDepth: Float, feedback: Float, delayMs: Float)
+    private external fun nativeSetTremoloEnabled(enabled: Boolean)
+    private external fun nativeSetTremoloParams(freq: Float, depth: Float, waveform: Int)
+    private external fun nativeSetAutowahEnabled(enabled: Boolean)
+    private external fun nativeSetAutowahParams(wah: Float, mix: Float, level: Float)
+    private external fun nativeSetDecimatorEnabled(enabled: Boolean)
+    private external fun nativeSetDecimatorParams(bitcrush: Float, downsample: Float)
 }

@@ -3,6 +3,7 @@ package com.example.media.manager
 import android.os.Bundle
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionCommand
+import com.example.audio.SignalsmithAudioEngine
 import com.example.media.MediaSessionCallback
 import com.example.media.audio_effect.data.equalizer.EqualizerPresets
 import com.example.media.audio_effect.data.equalizer.EqualizerSettings
@@ -17,7 +18,8 @@ import javax.inject.Singleton
 
 @Singleton
 class AudioEffectsManager @Inject constructor(
-    private val controllerProvider: MediaControllerProvider
+    private val controllerProvider: MediaControllerProvider,
+    private val signalsmithAudioEngine: SignalsmithAudioEngine
 ) {
 
     private val mediaController: MediaController?
@@ -485,6 +487,508 @@ class AudioEffectsManager @Inject constructor(
     fun disableEnvironmentalReverb() {
         _isEnvironmentalReverbEnabled.value = false
         setEnvironmentalReverb()
+    }
+
+
+    // =========================
+    // Signalsmith Chorus
+    // =========================
+
+    private val _isChorusEnabled = MutableStateFlow(false)
+    val isChorusEnabled: StateFlow<Boolean> = _isChorusEnabled.asStateFlow()
+
+    private val _chorusMix = MutableStateFlow(0.5f)
+    val chorusMix: StateFlow<Float> = _chorusMix.asStateFlow()
+
+    private val _chorusDepthMs = MutableStateFlow(10f)
+    val chorusDepthMs: StateFlow<Float> = _chorusDepthMs.asStateFlow()
+
+    private val _chorusDetune = MutableStateFlow(10f)
+    val chorusDetune: StateFlow<Float> = _chorusDetune.asStateFlow()
+
+    private val _chorusStereo = MutableStateFlow(0.5f)
+    val chorusStereo: StateFlow<Float> = _chorusStereo.asStateFlow()
+
+    fun updateIsChorusEnabled() {
+        _isChorusEnabled.value = !_isChorusEnabled.value
+        signalsmithAudioEngine.setChorusEnabled(_isChorusEnabled.value)
+    }
+
+    fun updateChorusMix(value: Float) { _chorusMix.value = value }
+    fun updateChorusDepthMs(value: Float) { _chorusDepthMs.value = value }
+    fun updateChorusDetune(value: Float) { _chorusDetune.value = value }
+    fun updateChorusStereo(value: Float) { _chorusStereo.value = value }
+
+    fun setChorusParams() {
+        signalsmithAudioEngine.setChorusParams(
+            _chorusMix.value, _chorusDepthMs.value, _chorusDetune.value, _chorusStereo.value
+        )
+    }
+
+    fun initChorusValues() {
+        _chorusMix.value = 0.5f
+        _chorusDepthMs.value = 10f
+        _chorusDetune.value = 10f
+        _chorusStereo.value = 0.5f
+        setChorusParams()
+    }
+
+
+    // =========================
+    // Signalsmith Limiter
+    // =========================
+
+    private val _isLimiterEnabled = MutableStateFlow(false)
+    val isLimiterEnabled: StateFlow<Boolean> = _isLimiterEnabled.asStateFlow()
+
+    private val _limiterInputGainDb = MutableStateFlow(0f)
+    val limiterInputGainDb: StateFlow<Float> = _limiterInputGainDb.asStateFlow()
+
+    private val _limiterLimitDb = MutableStateFlow(-3f)
+    val limiterLimitDb: StateFlow<Float> = _limiterLimitDb.asStateFlow()
+
+    private val _limiterAttackMs = MutableStateFlow(10f)
+    val limiterAttackMs: StateFlow<Float> = _limiterAttackMs.asStateFlow()
+
+    private val _limiterReleaseMs = MutableStateFlow(100f)
+    val limiterReleaseMs: StateFlow<Float> = _limiterReleaseMs.asStateFlow()
+
+    fun updateIsLimiterEnabled() {
+        _isLimiterEnabled.value = !_isLimiterEnabled.value
+        signalsmithAudioEngine.setLimiterEnabled(_isLimiterEnabled.value)
+    }
+
+    fun updateLimiterInputGainDb(value: Float) { _limiterInputGainDb.value = value }
+    fun updateLimiterLimitDb(value: Float) { _limiterLimitDb.value = value }
+    fun updateLimiterAttackMs(value: Float) { _limiterAttackMs.value = value }
+    fun updateLimiterReleaseMs(value: Float) { _limiterReleaseMs.value = value }
+
+    fun setLimiterParams() {
+        signalsmithAudioEngine.setLimiterParams(
+            _limiterInputGainDb.value, _limiterLimitDb.value, _limiterAttackMs.value, _limiterReleaseMs.value
+        )
+    }
+
+    fun initLimiterValues() {
+        _limiterInputGainDb.value = 0f
+        _limiterLimitDb.value = -3f
+        _limiterAttackMs.value = 10f
+        _limiterReleaseMs.value = 100f
+        setLimiterParams()
+    }
+
+
+    // =========================
+    // Signalsmith Reverb
+    // =========================
+
+    private val _isSignalsmithReverbEnabled = MutableStateFlow(false)
+    val isSignalsmithReverbEnabled: StateFlow<Boolean> = _isSignalsmithReverbEnabled.asStateFlow()
+
+    private val _signalsmithReverbDry = MutableStateFlow(1f)
+    val signalsmithReverbDry: StateFlow<Float> = _signalsmithReverbDry.asStateFlow()
+
+    private val _signalsmithReverbWet = MutableStateFlow(0.3f)
+    val signalsmithReverbWet: StateFlow<Float> = _signalsmithReverbWet.asStateFlow()
+
+    private val _signalsmithReverbRoomMs = MutableStateFlow(50f)
+    val signalsmithReverbRoomMs: StateFlow<Float> = _signalsmithReverbRoomMs.asStateFlow()
+
+    private val _signalsmithReverbDecaySec = MutableStateFlow(2f)
+    val signalsmithReverbDecaySec: StateFlow<Float> = _signalsmithReverbDecaySec.asStateFlow()
+
+    fun updateIsSignalsmithReverbEnabled() {
+        _isSignalsmithReverbEnabled.value = !_isSignalsmithReverbEnabled.value
+        signalsmithAudioEngine.setReverbEnabled(_isSignalsmithReverbEnabled.value)
+    }
+
+    fun updateSignalsmithReverbDry(value: Float) { _signalsmithReverbDry.value = value }
+    fun updateSignalsmithReverbWet(value: Float) { _signalsmithReverbWet.value = value }
+    fun updateSignalsmithReverbRoomMs(value: Float) { _signalsmithReverbRoomMs.value = value }
+    fun updateSignalsmithReverbDecaySec(value: Float) { _signalsmithReverbDecaySec.value = value }
+
+    fun setSignalsmithReverbParams() {
+        signalsmithAudioEngine.setReverbParams(
+            _signalsmithReverbDry.value, _signalsmithReverbWet.value,
+            _signalsmithReverbRoomMs.value, _signalsmithReverbDecaySec.value
+        )
+    }
+
+    fun initSignalsmithReverbValues() {
+        _signalsmithReverbDry.value = 1f
+        _signalsmithReverbWet.value = 0.3f
+        _signalsmithReverbRoomMs.value = 50f
+        _signalsmithReverbDecaySec.value = 2f
+        setSignalsmithReverbParams()
+    }
+
+
+    // =========================
+    // Signalsmith Crunch
+    // =========================
+
+    private val _isCrunchEnabled = MutableStateFlow(false)
+    val isCrunchEnabled: StateFlow<Boolean> = _isCrunchEnabled.asStateFlow()
+
+    private val _crunchDriveDb = MutableStateFlow(0f)
+    val crunchDriveDb: StateFlow<Float> = _crunchDriveDb.asStateFlow()
+
+    private val _crunchFuzz = MutableStateFlow(0f)
+    val crunchFuzz: StateFlow<Float> = _crunchFuzz.asStateFlow()
+
+    private val _crunchToneHz = MutableStateFlow(5000f)
+    val crunchToneHz: StateFlow<Float> = _crunchToneHz.asStateFlow()
+
+    fun updateIsCrunchEnabled() {
+        _isCrunchEnabled.value = !_isCrunchEnabled.value
+        signalsmithAudioEngine.setCrunchEnabled(_isCrunchEnabled.value)
+    }
+
+    fun updateCrunchDriveDb(value: Float) { _crunchDriveDb.value = value }
+    fun updateCrunchFuzz(value: Float) { _crunchFuzz.value = value }
+    fun updateCrunchToneHz(value: Float) { _crunchToneHz.value = value }
+
+    fun setCrunchParams() {
+        signalsmithAudioEngine.setCrunchParams(_crunchDriveDb.value, _crunchFuzz.value, _crunchToneHz.value)
+    }
+
+    fun initCrunchValues() {
+        _crunchDriveDb.value = 0f
+        _crunchFuzz.value = 0f
+        _crunchToneHz.value = 5000f
+        setCrunchParams()
+    }
+
+
+    private val _isEqEnabled = MutableStateFlow(false)
+    val isEqEnabled: StateFlow<Boolean> = _isEqEnabled.asStateFlow()
+
+    private val _eqBand1Freq = MutableStateFlow(60f)
+    val eqBand1Freq: StateFlow<Float> = _eqBand1Freq.asStateFlow()
+    private val _eqBand1Gain = MutableStateFlow(0f)
+    val eqBand1Gain: StateFlow<Float> = _eqBand1Gain.asStateFlow()
+
+    private val _eqBand2Freq = MutableStateFlow(250f)
+    val eqBand2Freq: StateFlow<Float> = _eqBand2Freq.asStateFlow()
+    private val _eqBand2Gain = MutableStateFlow(0f)
+    val eqBand2Gain: StateFlow<Float> = _eqBand2Gain.asStateFlow()
+
+    private val _eqBand3Freq = MutableStateFlow(1000f)
+    val eqBand3Freq: StateFlow<Float> = _eqBand3Freq.asStateFlow()
+    private val _eqBand3Gain = MutableStateFlow(0f)
+    val eqBand3Gain: StateFlow<Float> = _eqBand3Gain.asStateFlow()
+
+    private val _eqBand4Freq = MutableStateFlow(4000f)
+    val eqBand4Freq: StateFlow<Float> = _eqBand4Freq.asStateFlow()
+    private val _eqBand4Gain = MutableStateFlow(0f)
+    val eqBand4Gain: StateFlow<Float> = _eqBand4Gain.asStateFlow()
+
+    private val _eqBand5Freq = MutableStateFlow(12000f)
+    val eqBand5Freq: StateFlow<Float> = _eqBand5Freq.asStateFlow()
+    private val _eqBand5Gain = MutableStateFlow(0f)
+    val eqBand5Gain: StateFlow<Float> = _eqBand5Gain.asStateFlow()
+
+    fun updateIsEqEnabled() {
+        _isEqEnabled.value = !_isEqEnabled.value
+        signalsmithAudioEngine.setEqEnabled(_isEqEnabled.value)
+    }
+
+    fun updateEqBand(band: Int, freq: Float, gain: Float) {
+        when (band) {
+            0 -> { _eqBand1Freq.value = freq; _eqBand1Gain.value = gain }
+            1 -> { _eqBand2Freq.value = freq; _eqBand2Gain.value = gain }
+            2 -> { _eqBand3Freq.value = freq; _eqBand3Gain.value = gain }
+            3 -> { _eqBand4Freq.value = freq; _eqBand4Gain.value = gain }
+            4 -> { _eqBand5Freq.value = freq; _eqBand5Gain.value = gain }
+        }
+        signalsmithAudioEngine.setEqBand(band, freq, gain)
+    }
+
+    fun updateEqBandGain(band: Int, gain: Float) {
+        val freq = when (band) {
+            0 -> _eqBand1Freq.value
+            1 -> _eqBand2Freq.value
+            2 -> _eqBand3Freq.value
+            3 -> _eqBand4Freq.value
+            4 -> _eqBand5Freq.value
+            else -> 1000f
+        }
+        updateEqBand(band, freq, gain)
+    }
+
+    fun initEqValues() {
+        _eqBand1Gain.value = 0f; _eqBand2Gain.value = 0f; _eqBand3Gain.value = 0f
+        _eqBand4Gain.value = 0f; _eqBand5Gain.value = 0f
+        for (i in 0..4) {
+            val freq = when (i) { 0 -> 60f; 1 -> 250f; 2 -> 1000f; 3 -> 4000f; else -> 12000f }
+            signalsmithAudioEngine.setEqBand(i, freq, 0f)
+        }
+    }
+
+
+    private val _isCompressorEnabled = MutableStateFlow(false)
+    val isCompressorEnabled: StateFlow<Boolean> = _isCompressorEnabled.asStateFlow()
+
+    private val _compThresholdDb = MutableStateFlow(-20f)
+    val compThresholdDb: StateFlow<Float> = _compThresholdDb.asStateFlow()
+
+    private val _compRatio = MutableStateFlow(4f)
+    val compRatio: StateFlow<Float> = _compRatio.asStateFlow()
+
+    private val _compAttackMs = MutableStateFlow(10f)
+    val compAttackMs: StateFlow<Float> = _compAttackMs.asStateFlow()
+
+    private val _compReleaseMs = MutableStateFlow(100f)
+    val compReleaseMs: StateFlow<Float> = _compReleaseMs.asStateFlow()
+
+    private val _compMakeupGainDb = MutableStateFlow(0f)
+    val compMakeupGainDb: StateFlow<Float> = _compMakeupGainDb.asStateFlow()
+
+    fun updateIsCompressorEnabled() {
+        _isCompressorEnabled.value = !_isCompressorEnabled.value
+        signalsmithAudioEngine.setCompressorEnabled(_isCompressorEnabled.value)
+    }
+
+    fun updateCompThresholdDb(value: Float) { _compThresholdDb.value = value }
+    fun updateCompRatio(value: Float) { _compRatio.value = value }
+    fun updateCompAttackMs(value: Float) { _compAttackMs.value = value }
+    fun updateCompReleaseMs(value: Float) { _compReleaseMs.value = value }
+    fun updateCompMakeupGainDb(value: Float) { _compMakeupGainDb.value = value }
+
+    fun setCompressorParams() {
+        signalsmithAudioEngine.setCompressorParams(
+            _compThresholdDb.value, _compRatio.value, _compAttackMs.value,
+            _compReleaseMs.value, _compMakeupGainDb.value
+        )
+    }
+
+    fun initCompressorValues() {
+        _compThresholdDb.value = -20f
+        _compRatio.value = 4f
+        _compAttackMs.value = 10f
+        _compReleaseMs.value = 100f
+        _compMakeupGainDb.value = 0f
+        setCompressorParams()
+    }
+
+
+    private val _isPitchDetectionEnabled = MutableStateFlow(false)
+    val isPitchDetectionEnabled: StateFlow<Boolean> = _isPitchDetectionEnabled.asStateFlow()
+
+    fun updateIsPitchDetectionEnabled() {
+        _isPitchDetectionEnabled.value = !_isPitchDetectionEnabled.value
+        signalsmithAudioEngine.setPitchDetectionEnabled(_isPitchDetectionEnabled.value)
+    }
+
+    fun getDetectedPitch(): Float = signalsmithAudioEngine.getDetectedPitch()
+
+
+    private val _isHrtfEnabled = MutableStateFlow(false)
+    val isHrtfEnabled: StateFlow<Boolean> = _isHrtfEnabled.asStateFlow()
+
+    private val _hrtfIntensity = MutableStateFlow(1.0f)
+    val hrtfIntensity: StateFlow<Float> = _hrtfIntensity.asStateFlow()
+
+    private val _hrtfAzimuth = MutableStateFlow(30)
+    val hrtfAzimuth: StateFlow<Int> = _hrtfAzimuth.asStateFlow()
+
+    fun updateIsHrtfEnabled() {
+        _isHrtfEnabled.value = !_isHrtfEnabled.value
+        signalsmithAudioEngine.setHrtfEnabled(_isHrtfEnabled.value)
+    }
+
+    fun updateHrtfIntensity(value: Float) {
+        _hrtfIntensity.value = value
+        setHrtfParams()
+    }
+
+    fun updateHrtfAzimuth(azimuth: Int) {
+        _hrtfAzimuth.value = azimuth
+        setHrtfParams()
+    }
+
+    fun setHrtfParams() {
+        signalsmithAudioEngine.setHrtfParams(_hrtfIntensity.value, _hrtfAzimuth.value)
+    }
+
+    fun initHrtfValues() {
+        _hrtfIntensity.value = 1.0f
+        _hrtfAzimuth.value = 30
+        setHrtfParams()
+    }
+
+
+    private val _isPhaserEnabled = MutableStateFlow(false)
+    val isPhaserEnabled: StateFlow<Boolean> = _isPhaserEnabled.asStateFlow()
+
+    private val _phaserLfoFreq = MutableStateFlow(0.5f)
+    val phaserLfoFreq: StateFlow<Float> = _phaserLfoFreq.asStateFlow()
+
+    private val _phaserLfoDepth = MutableStateFlow(0.5f)
+    val phaserLfoDepth: StateFlow<Float> = _phaserLfoDepth.asStateFlow()
+
+    private val _phaserFeedback = MutableStateFlow(0.7f)
+    val phaserFeedback: StateFlow<Float> = _phaserFeedback.asStateFlow()
+
+    private val _phaserPoles = MutableStateFlow(4)
+    val phaserPoles: StateFlow<Int> = _phaserPoles.asStateFlow()
+
+    fun updateIsPhaserEnabled() {
+        _isPhaserEnabled.value = !_isPhaserEnabled.value
+        signalsmithAudioEngine.setPhaserEnabled(_isPhaserEnabled.value)
+    }
+
+    fun updatePhaserLfoFreq(value: Float) { _phaserLfoFreq.value = value }
+    fun updatePhaserLfoDepth(value: Float) { _phaserLfoDepth.value = value }
+    fun updatePhaserFeedback(value: Float) { _phaserFeedback.value = value }
+    fun updatePhaserPoles(value: Int) { _phaserPoles.value = value }
+
+    fun setPhaserParams() {
+        signalsmithAudioEngine.setPhaserParams(
+            _phaserLfoFreq.value, _phaserLfoDepth.value, _phaserFeedback.value, _phaserPoles.value
+        )
+    }
+
+    fun initPhaserValues() {
+        _phaserLfoFreq.value = 0.5f
+        _phaserLfoDepth.value = 0.5f
+        _phaserFeedback.value = 0.7f
+        _phaserPoles.value = 4
+        setPhaserParams()
+    }
+
+
+    private val _isFlangerEnabled = MutableStateFlow(false)
+    val isFlangerEnabled: StateFlow<Boolean> = _isFlangerEnabled.asStateFlow()
+
+    private val _flangerLfoFreq = MutableStateFlow(0.2f)
+    val flangerLfoFreq: StateFlow<Float> = _flangerLfoFreq.asStateFlow()
+
+    private val _flangerLfoDepth = MutableStateFlow(0.5f)
+    val flangerLfoDepth: StateFlow<Float> = _flangerLfoDepth.asStateFlow()
+
+    private val _flangerFeedback = MutableStateFlow(0.5f)
+    val flangerFeedback: StateFlow<Float> = _flangerFeedback.asStateFlow()
+
+    private val _flangerDelayMs = MutableStateFlow(3.0f)
+    val flangerDelayMs: StateFlow<Float> = _flangerDelayMs.asStateFlow()
+
+    fun updateIsFlangerEnabled() {
+        _isFlangerEnabled.value = !_isFlangerEnabled.value
+        signalsmithAudioEngine.setFlangerEnabled(_isFlangerEnabled.value)
+    }
+
+    fun updateFlangerLfoFreq(value: Float) { _flangerLfoFreq.value = value }
+    fun updateFlangerLfoDepth(value: Float) { _flangerLfoDepth.value = value }
+    fun updateFlangerFeedback(value: Float) { _flangerFeedback.value = value }
+    fun updateFlangerDelayMs(value: Float) { _flangerDelayMs.value = value }
+
+    fun setFlangerParams() {
+        signalsmithAudioEngine.setFlangerParams(
+            _flangerLfoFreq.value, _flangerLfoDepth.value, _flangerFeedback.value, _flangerDelayMs.value
+        )
+    }
+
+    fun initFlangerValues() {
+        _flangerLfoFreq.value = 0.2f
+        _flangerLfoDepth.value = 0.5f
+        _flangerFeedback.value = 0.5f
+        _flangerDelayMs.value = 3.0f
+        setFlangerParams()
+    }
+
+
+    private val _isTremoloEnabled = MutableStateFlow(false)
+    val isTremoloEnabled: StateFlow<Boolean> = _isTremoloEnabled.asStateFlow()
+
+    private val _tremoloFreq = MutableStateFlow(5.0f)
+    val tremoloFreq: StateFlow<Float> = _tremoloFreq.asStateFlow()
+
+    private val _tremoloDepth = MutableStateFlow(0.5f)
+    val tremoloDepth: StateFlow<Float> = _tremoloDepth.asStateFlow()
+
+    private val _tremoloWaveform = MutableStateFlow(0)
+    val tremoloWaveform: StateFlow<Int> = _tremoloWaveform.asStateFlow()
+
+    fun updateIsTremoloEnabled() {
+        _isTremoloEnabled.value = !_isTremoloEnabled.value
+        signalsmithAudioEngine.setTremoloEnabled(_isTremoloEnabled.value)
+    }
+
+    fun updateTremoloFreq(value: Float) { _tremoloFreq.value = value }
+    fun updateTremoloDepth(value: Float) { _tremoloDepth.value = value }
+    fun updateTremoloWaveform(value: Int) { _tremoloWaveform.value = value }
+
+    fun setTremoloParams() {
+        signalsmithAudioEngine.setTremoloParams(_tremoloFreq.value, _tremoloDepth.value, _tremoloWaveform.value)
+    }
+
+    fun initTremoloValues() {
+        _tremoloFreq.value = 5.0f
+        _tremoloDepth.value = 0.5f
+        _tremoloWaveform.value = 0
+        setTremoloParams()
+    }
+
+
+    private val _isAutowahEnabled = MutableStateFlow(false)
+    val isAutowahEnabled: StateFlow<Boolean> = _isAutowahEnabled.asStateFlow()
+
+    private val _autowahWah = MutableStateFlow(0.5f)
+    val autowahWah: StateFlow<Float> = _autowahWah.asStateFlow()
+
+    private val _autowahMix = MutableStateFlow(50.0f)
+    val autowahMix: StateFlow<Float> = _autowahMix.asStateFlow()
+
+    private val _autowahLevel = MutableStateFlow(0.5f)
+    val autowahLevel: StateFlow<Float> = _autowahLevel.asStateFlow()
+
+    fun updateIsAutowahEnabled() {
+        _isAutowahEnabled.value = !_isAutowahEnabled.value
+        signalsmithAudioEngine.setAutowahEnabled(_isAutowahEnabled.value)
+    }
+
+    fun updateAutowahWah(value: Float) { _autowahWah.value = value }
+    fun updateAutowahMix(value: Float) { _autowahMix.value = value }
+    fun updateAutowahLevel(value: Float) { _autowahLevel.value = value }
+
+    fun setAutowahParams() {
+        signalsmithAudioEngine.setAutowahParams(_autowahWah.value, _autowahMix.value, _autowahLevel.value)
+    }
+
+    fun initAutowahValues() {
+        _autowahWah.value = 0.5f
+        _autowahMix.value = 50.0f
+        _autowahLevel.value = 0.5f
+        setAutowahParams()
+    }
+
+
+    private val _isDecimatorEnabled = MutableStateFlow(false)
+    val isDecimatorEnabled: StateFlow<Boolean> = _isDecimatorEnabled.asStateFlow()
+
+    private val _decimatorBitcrush = MutableStateFlow(0.5f)
+    val decimatorBitcrush: StateFlow<Float> = _decimatorBitcrush.asStateFlow()
+
+    private val _decimatorDownsample = MutableStateFlow(0.5f)
+    val decimatorDownsample: StateFlow<Float> = _decimatorDownsample.asStateFlow()
+
+    fun updateIsDecimatorEnabled() {
+        _isDecimatorEnabled.value = !_isDecimatorEnabled.value
+        signalsmithAudioEngine.setDecimatorEnabled(_isDecimatorEnabled.value)
+    }
+
+    fun updateDecimatorBitcrush(value: Float) { _decimatorBitcrush.value = value }
+    fun updateDecimatorDownsample(value: Float) { _decimatorDownsample.value = value }
+
+    fun setDecimatorParams() {
+        signalsmithAudioEngine.setDecimatorParams(_decimatorBitcrush.value, _decimatorDownsample.value)
+    }
+
+    fun initDecimatorValues() {
+        _decimatorBitcrush.value = 0.5f
+        _decimatorDownsample.value = 0.5f
+        setDecimatorParams()
     }
 
 
