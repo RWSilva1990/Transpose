@@ -175,3 +175,21 @@ audio/src/main/cpp/
 1. **디바이스 테스트** - HRTF Virtualizer 효과 확인
 2. **성능 최적화** - HRTF 컨볼루션 CPU 사용량 모니터링
 3. **추가 Azimuth 프리셋** - 자주 쓰는 방향 프리셋 추가 가능
+
+### 3. DaisySP 이펙트 추가 (1월 9일 - 추가 작업)
+**사용 라이브러리:**
+- **DaisySP** (MIT License) - 임베디드 오디오용 DSP 라이브러리
+
+**구현된 이펙트:**
+- **Phaser**: LFO Rate, Depth, Feedback, Stages (1-8)
+- **Flanger**: LFO Rate, Depth, Feedback, Delay (0.1-7ms)
+- **Tremolo**: Rate, Depth, Waveform (Sine, Triangle, Saw, Ramp, Square)
+- **Auto-Wah**: Wah, Mix, Level
+- **Bitcrusher (Decimator)**: Bit Crush, Downsample
+
+**수정 사항:**
+- `audio/src/main/cpp/CMakeLists.txt`: DaisySP 소스 추가
+- `audio/src/main/cpp/DaisySP/Source/Utility/dsp.h`: Android ARMv7 호환성 패치 (Inline Assembly 수정)
+- `audio/src/main/cpp/SignalsmithAudioBridge.cpp`: JNI 바인딩 및 이펙트 체인 연결
+- `media/src/main/java/.../AudioEffectsManager.kt`: StateFlow 상태 관리 추가
+- `feature/convert/src/main/java/.../ConvertAudioEditScreen.kt`: UI 컴포넌트 추가
