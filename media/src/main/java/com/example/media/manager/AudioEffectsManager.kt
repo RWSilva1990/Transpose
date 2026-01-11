@@ -3,7 +3,7 @@ package com.example.media.manager
 import android.os.Bundle
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionCommand
-import com.example.audio.SignalsmithAudioEngine
+import com.example.media.audio.SignalsmithAudioProcessor
 import com.example.media.MediaSessionCallback
 import com.example.media.audio_effect.data.equalizer.EqualizerPresets
 import com.example.media.audio_effect.data.equalizer.EqualizerSettings
@@ -19,7 +19,7 @@ import javax.inject.Singleton
 @Singleton
 class AudioEffectsManager @Inject constructor(
     private val controllerProvider: MediaControllerProvider,
-    private val signalsmithAudioEngine: SignalsmithAudioEngine
+    private val signalsmithAudioProcessor: SignalsmithAudioProcessor
 ) {
 
     private val mediaController: MediaController?
@@ -29,7 +29,7 @@ class AudioEffectsManager @Inject constructor(
     // Pitch / Tempo
     // =========================
 
-    private val DEFAULT_PITCH_VALUE = 80
+    private val DEFAULT_PITCH_VALUE = 100
 
     private val _pitchValue = MutableStateFlow(DEFAULT_PITCH_VALUE)
     val pitchValue: StateFlow<Int> = _pitchValue.asStateFlow()
@@ -511,7 +511,7 @@ class AudioEffectsManager @Inject constructor(
 
     fun updateIsChorusEnabled() {
         _isChorusEnabled.value = !_isChorusEnabled.value
-        signalsmithAudioEngine.setChorusEnabled(_isChorusEnabled.value)
+        signalsmithAudioProcessor.setChorusEnabled(_isChorusEnabled.value)
     }
 
     fun updateChorusMix(value: Float) { _chorusMix.value = value }
@@ -520,7 +520,7 @@ class AudioEffectsManager @Inject constructor(
     fun updateChorusStereo(value: Float) { _chorusStereo.value = value }
 
     fun setChorusParams() {
-        signalsmithAudioEngine.setChorusParams(
+        signalsmithAudioProcessor.setChorusParams(
             _chorusMix.value, _chorusDepthMs.value, _chorusDetune.value, _chorusStereo.value
         )
     }
@@ -555,7 +555,7 @@ class AudioEffectsManager @Inject constructor(
 
     fun updateIsLimiterEnabled() {
         _isLimiterEnabled.value = !_isLimiterEnabled.value
-        signalsmithAudioEngine.setLimiterEnabled(_isLimiterEnabled.value)
+        signalsmithAudioProcessor.setLimiterEnabled(_isLimiterEnabled.value)
     }
 
     fun updateLimiterInputGainDb(value: Float) { _limiterInputGainDb.value = value }
@@ -564,7 +564,7 @@ class AudioEffectsManager @Inject constructor(
     fun updateLimiterReleaseMs(value: Float) { _limiterReleaseMs.value = value }
 
     fun setLimiterParams() {
-        signalsmithAudioEngine.setLimiterParams(
+        signalsmithAudioProcessor.setLimiterParams(
             _limiterInputGainDb.value, _limiterLimitDb.value, _limiterAttackMs.value, _limiterReleaseMs.value
         )
     }
@@ -599,7 +599,7 @@ class AudioEffectsManager @Inject constructor(
 
     fun updateIsSignalsmithReverbEnabled() {
         _isSignalsmithReverbEnabled.value = !_isSignalsmithReverbEnabled.value
-        signalsmithAudioEngine.setReverbEnabled(_isSignalsmithReverbEnabled.value)
+        signalsmithAudioProcessor.setReverbEnabled(_isSignalsmithReverbEnabled.value)
     }
 
     fun updateSignalsmithReverbDry(value: Float) { _signalsmithReverbDry.value = value }
@@ -608,7 +608,7 @@ class AudioEffectsManager @Inject constructor(
     fun updateSignalsmithReverbDecaySec(value: Float) { _signalsmithReverbDecaySec.value = value }
 
     fun setSignalsmithReverbParams() {
-        signalsmithAudioEngine.setReverbParams(
+        signalsmithAudioProcessor.setReverbParams(
             _signalsmithReverbDry.value, _signalsmithReverbWet.value,
             _signalsmithReverbRoomMs.value, _signalsmithReverbDecaySec.value
         )
@@ -641,7 +641,7 @@ class AudioEffectsManager @Inject constructor(
 
     fun updateIsCrunchEnabled() {
         _isCrunchEnabled.value = !_isCrunchEnabled.value
-        signalsmithAudioEngine.setCrunchEnabled(_isCrunchEnabled.value)
+        signalsmithAudioProcessor.setCrunchEnabled(_isCrunchEnabled.value)
     }
 
     fun updateCrunchDriveDb(value: Float) { _crunchDriveDb.value = value }
@@ -649,7 +649,7 @@ class AudioEffectsManager @Inject constructor(
     fun updateCrunchToneHz(value: Float) { _crunchToneHz.value = value }
 
     fun setCrunchParams() {
-        signalsmithAudioEngine.setCrunchParams(_crunchDriveDb.value, _crunchFuzz.value, _crunchToneHz.value)
+        signalsmithAudioProcessor.setCrunchParams(_crunchDriveDb.value, _crunchFuzz.value, _crunchToneHz.value)
     }
 
     fun initCrunchValues() {
@@ -690,7 +690,7 @@ class AudioEffectsManager @Inject constructor(
 
     fun updateIsEqEnabled() {
         _isEqEnabled.value = !_isEqEnabled.value
-        signalsmithAudioEngine.setEqEnabled(_isEqEnabled.value)
+        signalsmithAudioProcessor.setEqEnabled(_isEqEnabled.value)
     }
 
     fun updateEqBand(band: Int, freq: Float, gain: Float) {
@@ -701,7 +701,7 @@ class AudioEffectsManager @Inject constructor(
             3 -> { _eqBand4Freq.value = freq; _eqBand4Gain.value = gain }
             4 -> { _eqBand5Freq.value = freq; _eqBand5Gain.value = gain }
         }
-        signalsmithAudioEngine.setEqBand(band, freq, gain)
+        signalsmithAudioProcessor.setEqBand(band, freq, gain)
     }
 
     fun updateEqBandGain(band: Int, gain: Float) {
@@ -721,7 +721,7 @@ class AudioEffectsManager @Inject constructor(
         _eqBand4Gain.value = 0f; _eqBand5Gain.value = 0f
         for (i in 0..4) {
             val freq = when (i) { 0 -> 60f; 1 -> 250f; 2 -> 1000f; 3 -> 4000f; else -> 12000f }
-            signalsmithAudioEngine.setEqBand(i, freq, 0f)
+            signalsmithAudioProcessor.setEqBand(i, freq, 0f)
         }
     }
 
@@ -746,7 +746,7 @@ class AudioEffectsManager @Inject constructor(
 
     fun updateIsCompressorEnabled() {
         _isCompressorEnabled.value = !_isCompressorEnabled.value
-        signalsmithAudioEngine.setCompressorEnabled(_isCompressorEnabled.value)
+        signalsmithAudioProcessor.setCompressorEnabled(_isCompressorEnabled.value)
     }
 
     fun updateCompThresholdDb(value: Float) { _compThresholdDb.value = value }
@@ -756,7 +756,7 @@ class AudioEffectsManager @Inject constructor(
     fun updateCompMakeupGainDb(value: Float) { _compMakeupGainDb.value = value }
 
     fun setCompressorParams() {
-        signalsmithAudioEngine.setCompressorParams(
+        signalsmithAudioProcessor.setCompressorParams(
             _compThresholdDb.value, _compRatio.value, _compAttackMs.value,
             _compReleaseMs.value, _compMakeupGainDb.value
         )
@@ -777,10 +777,10 @@ class AudioEffectsManager @Inject constructor(
 
     fun updateIsPitchDetectionEnabled() {
         _isPitchDetectionEnabled.value = !_isPitchDetectionEnabled.value
-        signalsmithAudioEngine.setPitchDetectionEnabled(_isPitchDetectionEnabled.value)
+        signalsmithAudioProcessor.setPitchDetectionEnabled(_isPitchDetectionEnabled.value)
     }
 
-    fun getDetectedPitch(): Float = signalsmithAudioEngine.getDetectedPitch()
+    fun getDetectedPitch(): Float = signalsmithAudioProcessor.getDetectedPitch()
 
 
     private val _isHrtfEnabled = MutableStateFlow(false)
@@ -794,7 +794,7 @@ class AudioEffectsManager @Inject constructor(
 
     fun updateIsHrtfEnabled() {
         _isHrtfEnabled.value = !_isHrtfEnabled.value
-        signalsmithAudioEngine.setHrtfEnabled(_isHrtfEnabled.value)
+        signalsmithAudioProcessor.setHrtfEnabled(_isHrtfEnabled.value)
     }
 
     fun updateHrtfIntensity(value: Float) {
@@ -808,7 +808,7 @@ class AudioEffectsManager @Inject constructor(
     }
 
     fun setHrtfParams() {
-        signalsmithAudioEngine.setHrtfParams(_hrtfIntensity.value, _hrtfAzimuth.value)
+        signalsmithAudioProcessor.setHrtfParams(_hrtfIntensity.value, _hrtfAzimuth.value)
     }
 
     fun initHrtfValues() {
@@ -835,7 +835,7 @@ class AudioEffectsManager @Inject constructor(
 
     fun updateIsPhaserEnabled() {
         _isPhaserEnabled.value = !_isPhaserEnabled.value
-        signalsmithAudioEngine.setPhaserEnabled(_isPhaserEnabled.value)
+        signalsmithAudioProcessor.setPhaserEnabled(_isPhaserEnabled.value)
     }
 
     fun updatePhaserLfoFreq(value: Float) { _phaserLfoFreq.value = value }
@@ -844,7 +844,7 @@ class AudioEffectsManager @Inject constructor(
     fun updatePhaserPoles(value: Int) { _phaserPoles.value = value }
 
     fun setPhaserParams() {
-        signalsmithAudioEngine.setPhaserParams(
+        signalsmithAudioProcessor.setPhaserParams(
             _phaserLfoFreq.value, _phaserLfoDepth.value, _phaserFeedback.value, _phaserPoles.value
         )
     }
@@ -875,7 +875,7 @@ class AudioEffectsManager @Inject constructor(
 
     fun updateIsFlangerEnabled() {
         _isFlangerEnabled.value = !_isFlangerEnabled.value
-        signalsmithAudioEngine.setFlangerEnabled(_isFlangerEnabled.value)
+        signalsmithAudioProcessor.setFlangerEnabled(_isFlangerEnabled.value)
     }
 
     fun updateFlangerLfoFreq(value: Float) { _flangerLfoFreq.value = value }
@@ -884,7 +884,7 @@ class AudioEffectsManager @Inject constructor(
     fun updateFlangerDelayMs(value: Float) { _flangerDelayMs.value = value }
 
     fun setFlangerParams() {
-        signalsmithAudioEngine.setFlangerParams(
+        signalsmithAudioProcessor.setFlangerParams(
             _flangerLfoFreq.value, _flangerLfoDepth.value, _flangerFeedback.value, _flangerDelayMs.value
         )
     }
@@ -912,7 +912,7 @@ class AudioEffectsManager @Inject constructor(
 
     fun updateIsTremoloEnabled() {
         _isTremoloEnabled.value = !_isTremoloEnabled.value
-        signalsmithAudioEngine.setTremoloEnabled(_isTremoloEnabled.value)
+        signalsmithAudioProcessor.setTremoloEnabled(_isTremoloEnabled.value)
     }
 
     fun updateTremoloFreq(value: Float) { _tremoloFreq.value = value }
@@ -920,7 +920,7 @@ class AudioEffectsManager @Inject constructor(
     fun updateTremoloWaveform(value: Int) { _tremoloWaveform.value = value }
 
     fun setTremoloParams() {
-        signalsmithAudioEngine.setTremoloParams(_tremoloFreq.value, _tremoloDepth.value, _tremoloWaveform.value)
+        signalsmithAudioProcessor.setTremoloParams(_tremoloFreq.value, _tremoloDepth.value, _tremoloWaveform.value)
     }
 
     fun initTremoloValues() {
@@ -945,7 +945,7 @@ class AudioEffectsManager @Inject constructor(
 
     fun updateIsAutowahEnabled() {
         _isAutowahEnabled.value = !_isAutowahEnabled.value
-        signalsmithAudioEngine.setAutowahEnabled(_isAutowahEnabled.value)
+        signalsmithAudioProcessor.setAutowahEnabled(_isAutowahEnabled.value)
     }
 
     fun updateAutowahWah(value: Float) { _autowahWah.value = value }
@@ -953,7 +953,7 @@ class AudioEffectsManager @Inject constructor(
     fun updateAutowahLevel(value: Float) { _autowahLevel.value = value }
 
     fun setAutowahParams() {
-        signalsmithAudioEngine.setAutowahParams(_autowahWah.value, _autowahMix.value, _autowahLevel.value)
+        signalsmithAudioProcessor.setAutowahParams(_autowahWah.value, _autowahMix.value, _autowahLevel.value)
     }
 
     fun initAutowahValues() {
@@ -975,14 +975,14 @@ class AudioEffectsManager @Inject constructor(
 
     fun updateIsDecimatorEnabled() {
         _isDecimatorEnabled.value = !_isDecimatorEnabled.value
-        signalsmithAudioEngine.setDecimatorEnabled(_isDecimatorEnabled.value)
+        signalsmithAudioProcessor.setDecimatorEnabled(_isDecimatorEnabled.value)
     }
 
     fun updateDecimatorBitcrush(value: Float) { _decimatorBitcrush.value = value }
     fun updateDecimatorDownsample(value: Float) { _decimatorDownsample.value = value }
 
     fun setDecimatorParams() {
-        signalsmithAudioEngine.setDecimatorParams(_decimatorBitcrush.value, _decimatorDownsample.value)
+        signalsmithAudioProcessor.setDecimatorParams(_decimatorBitcrush.value, _decimatorDownsample.value)
     }
 
     fun initDecimatorValues() {

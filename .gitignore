@@ -87,6 +87,7 @@ lint/tmp/
 kapt_*
 
 # Build intermediate files
+**/build/
 feature/*/build/
 app/*/build/
 

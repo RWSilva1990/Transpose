@@ -21,10 +21,12 @@ class HybridAudioSink(
 
     private val defaultAudioSink: DefaultAudioSink = DefaultAudioSink.Builder(context).build()
 
-    var mode: PlaybackMode = PlaybackMode.VIDEO_WITH_DSP
+    private var isConfigured = false
+
+    var mode: PlaybackMode = PlaybackMode.VIDEO
         set(value) {
             field = value
-            if (value == PlaybackMode.AUDIO || value == PlaybackMode.VIDEO_WITH_DSP) {
+            if (isConfigured && (value == PlaybackMode.AUDIO || value == PlaybackMode.VIDEO_WITH_DSP)) {
                 superpoweredBridge.init(currentSampleRate, currentChannelCount, DEFAULT_BUFFER_SIZE)
             }
         }
@@ -73,6 +75,7 @@ class HybridAudioSink(
         currentFormat = inputFormat
         currentSampleRate = inputFormat.sampleRate.takeIf { it != Format.NO_VALUE } ?: 44100
         currentChannelCount = inputFormat.channelCount.takeIf { it != Format.NO_VALUE } ?: 2
+        isConfigured = true
 
         defaultAudioSink.configure(inputFormat, specifiedBufferSize, outputChannels)
 

@@ -16,14 +16,12 @@ import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import com.example.domain.repository.AudioEffectHandler
-import com.example.media.audio.PlaybackMode
 import com.example.media.audio.PlaybackModeController
 import com.example.media.audio.SignalsmithAudioProcessor
 import com.example.util.Logger
 import dagger.Lazy
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlin.math.log2
 import kotlin.math.pow
 
 @OptIn(UnstableApi::class)
@@ -46,7 +44,7 @@ class AudioEffectHandlerImpl @Inject constructor(
     private var dynamicsProcessing: DynamicsProcessing? = null
     private var hapticGenerator: HapticGenerator? = null
 
-    private var currentPitchSemitones = -2.0
+    private var currentPitchSemitones = 0.0
     private var currentTempoSemitones = 0.0
 
     private fun valueToSemitones(value: Int): Double = (value - 100) * 0.1
@@ -55,19 +53,11 @@ class AudioEffectHandlerImpl @Inject constructor(
     override fun setPitch(value: Int) {
         val semitones = valueToSemitones(value)
         currentPitchSemitones = semitones
-        val pitchRatio = semitonesToRatio(semitones)
 
         signalsmithProcessor.get().setPitchSemitones(semitones.toFloat())
 
-        when (playbackModeController.get().currentMode) {
-            PlaybackMode.AUDIO, PlaybackMode.VIDEO_WITH_DSP -> {
-                playbackModeController.get().setPitch(pitchRatio)
-            }
-            PlaybackMode.VIDEO -> {
-                val currentTempo = exoPlayer.playbackParameters.speed
-                exoPlayer.playbackParameters = PlaybackParameters(currentTempo, pitchRatio)
-            }
-        }
+        val currentTempo = exoPlayer.playbackParameters.speed
+        exoPlayer.playbackParameters = PlaybackParameters(currentTempo, 1.0f)
     }
 
     override fun setTempo(value: Int) {
@@ -75,113 +65,56 @@ class AudioEffectHandlerImpl @Inject constructor(
         currentTempoSemitones = semitones
         val tempoRatio = semitonesToRatio(semitones)
 
-        signalsmithProcessor.get().setTempoRate(tempoRatio)
-
-        when (playbackModeController.get().currentMode) {
-            PlaybackMode.AUDIO, PlaybackMode.VIDEO_WITH_DSP -> {
-                playbackModeController.get().setTempo(tempoRatio)
-            }
-            PlaybackMode.VIDEO -> {
-                val currentPitch = exoPlayer.playbackParameters.pitch
-                exoPlayer.playbackParameters = PlaybackParameters(tempoRatio, currentPitch)
-            }
-        }
+        signalsmithProcessor.get().setTempoRate(1.0f)
+        exoPlayer.playbackParameters = PlaybackParameters(tempoRatio, 1.0f)
     }
 
     override fun pitchPlusOne() {
         currentPitchSemitones += 1
-        val pitchRatio = semitonesToRatio(currentPitchSemitones)
         signalsmithProcessor.get().setPitchSemitones(currentPitchSemitones.toFloat())
 
-        when (playbackModeController.get().currentMode) {
-            PlaybackMode.AUDIO, PlaybackMode.VIDEO_WITH_DSP -> {
-                playbackModeController.get().setPitch(pitchRatio)
-            }
-            PlaybackMode.VIDEO -> {
-                val currentTempo = exoPlayer.playbackParameters.speed
-                exoPlayer.playbackParameters = PlaybackParameters(currentTempo, pitchRatio)
-            }
-        }
+        val currentTempo = exoPlayer.playbackParameters.speed
+        exoPlayer.playbackParameters = PlaybackParameters(currentTempo, 1.0f)
     }
 
     override fun initPitchValue() {
         currentPitchSemitones = -2.0
-        val pitchRatio = semitonesToRatio(currentPitchSemitones)
         signalsmithProcessor.get().setPitchSemitones(currentPitchSemitones.toFloat())
 
-        when (playbackModeController.get().currentMode) {
-            PlaybackMode.AUDIO, PlaybackMode.VIDEO_WITH_DSP -> {
-                playbackModeController.get().setPitch(pitchRatio)
-            }
-            PlaybackMode.VIDEO -> {
-                val currentTempo = exoPlayer.playbackParameters.speed
-                exoPlayer.playbackParameters = PlaybackParameters(currentTempo, pitchRatio)
-            }
-        }
+        val currentTempo = exoPlayer.playbackParameters.speed
+        exoPlayer.playbackParameters = PlaybackParameters(currentTempo, 1.0f)
     }
 
     override fun pitchMinusOne() {
         currentPitchSemitones -= 1
-        val pitchRatio = semitonesToRatio(currentPitchSemitones)
         signalsmithProcessor.get().setPitchSemitones(currentPitchSemitones.toFloat())
 
-        when (playbackModeController.get().currentMode) {
-            PlaybackMode.AUDIO, PlaybackMode.VIDEO_WITH_DSP -> {
-                playbackModeController.get().setPitch(pitchRatio)
-            }
-            PlaybackMode.VIDEO -> {
-                val currentTempo = exoPlayer.playbackParameters.speed
-                exoPlayer.playbackParameters = PlaybackParameters(currentTempo, pitchRatio)
-            }
-        }
+        val currentTempo = exoPlayer.playbackParameters.speed
+        exoPlayer.playbackParameters = PlaybackParameters(currentTempo, 1.0f)
     }
 
     override fun tempoPlusOne() {
         currentTempoSemitones += 1
         val tempoRatio = semitonesToRatio(currentTempoSemitones)
-        signalsmithProcessor.get().setTempoRate(tempoRatio)
 
-        when (playbackModeController.get().currentMode) {
-            PlaybackMode.AUDIO, PlaybackMode.VIDEO_WITH_DSP -> {
-                playbackModeController.get().setTempo(tempoRatio)
-            }
-            PlaybackMode.VIDEO -> {
-                val currentPitch = exoPlayer.playbackParameters.pitch
-                exoPlayer.playbackParameters = PlaybackParameters(tempoRatio, currentPitch)
-            }
-        }
+        signalsmithProcessor.get().setTempoRate(1.0f)
+        exoPlayer.playbackParameters = PlaybackParameters(tempoRatio, 1.0f)
     }
 
     override fun initTempoValue() {
         currentTempoSemitones = 0.0
         val tempoRatio = semitonesToRatio(currentTempoSemitones)
-        signalsmithProcessor.get().setTempoRate(tempoRatio)
 
-        when (playbackModeController.get().currentMode) {
-            PlaybackMode.AUDIO, PlaybackMode.VIDEO_WITH_DSP -> {
-                playbackModeController.get().setTempo(tempoRatio)
-            }
-            PlaybackMode.VIDEO -> {
-                val currentPitch = exoPlayer.playbackParameters.pitch
-                exoPlayer.playbackParameters = PlaybackParameters(tempoRatio, currentPitch)
-            }
-        }
+        signalsmithProcessor.get().setTempoRate(1.0f)
+        exoPlayer.playbackParameters = PlaybackParameters(tempoRatio, 1.0f)
     }
 
     override fun tempoMinusOne() {
         currentTempoSemitones -= 1
         val tempoRatio = semitonesToRatio(currentTempoSemitones)
-        signalsmithProcessor.get().setTempoRate(tempoRatio)
 
-        when (playbackModeController.get().currentMode) {
-            PlaybackMode.AUDIO, PlaybackMode.VIDEO_WITH_DSP -> {
-                playbackModeController.get().setTempo(tempoRatio)
-            }
-            PlaybackMode.VIDEO -> {
-                val currentPitch = exoPlayer.playbackParameters.pitch
-                exoPlayer.playbackParameters = PlaybackParameters(tempoRatio, currentPitch)
-            }
-        }
+        signalsmithProcessor.get().setTempoRate(1.0f)
+        exoPlayer.playbackParameters = PlaybackParameters(tempoRatio, 1.0f)
     }
 
 
