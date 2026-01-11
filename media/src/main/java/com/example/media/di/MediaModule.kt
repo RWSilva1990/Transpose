@@ -62,8 +62,8 @@ class MediaModule {
         @ApplicationContext context: Context,
         audioAttributes: AudioAttributes,
         customMediaSourceFactory: CustomMediaSourceFactory,
-        hybridRenderersFactory: HybridRenderersFactory  // 추가
-    ): ExoPlayer = ExoPlayer.Builder(context, hybridRenderersFactory)  // 수정
+        processorRenderersFactory: ProcessorRenderersFactory
+    ): ExoPlayer = ExoPlayer.Builder(context, processorRenderersFactory)
         .setAudioAttributes(audioAttributes, true)
         .setHandleAudioBecomingNoisy(true)
         .setLoadControl(

@@ -1,3 +1,0 @@
--- Configuring done
--- Generating done
--- Build files have been written to: /Users/joh/Desktop/joh9911/MyProject/Transpose/Transpose/audio/.cxx/Debug/5rj363y1/x86
