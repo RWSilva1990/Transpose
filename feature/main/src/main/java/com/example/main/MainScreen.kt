@@ -311,6 +311,7 @@ fun MainScreen(
                 }
             }
 
+
             playerBottomSheetScaffoldPadding.calculateBottomPadding()
         }
     }
