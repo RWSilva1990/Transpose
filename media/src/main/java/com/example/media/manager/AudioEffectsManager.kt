@@ -863,43 +863,6 @@ class AudioEffectsManager @Inject constructor(
 
 
     // =========================
-    // DJ Filter (iir1 Butterworth)
-    // =========================
-
-    private val _isDjFilterEnabled = MutableStateFlow(false)
-    val isDjFilterEnabled: StateFlow<Boolean> = _isDjFilterEnabled.asStateFlow()
-
-    private val _djFilterPosition = MutableStateFlow(0.0f)  // -1.0 = full lowpass, 0.0 = bypass, 1.0 = full highpass
-    val djFilterPosition: StateFlow<Float> = _djFilterPosition.asStateFlow()
-
-    private val _djFilterResonance = MutableStateFlow(0.7f)
-    val djFilterResonance: StateFlow<Float> = _djFilterResonance.asStateFlow()
-
-    fun updateIsDjFilterEnabled() {
-        _isDjFilterEnabled.value = !_isDjFilterEnabled.value
-        signalsmithAudioProcessor.setDjFilterEnabled(_isDjFilterEnabled.value)
-    }
-
-    fun updateDjFilterPosition(value: Float) {
-        _djFilterPosition.value = value.coerceIn(-1.0f, 1.0f)
-    }
-
-    fun updateDjFilterResonance(value: Float) {
-        _djFilterResonance.value = value.coerceIn(0.1f, 2.0f)
-    }
-
-    fun setDjFilterParams() {
-        signalsmithAudioProcessor.setDjFilterParams(_djFilterPosition.value, _djFilterResonance.value)
-    }
-
-    fun initDjFilterValues() {
-        _djFilterPosition.value = 0.0f
-        _djFilterResonance.value = 0.7f
-        setDjFilterParams()
-    }
-
-
-    // =========================
     // Helpers
     // =========================
     private fun sendSessionAction(action: String) {

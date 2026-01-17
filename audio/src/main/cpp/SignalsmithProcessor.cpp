@@ -19,9 +19,6 @@
 #include "mit_hrtf_lib.h"
 #include "FFTConvolver.h"
 
-// iir1 Library for DJ Filter
-#include "Iir.h"
-
 #define LOG_TAG "SignalsmithProc"
 #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
@@ -57,9 +54,6 @@ public:
         , hrtfCrossfading_(false)
         , stereoWidenerEnabled_(false)
         , stereoWidenerWidth_(1.0f)
-        , djFilterEnabled_(false)
-        , djFilterPosition_(0.0f)  // -1.0 = full lowpass, 0.0 = bypass, 1.0 = full highpass
-        , djFilterResonance_(0.7f) // Q factor
         , chorusMix_(0.5f)
         , chorusDepthMs_(10.0f)
         , chorusDetune_(10.0f)
@@ -288,18 +282,6 @@ public:
         stereoWidenerWidth_.store(width, std::memory_order_relaxed);
     }
 
-    void setDjFilterEnabled(bool enabled) {
-        djFilterEnabled_.store(enabled, std::memory_order_relaxed);
-        if (!enabled) {
-            // Reset filters when disabled
-            djFilterNeedsReset_ = true;
-        }
-    }
-    void setDjFilterParams(float position, float resonance) {
-        djFilterPosition_.store(position, std::memory_order_relaxed);
-        djFilterResonance_.store(resonance, std::memory_order_relaxed);
-    }
-
 private:
     using BiquadFilter = signalsmith::filters::BiquadStatic<float>;
 
@@ -320,7 +302,6 @@ private:
         if (compressorEnabled_.load(std::memory_order_relaxed)) return false;
         if (hrtfEnabled_.load(std::memory_order_relaxed)) return false;
         if (stereoWidenerEnabled_.load(std::memory_order_relaxed)) return false;
-        if (djFilterEnabled_.load(std::memory_order_relaxed)) return false;
 
         return true;
     }
@@ -551,67 +532,6 @@ private:
 
                         effectsBufferLeft_[i] = effectsBufferLeft_[i] * (1.0f - intensity) + binauralL * intensity;
                         effectsBufferRight_[i] = effectsBufferRight_[i] * (1.0f - intensity) + binauralR * intensity;
-                    }
-                }
-            }
-        }
-
-        // DJ Filter - Lowpass/Highpass sweep filter
-        // Position: -1.0 = full lowpass, 0.0 = bypass, 1.0 = full highpass
-        if (djFilterEnabled_.load(std::memory_order_relaxed)) {
-            const float position = djFilterPosition_.load(std::memory_order_relaxed);
-            const float resonance = djFilterResonance_.load(std::memory_order_relaxed);
-
-            // Reset filters if needed
-            if (djFilterNeedsReset_) {
-                djLowpassL_.reset();
-                djLowpassR_.reset();
-                djHighpassL_.reset();
-                djHighpassR_.reset();
-                djFilterNeedsReset_ = false;
-            }
-
-            // Deadzone around 0 for bypass
-            const float deadzone = 0.05f;
-            if (std::fabs(position) > deadzone) {
-                if (position < 0.0f) {
-                    // Lowpass mode: position -1.0 = 200Hz, position -0.05 = ~20000Hz
-                    const float normalizedPos = (-position - deadzone) / (1.0f - deadzone);
-                    const float minFreq = 200.0f;
-                    const float maxFreq = 18000.0f;
-                    // Exponential mapping for more natural feel
-                    const float cutoff = maxFreq * std::pow(minFreq / maxFreq, normalizedPos);
-
-                    // Only reconfigure if cutoff changed significantly
-                    if (std::fabs(cutoff - djFilterLastCutoff_) > 10.0f || djFilterLastMode_ != -1) {
-                        djLowpassL_.setup(sampleRate_, cutoff);
-                        djLowpassR_.setup(sampleRate_, cutoff);
-                        djFilterLastCutoff_ = cutoff;
-                        djFilterLastMode_ = -1;
-                    }
-
-                    for (int i = 0; i < frames; i++) {
-                        effectsBufferLeft_[i] = djLowpassL_.filter(effectsBufferLeft_[i]);
-                        effectsBufferRight_[i] = djLowpassR_.filter(effectsBufferRight_[i]);
-                    }
-                } else {
-                    // Highpass mode: position 0.05 = ~20Hz, position 1.0 = 8000Hz
-                    const float normalizedPos = (position - deadzone) / (1.0f - deadzone);
-                    const float minFreq = 20.0f;
-                    const float maxFreq = 8000.0f;
-                    // Exponential mapping
-                    const float cutoff = minFreq * std::pow(maxFreq / minFreq, normalizedPos);
-
-                    if (std::fabs(cutoff - djFilterLastCutoff_) > 10.0f || djFilterLastMode_ != 1) {
-                        djHighpassL_.setup(sampleRate_, cutoff);
-                        djHighpassR_.setup(sampleRate_, cutoff);
-                        djFilterLastCutoff_ = cutoff;
-                        djFilterLastMode_ = 1;
-                    }
-
-                    for (int i = 0; i < frames; i++) {
-                        effectsBufferLeft_[i] = djHighpassL_.filter(effectsBufferLeft_[i]);
-                        effectsBufferRight_[i] = djHighpassR_.filter(effectsBufferRight_[i]);
                     }
                 }
             }
@@ -898,20 +818,6 @@ private:
     std::atomic<bool> stereoWidenerEnabled_;
     std::atomic<float> stereoWidenerWidth_;  // 0.0-2.0, 1.0 = original
     float stereoWidenerWidthSmoothed_ = 1.0f;  // Smoothed width for click-free parameter changes
-
-    // DJ Filter - Butterworth lowpass/highpass
-    std::atomic<bool> djFilterEnabled_;
-    std::atomic<float> djFilterPosition_;   // -1.0 = full lowpass, 0.0 = bypass, 1.0 = full highpass
-    std::atomic<float> djFilterResonance_;  // Resonance/Q factor
-    bool djFilterNeedsReset_ = false;
-    float djFilterLastCutoff_ = 0.0f;
-    int djFilterLastMode_ = 0;  // -1 = lowpass, 0 = bypass, 1 = highpass
-
-    // iir1 Butterworth filters for DJ filter (4th order for steeper slope)
-    Iir::Butterworth::LowPass<4> djLowpassL_;
-    Iir::Butterworth::LowPass<4> djLowpassR_;
-    Iir::Butterworth::HighPass<4> djHighpassL_;
-    Iir::Butterworth::HighPass<4> djHighpassR_;
 
     std::atomic<float> chorusMix_;
     std::atomic<float> chorusDepthMs_;
@@ -1262,31 +1168,6 @@ Java_com_example_media_audio_SignalsmithAudioProcessor_nativeSetStereoWidenerPar
     if (handle == 0) return;
     auto* processor = reinterpret_cast<SignalsmithProcessor*>(handle);
     processor->setStereoWidenerParams(width);
-}
-
-JNIEXPORT void JNICALL
-Java_com_example_media_audio_SignalsmithAudioProcessor_nativeSetDjFilterEnabled(
-        JNIEnv*,
-        jobject,
-        jlong handle,
-        jboolean enabled) {
-
-    if (handle == 0) return;
-    auto* processor = reinterpret_cast<SignalsmithProcessor*>(handle);
-    processor->setDjFilterEnabled(enabled);
-}
-
-JNIEXPORT void JNICALL
-Java_com_example_media_audio_SignalsmithAudioProcessor_nativeSetDjFilterParams(
-        JNIEnv*,
-        jobject,
-        jlong handle,
-        jfloat position,
-        jfloat resonance) {
-
-    if (handle == 0) return;
-    auto* processor = reinterpret_cast<SignalsmithProcessor*>(handle);
-    processor->setDjFilterParams(position, resonance);
 }
 
 }

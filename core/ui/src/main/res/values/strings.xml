@@ -311,7 +311,4 @@
     <string name="decimator_title">Bitcrusher · Retro Digital</string>
     <string name="decimator_bitcrush">Bit Depth (Bit Crush)</string>
     <string name="decimator_downsample">Sample Rate (Downsample)</string>
-
-    <string name="dj_filter_text">DJ Filter · Sweep Control</string>
-    <string name="dj_filter_position">Filter Position</string>
 </resources>

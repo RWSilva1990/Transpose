@@ -244,7 +244,4 @@
     <string name="decimator_title">비트크러셔 · 레트로 디지털</string>
     <string name="decimator_bitcrush">비트 깊이 (Bit Crush)</string>
     <string name="decimator_downsample">샘플 레이트 (Downsample)</string>
-
-    <string name="dj_filter_text">DJ 필터 · 스윕 컨트롤</string>
-    <string name="dj_filter_position">필터 위치</string>
 </resources>
