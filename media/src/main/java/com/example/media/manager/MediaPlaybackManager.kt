@@ -90,10 +90,20 @@ class MediaPlaybackManager @Inject constructor(
         }
 
         override fun onIsPlayingChanged(isPlaying: Boolean) {
+            Logger.d("🎵 isPlaying: $isPlaying")
             nowPlayingStateHolder.setIsPlaying(isPlaying)
         }
 
         override fun onPlaybackStateChanged(playbackState: Int) {
+            val stateName = when (playbackState) {
+                Player.STATE_IDLE -> "IDLE"
+                Player.STATE_BUFFERING -> "BUFFERING"
+                Player.STATE_READY -> "READY"
+                Player.STATE_ENDED -> "ENDED"
+                else -> "UNKNOWN($playbackState)"
+            }
+            Logger.d("🎵 PlaybackState: $stateName")
+            
             val ctrl = mediaControllerFlow.value ?: return
             throttledUpdatePlaybackState(ctrl)
 
@@ -190,7 +200,11 @@ class MediaPlaybackManager @Inject constructor(
         })
 
         if (videoQuality.isAuto) {
-            Logger.d("MediaPlaybackManager: Switching to AUTO (Progressive) source")
+            val streamUrl = videoDefaultStreamUrl
+
+            Logger.d("MediaPlaybackManager: Switching to AUTO source (progressive video+audio)")
+            Logger.d("streamUrl: $streamUrl")
+            
             updateMediaItemJob = scope.launch {
                 val currentIndex = ctrl.currentMediaItemIndex
 
@@ -204,7 +218,7 @@ class MediaPlaybackManager @Inject constructor(
                         })
                         .build()
                     val updatedMediaItem = currentItem.buildUpon()
-                        .setUri(videoDefaultStreamUrl)
+                        .setUri(streamUrl)
                         .setMediaMetadata(updatedMetadata)
                         .build()
 
@@ -266,6 +280,11 @@ class MediaPlaybackManager @Inject constructor(
     fun setShuffleMode(enabled: Boolean) {
         val ctrl = mediaControllerFlow.value ?: return
         ctrl.shuffleModeEnabled = enabled
+    }
+
+    fun setPlaybackSpeed(rate: Float) {
+        val ctrl = mediaControllerFlow.value ?: return
+        ctrl.playbackParameters = PlaybackParameters(rate)
     }
 
     fun getCurrentShuffleMode(): Boolean {

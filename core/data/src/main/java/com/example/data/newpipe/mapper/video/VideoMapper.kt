@@ -51,7 +51,7 @@ object VideoMapper {
             id = videoId,
             title = item.name,
             description = item.shortDescription ?: "",
-            publishTimestamp = item.uploadDate?.date()?.time?.time,
+            publishTimestamp = item.uploadDate?.offsetDateTime()?.toInstant()?.toEpochMilli(),
             thumbnailUrl = BaseMapper.getHighestResThumbnail(item.thumbnails.firstOrNull()?.url),
             infoType = "Stream",
             uploaderName = item.uploaderName,
@@ -74,6 +74,7 @@ object VideoMapper {
         val videoStreams = extractor.videoStreams
         val videoOnlyUrls = extractor.videoOnlyStreams.toList()
         val audioOnlyUrls = extractor.audioStreams.toList()
+        Logger.d("VideoMapper HLS URL: ${extractor.hlsUrl}")
 
         return VideoDetail(
             id = extractor.id,
@@ -88,7 +89,7 @@ object VideoMapper {
             uploaderId = uploaderId,
             uploaderAvatarUrl = extractor.uploaderAvatars.first().url,
             uploaderSubscriberCount = extractor.uploaderSubscriberCount,
-            publishTimestamp = extractor.uploadDate?.date()?.time?.time,
+            publishTimestamp = extractor.uploadDate?.offsetDateTime()?.toInstant()?.toEpochMilli(),
             publishedTimeText = extractor.textualUploadDate,
             viewCount = extractor.viewCount,
             likeCount = extractor.likeCount,
@@ -99,7 +100,7 @@ object VideoMapper {
                     id = relatedVideo?.url ?: "",
                     title = relatedVideo?.name ?: "",
                     description = relatedVideo?.shortDescription ?: "",
-                    publishTimestamp = relatedVideo?.uploadDate?.date()?.time?.time,
+                    publishTimestamp = relatedVideo?.uploadDate?.offsetDateTime()?.toInstant()?.toEpochMilli(),
                     thumbnailUrl = BaseMapper.getHighestResThumbnail(relatedVideo?.thumbnails?.firstOrNull()?.url),
                     infoType = "Stream",
                     uploaderName = relatedVideo?.uploaderName,

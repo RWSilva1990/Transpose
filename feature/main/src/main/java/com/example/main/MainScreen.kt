@@ -9,7 +9,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.layout
 import com.example.main.components.bottomsheet.GraphicsLayerConstants
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SheetValue
@@ -250,8 +250,8 @@ fun MainScreen(
                 activeNavController.navigate(channelRouteFor(selectedTab, channelId))
             }
         ) { playerBottomSheetScaffoldPadding ->
-            val baseBottomPaddingPx = with(density) { innerPadding.calculateBottomPadding().roundToPx() }
             val miniPlayerHeightPx = with(density) { GraphicsLayerConstants.PEEK_HEIGHT.roundToPx() }
+            val bottomNavHeightPx = with(density) { 56.dp.roundToPx() }
 
             when (selectedTab) {
                 MainTab.Home -> {
@@ -262,8 +262,8 @@ fun MainScreen(
                             .background(Color.White)
                             .nestedScroll(nestedScrollConnection)
                             .dynamicBottomPadding(
-                                baseBottomPaddingPx = baseBottomPaddingPx,
                                 miniPlayerHeightPx = miniPlayerHeightPx,
+                                bottomNavHeightPx = bottomNavHeightPx,
                                 bottomSheetOffset = { bottomSheetOffset }
                             ),
                         onUpdateCheckClick = {},
@@ -280,8 +280,8 @@ fun MainScreen(
                             .background(Color.White)
                             .nestedScroll(nestedScrollConnection)
                             .dynamicBottomPadding(
-                                baseBottomPaddingPx = baseBottomPaddingPx,
                                 miniPlayerHeightPx = miniPlayerHeightPx,
+                                bottomNavHeightPx = bottomNavHeightPx,
                                 bottomSheetOffset = { bottomSheetOffset }
                             ),
                         bottomSheetState = sheetState,
@@ -299,8 +299,8 @@ fun MainScreen(
                             .background(Color.White)
                             .nestedScroll(nestedScrollConnection)
                             .dynamicBottomPadding(
-                                baseBottomPaddingPx = baseBottomPaddingPx,
                                 miniPlayerHeightPx = miniPlayerHeightPx,
+                                bottomNavHeightPx = bottomNavHeightPx,
                                 bottomSheetOffset = { bottomSheetOffset }
                             ),
                         bottomSheetState = sheetState,
@@ -417,30 +417,58 @@ private fun channelRouteFor(tab: MainTab, channelId: String) = when (tab) {
 }
 
 /**
- * BottomSheet offset에 따라 동적으로 bottom padding(translationY)을 조절하는 Modifier
+ * BottomSheet offset에 따라 동적으로 bottom padding을 조절하는 Modifier
  *
  * bottomSheetOffset 값:
- * - 1.0 ~ 0.0: Expanded → PartiallyExpanded (mini player 높이만큼 위로 이동)
- * - 0.0 ~ -1.0: PartiallyExpanded → Hidden (점진적으로 원위치)
+ * - 1.0 ~ 0.0: Expanded → PartiallyExpanded (mini player 높이만큼 하단 패딩)
+ * - 0.0 ~ -1.0: PartiallyExpanded → Hidden (점진적으로 패딩 감소)
  *
- * graphicsLayer를 사용하여 recomposition 없이 draw 단계에서만 처리
+ * BottomNavigation 패딩:
+ * - offset <= 0: BottomNav가 완전히 보임 → 전체 높이 패딩
+ * - offset >= 1: BottomNav가 숨겨짐 → 0 패딩
+ * - 0 < offset < 1: 선형 보간
  */
 private fun Modifier.dynamicBottomPadding(
-    baseBottomPaddingPx: Int,
     miniPlayerHeightPx: Int,
+    bottomNavHeightPx: Int,
     bottomSheetOffset: () -> Float
-): Modifier = this.graphicsLayer {
+): Modifier = this.layout { measurable, constraints ->
     val offset = bottomSheetOffset()
 
-    val additionalPadding = when {
-        offset >= 0f -> miniPlayerHeightPx.toFloat()
+    // Mini player 패딩: offset >= 0일 때 전체, offset이 -1로 갈수록 0으로 감소
+    val miniPlayerPadding = when {
+        offset >= 0f -> miniPlayerHeightPx
         else -> {
             val progress = (offset + 1f).coerceIn(0f, 1f)
-            miniPlayerHeightPx * progress
+            (miniPlayerHeightPx * progress).toInt()
         }
     }
 
-    translationY = -additionalPadding
+    // BottomNav 패딩 계산
+    // - offset >= 0: Mini player가 BottomNav를 덮으므로 BottomNav 패딩 불필요
+    // - offset < 0: Mini player가 사라지면서 BottomNav가 노출됨
+    val additionalPadding = when {
+        offset >= 0f -> miniPlayerPadding  // Mini player가 BottomNav를 덮음
+        else -> {
+            // Mini player가 사라지면서 BottomNav가 드러남
+            // 둘 중 큰 값을 사용하여 컨텐츠가 가려지지 않도록 함
+            maxOf(miniPlayerPadding, bottomNavHeightPx)
+        }
+    }
+
+    // 하단 패딩을 위해 높이를 줄여서 측정
+    val newMaxHeight = (constraints.maxHeight - additionalPadding).coerceAtLeast(0)
+    val newMinHeight = (constraints.minHeight - additionalPadding).coerceIn(0, newMaxHeight)
+    val adjustedConstraints = constraints.copy(
+        minHeight = newMinHeight,
+        maxHeight = newMaxHeight
+    )
+    val placeable = measurable.measure(adjustedConstraints)
+
+    // 전체 높이는 컨텐츠 + 하단 패딩
+    layout(placeable.width, placeable.height + additionalPadding) {
+        placeable.placeRelative(0, 0)  // 컨텐츠는 상단에 고정
+    }
 }
 
 

@@ -87,7 +87,6 @@ class CustomMediaSourceFactory(
         // 30초 무음 파일인지 확인
         val uri = mediaItem.localConfiguration?.uri?.toString()
         if (uri?.contains("30-seconds-of-silence") == true || uri?.startsWith("asset:///") == true) {
-            Logger.d("CustomMediaSourceFactory: Creating media source for silence file")
             // 기본 MediaSource 팩토리로 처리
             return ProgressiveMediaSource.Factory(DefaultHttpDataSource.Factory())
                 .createMediaSource(mediaItem)

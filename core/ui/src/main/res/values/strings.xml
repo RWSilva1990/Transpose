@@ -209,6 +209,27 @@
     <string name="settings_permission_message">Please allow storage access permission in settings.</string>
     <string name="go_to_settings_button">Go to Settings</string>
 
+    <string name="chorus_text">Chorus · Dreamy Layers</string>
+    <string name="chorus_mix">Layer Blend (Mix)</string>
+    <string name="chorus_depth">Wobble Depth (Depth)</string>
+    <string name="chorus_detune">Detune Amount (Detune)</string>
+    <string name="chorus_stereo">Stereo Spread (Stereo Width)</string>
+
+    <string name="limiter_text">Limiter · Keep Peaks Tamed</string>
+    <string name="limiter_input_gain">Pre Boost (Input Gain)</string>
+    <string name="limiter_limit">Ceiling (Limit)</string>
+    <string name="limiter_attack">Catch Speed (Attack)</string>
+    <string name="limiter_release">Recovery Time (Release)</string>
+
+    <string name="stereo_widener_text">Stereo Widener · Adjust Soundstage</string>
+    <string name="stereo_widener_width">Stereo Width</string>
+
+    <string name="signalsmith_reverb_text">Reverb Pro · Space Designer</string>
+    <string name="reverb_dry">Direct Signal (Dry)</string>
+    <string name="reverb_wet">Echo Level (Wet)</string>
+    <string name="reverb_room_size">Space Size (Room Size)</string>
+    <string name="reverb_decay">Tail Length (Decay)</string>
+
     <!-- Video Quality -->
     <string name="video_quality_auto">Auto</string>
     <string name="video_quality_1080p">1080p</string>
@@ -245,4 +266,49 @@
     <string name="patch_description_5">The issue with infinite loading on the YouTube page has been successfully resolved. \n\nNow, all functionalities work smoothly without the need to disable the video preview settings. \n\nAdditionally, videos can be played easily through the preview feature without having to click on them directly.</string>
     <string name="patch_description_6">Resolved an issue causing infinite loading \nwhen returning to the YouTube page from another page or home screen.</string>
 
+    <string name="eq_title">5-Band EQ · Sculpt Tone</string>
+    <string name="eq_band_60hz">60 Hz · Bass Lift (Low Shelf)</string>
+    <string name="eq_band_250hz">250 Hz · Warmth</string>
+    <string name="eq_band_1khz">1 kHz · Vocal Presence</string>
+    <string name="eq_band_4khz">4 kHz · Clarity</string>
+    <string name="eq_band_12khz">12 kHz · Air (High Shelf)</string>
+    <string name="compressor_title">Compressor · Keep Levels Even</string>
+    <string name="comp_threshold">Start Level (Threshold)</string>
+    <string name="comp_ratio">Strength (Ratio)</string>
+    <string name="comp_attack">Reaction Speed (Attack)</string>
+    <string name="comp_release">Recovery (Release)</string>
+    <string name="comp_makeup_gain">Output Gain (Makeup Gain)</string>
+
+    <string name="hrtf_virtualizer_title">3D Surround</string>
+    <string name="hrtf_intensity">3D Effect Intensity</string>
+    <string name="hrtf_azimuth">Sound Direction</string>
+    <string name="hrtf_direction_left">Left</string>
+    <string name="hrtf_direction_front">Front</string>
+    <string name="hrtf_direction_right">Right</string>
+
+    <string name="phaser_title">Phaser · Swirling Sweep</string>
+    <string name="phaser_lfo_freq">Sweep Speed (LFO Rate)</string>
+    <string name="phaser_lfo_depth">Sweep Width (LFO Depth)</string>
+    <string name="phaser_feedback">Resonance (Feedback)</string>
+    <string name="phaser_poles">Stages (Poles)</string>
+
+    <string name="flanger_title">Flanger · Jet Sweep</string>
+    <string name="flanger_lfo_freq">Sweep Speed (LFO Rate)</string>
+    <string name="flanger_lfo_depth">Sweep Width (LFO Depth)</string>
+    <string name="flanger_feedback">Resonance (Feedback)</string>
+    <string name="flanger_delay">Delay Offset (Delay)</string>
+
+    <string name="tremolo_title">Tremolo · Pulse Groove</string>
+    <string name="tremolo_freq">Pulse Speed (Rate)</string>
+    <string name="tremolo_depth">Pulse Depth (Depth)</string>
+    <string name="tremolo_waveform">Wave Shape (Waveform)</string>
+
+    <string name="autowah_title">Auto-Wah · Talking Filter</string>
+    <string name="autowah_wah">Sweep Bias (Wah)</string>
+    <string name="autowah_mix">Blend (Mix)</string>
+    <string name="autowah_level">Output Level (Level)</string>
+
+    <string name="decimator_title">Bitcrusher · Retro Digital</string>
+    <string name="decimator_bitcrush">Bit Depth (Bit Crush)</string>
+    <string name="decimator_downsample">Sample Rate (Downsample)</string>
 </resources>

@@ -21,9 +21,11 @@ class SelectStreamUseCase {
         audioQuality: AudioQuality
     ): SelectedStreams {
         if (videoQuality.isAuto) {
+            // AUTO일 때도 오디오 스트림은 선택
+            val selectedAudio = selectAudioStream(audioStreams, audioQuality)
             return SelectedStreams(
                 videoStream = null,
-                audioStream = null,
+                audioStream = selectedAudio,  // ← 오디오는 선택!
                 useProgressiveSource = true
             )
         }
