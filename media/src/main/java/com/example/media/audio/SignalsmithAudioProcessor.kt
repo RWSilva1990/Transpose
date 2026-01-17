@@ -6,6 +6,9 @@ import androidx.media3.common.C
 import androidx.media3.common.audio.AudioProcessor
 import androidx.media3.common.audio.AudioProcessor.AudioFormat
 import androidx.media3.common.util.UnstableApi
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import javax.inject.Inject
@@ -37,8 +40,13 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
     @Volatile
     private var nativeHandle: Long = 0
 
-    @Volatile
-    private var pitchSemitones: Float = 0f
+    // Pitch StateFlow (Single Source of Truth)
+    private val _pitchSemitones = MutableStateFlow(0f)
+    val pitchSemitonesFlow: StateFlow<Float> = _pitchSemitones.asStateFlow()
+
+    // Tempo StateFlow (Single Source of Truth) - stored as semitones for consistency
+    private val _tempoSemitones = MutableStateFlow(0f)
+    val tempoSemitonesFlow: StateFlow<Float> = _tempoSemitones.asStateFlow()
 
     @Volatile
     private var tempoRate: Float = 1.0f
@@ -90,11 +98,23 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
     private var stereoWidenerWidth: Float = 1.0f  // 0.0-2.0, 1.0 = original
 
     fun setPitchSemitones(semitones: Float) {
-        pitchSemitones = semitones.coerceIn(-24f, 24f)
+        _pitchSemitones.value = semitones.coerceIn(-24f, 24f)
         if (nativeHandle != 0L) {
-            nativeSetPitchSemitones(nativeHandle, pitchSemitones)
+            nativeSetPitchSemitones(nativeHandle, _pitchSemitones.value)
         }
-        Log.d(TAG, "setPitchSemitones: $pitchSemitones")
+        Log.d(TAG, "setPitchSemitones: ${_pitchSemitones.value}")
+    }
+
+    fun addPitchSemitone() {
+        setPitchSemitones(_pitchSemitones.value + 1f)
+    }
+
+    fun subtractPitchSemitone() {
+        setPitchSemitones(_pitchSemitones.value - 1f)
+    }
+
+    fun resetPitch() {
+        setPitchSemitones(0f)
     }
 
     fun setTempoRate(rate: Float) {
@@ -103,6 +123,27 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
             nativeSetTempoRate(nativeHandle, tempoRate)
         }
         Log.d(TAG, "setTempoRate: $tempoRate")
+    }
+
+    fun setTempoSemitones(semitones: Float) {
+        _tempoSemitones.value = semitones.coerceIn(-24f, 24f)
+        tempoRate = Math.pow(2.0, semitones.toDouble() / 12.0).toFloat()
+        if (nativeHandle != 0L) {
+            nativeSetTempoRate(nativeHandle, tempoRate)
+        }
+        Log.d(TAG, "setTempoSemitones: $semitones, tempoRate: $tempoRate")
+    }
+
+    fun addTempoSemitone() {
+        setTempoSemitones(_tempoSemitones.value + 1f)
+    }
+
+    fun subtractTempoSemitone() {
+        setTempoSemitones(_tempoSemitones.value - 1f)
+    }
+
+    fun resetTempo() {
+        setTempoSemitones(0f)
     }
 
     fun setChorusEnabled(enabled: Boolean) {
@@ -282,7 +323,7 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
         )
         
         if (nativeHandle != 0L) {
-            nativeSetPitchSemitones(nativeHandle, pitchSemitones)
+            nativeSetPitchSemitones(nativeHandle, _pitchSemitones.value)
             nativeSetTempoRate(nativeHandle, tempoRate)
 
             nativeSetChorusEnabled(nativeHandle, chorusEnabled)

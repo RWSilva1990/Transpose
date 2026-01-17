@@ -51,7 +51,7 @@ dependencies {
     implementation(project(":core:data"))
     implementation(project(":core:domain"))
     implementation(project(":media"))
-    implementation(project(":audio"))
+    implementation(project(":audio-effect"))
     implementation(project(":core:ui"))
     implementation(project(":core:utils"))
     implementation(project(":feature:main"))

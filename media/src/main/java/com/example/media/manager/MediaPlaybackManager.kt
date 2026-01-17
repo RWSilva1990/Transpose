@@ -16,8 +16,6 @@ import androidx.media3.session.MediaController
 import com.example.domain.model.preferences.RepeatMode
 import com.example.domain.model.preferences.VideoQuality
 import com.example.domain.model.youtube.video.Video
-import com.example.media.audio.PlaybackMode
-import com.example.media.audio.PlaybackModeController
 import com.example.media.state_holder.NowPlayingStateHolder
 import com.example.media.state_holder.PlaybackType
 import com.example.util.Logger
@@ -35,8 +33,7 @@ import javax.inject.Singleton
 @Singleton
 class MediaPlaybackManager @Inject constructor(
     private val controllerProvider: MediaControllerProvider,
-    private val nowPlayingStateHolder: NowPlayingStateHolder,
-    private val playbackModeController: dagger.Lazy<PlaybackModeController>
+    private val nowPlayingStateHolder: NowPlayingStateHolder
 ) {
 
     private val defaultDispatcher = Dispatchers.Default
@@ -203,11 +200,9 @@ class MediaPlaybackManager @Inject constructor(
         })
 
         if (videoQuality.isAuto) {
-            val currentMode = playbackModeController.get().currentMode
-            val useVideoUrl = currentMode == PlaybackMode.VIDEO || currentMode == PlaybackMode.VIDEO_WITH_DSP
-            val streamUrl = if (useVideoUrl) videoDefaultStreamUrl else audioOnlyStreamUrl
-            
-            Logger.d("MediaPlaybackManager: Switching to AUTO source, mode=$currentMode, useVideo=$useVideoUrl")
+            val streamUrl = videoDefaultStreamUrl
+
+            Logger.d("MediaPlaybackManager: Switching to AUTO source (progressive video+audio)")
             Logger.d("streamUrl: $streamUrl")
             
             updateMediaItemJob = scope.launch {
@@ -220,9 +215,6 @@ class MediaPlaybackManager @Inject constructor(
                     val updatedMetadata = currentItem.mediaMetadata.buildUpon()
                         .setExtras(android.os.Bundle().apply {
                             putString("videoQuality", videoQuality.name)
-                            if (useVideoUrl) {
-                                putString("audioUrl", audioOnlyStreamUrl)
-                            }
                         })
                         .build()
                     val updatedMediaItem = currentItem.buildUpon()
@@ -288,6 +280,11 @@ class MediaPlaybackManager @Inject constructor(
     fun setShuffleMode(enabled: Boolean) {
         val ctrl = mediaControllerFlow.value ?: return
         ctrl.shuffleModeEnabled = enabled
+    }
+
+    fun setPlaybackSpeed(rate: Float) {
+        val ctrl = mediaControllerFlow.value ?: return
+        ctrl.playbackParameters = PlaybackParameters(rate)
     }
 
     fun getCurrentShuffleMode(): Boolean {
