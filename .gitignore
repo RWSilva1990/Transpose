@@ -130,3 +130,9 @@ thumbs.db
 
 # Superpowered SDK (cloned for development)
 superpowered-sdk/
+
+# Claude Code / AI assistant files
+.sisyphus/
+.claude/
+*.claude
+CLAUDE.md
