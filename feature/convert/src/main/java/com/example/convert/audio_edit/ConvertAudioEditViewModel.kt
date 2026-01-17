@@ -266,16 +266,4 @@ class ConvertAudioEditViewModel @Inject constructor(
         audioEffectsManager.setStereoWidenerParams()
     }
 
-    // ---------------------------------------------------------
-    // DJ Filter
-    // ---------------------------------------------------------
-    val isDjFilterEnabled = audioEffectsManager.isDjFilterEnabled
-    val djFilterPosition = audioEffectsManager.djFilterPosition
-    val djFilterResonance = audioEffectsManager.djFilterResonance
-    fun updateIsDjFilterEnabled() = audioEffectsManager.updateIsDjFilterEnabled()
-    fun updateDjFilterPosition(value: Float) = audioEffectsManager.updateDjFilterPosition(value)
-    fun updateDjFilterResonance(value: Float) = audioEffectsManager.updateDjFilterResonance(value)
-    fun setDjFilterParams() = audioEffectsManager.setDjFilterParams()
-    fun initDjFilterValues() = audioEffectsManager.initDjFilterValues()
-
 }

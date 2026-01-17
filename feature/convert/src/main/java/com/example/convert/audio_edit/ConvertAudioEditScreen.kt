@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.SheetState
 import androidx.compose.material3.SheetValue
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -28,7 +29,6 @@ import com.example.convert.audio_edit.components.signalsmith.EqSection
 import com.example.convert.audio_edit.components.signalsmith.LimiterSection
 import com.example.convert.audio_edit.components.signalsmith.SignalsmithReverbSection
 import com.example.convert.audio_edit.components.signalsmith.SignalsmithVirtualizerSection
-import com.example.convert.audio_edit.components.signalsmith.DjFilterSection
 import com.example.convert.audio_edit.components.signalsmith.StereoWidenerSection
 import com.example.convert.audio_edit.components.tempo.TempoSection
 import com.example.convert.audio_edit.components.virtualizer.VirtualizerSection
@@ -194,15 +194,9 @@ fun ConvertAudioEditScreen(
             )
         }
 
-        item(key = "dj_filter") {
-            DjFilterSection(
-                title = stringResource(id = CoreUiR.string.dj_filter_text),
-                convertAudioEditViewModel = convertAudioEditViewModel
-            )
-        }
-
+        // Bottom padding for BottomNavigation
         item(key = "spacer6") {
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(500.dp))
         }
     }
 }

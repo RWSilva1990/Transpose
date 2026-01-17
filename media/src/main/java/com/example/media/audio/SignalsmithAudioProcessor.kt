@@ -89,10 +89,6 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
     private var stereoWidenerEnabled: Boolean = false
     private var stereoWidenerWidth: Float = 1.0f  // 0.0-2.0, 1.0 = original
 
-    private var djFilterEnabled: Boolean = false
-    private var djFilterPosition: Float = 0.0f  // -1.0 = full lowpass, 0.0 = bypass, 1.0 = full highpass
-    private var djFilterResonance: Float = 0.7f
-
     fun setPitchSemitones(semitones: Float) {
         pitchSemitones = semitones.coerceIn(-24f, 24f)
         if (nativeHandle != 0L) {
@@ -262,21 +258,6 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
         }
     }
 
-    fun setDjFilterEnabled(enabled: Boolean) {
-        djFilterEnabled = enabled
-        if (nativeHandle != 0L) {
-            nativeSetDjFilterEnabled(nativeHandle, enabled)
-        }
-    }
-
-    fun setDjFilterParams(position: Float, resonance: Float) {
-        djFilterPosition = position.coerceIn(-1.0f, 1.0f)
-        djFilterResonance = resonance.coerceIn(0.1f, 2.0f)
-        if (nativeHandle != 0L) {
-            nativeSetDjFilterParams(nativeHandle, djFilterPosition, djFilterResonance)
-        }
-    }
-
     override fun configure(inputAudioFormat: AudioFormat): AudioFormat {
         Log.d(TAG, "configure: sampleRate=${inputAudioFormat.sampleRate}, " +
                 "channelCount=${inputAudioFormat.channelCount}, " +
@@ -330,9 +311,6 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
 
             nativeSetStereoWidenerEnabled(nativeHandle, stereoWidenerEnabled)
             nativeSetStereoWidenerParams(nativeHandle, stereoWidenerWidth)
-
-            nativeSetDjFilterEnabled(nativeHandle, djFilterEnabled)
-            nativeSetDjFilterParams(nativeHandle, djFilterPosition, djFilterResonance)
         }
 
         Log.d(TAG, "configure: nativeHandle=$nativeHandle")
@@ -573,10 +551,6 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
     private external fun nativeSetStereoWidenerEnabled(handle: Long, enabled: Boolean)
 
     private external fun nativeSetStereoWidenerParams(handle: Long, width: Float)
-
-    private external fun nativeSetDjFilterEnabled(handle: Long, enabled: Boolean)
-
-    private external fun nativeSetDjFilterParams(handle: Long, position: Float, resonance: Float)
 
     private external fun nativeFlush(handle: Long)
     
