@@ -9,7 +9,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.layout
 import com.example.main.components.bottomsheet.GraphicsLayerConstants
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SheetValue
@@ -250,7 +250,6 @@ fun MainScreen(
                 activeNavController.navigate(channelRouteFor(selectedTab, channelId))
             }
         ) { playerBottomSheetScaffoldPadding ->
-            val baseBottomPaddingPx = with(density) { innerPadding.calculateBottomPadding().roundToPx() }
             val miniPlayerHeightPx = with(density) { GraphicsLayerConstants.PEEK_HEIGHT.roundToPx() }
 
             when (selectedTab) {
@@ -262,7 +261,6 @@ fun MainScreen(
                             .background(Color.White)
                             .nestedScroll(nestedScrollConnection)
                             .dynamicBottomPadding(
-                                baseBottomPaddingPx = baseBottomPaddingPx,
                                 miniPlayerHeightPx = miniPlayerHeightPx,
                                 bottomSheetOffset = { bottomSheetOffset }
                             ),
@@ -280,7 +278,6 @@ fun MainScreen(
                             .background(Color.White)
                             .nestedScroll(nestedScrollConnection)
                             .dynamicBottomPadding(
-                                baseBottomPaddingPx = baseBottomPaddingPx,
                                 miniPlayerHeightPx = miniPlayerHeightPx,
                                 bottomSheetOffset = { bottomSheetOffset }
                             ),
@@ -299,7 +296,6 @@ fun MainScreen(
                             .background(Color.White)
                             .nestedScroll(nestedScrollConnection)
                             .dynamicBottomPadding(
-                                baseBottomPaddingPx = baseBottomPaddingPx,
                                 miniPlayerHeightPx = miniPlayerHeightPx,
                                 bottomSheetOffset = { bottomSheetOffset }
                             ),
@@ -310,7 +306,6 @@ fun MainScreen(
                     )
                 }
             }
-
 
             playerBottomSheetScaffoldPadding.calculateBottomPadding()
         }
@@ -417,30 +412,42 @@ private fun channelRouteFor(tab: MainTab, channelId: String) = when (tab) {
 }
 
 /**
- * BottomSheet offset에 따라 동적으로 bottom padding(translationY)을 조절하는 Modifier
+ * BottomSheet offset에 따라 동적으로 bottom padding을 조절하는 Modifier
  *
  * bottomSheetOffset 값:
- * - 1.0 ~ 0.0: Expanded → PartiallyExpanded (mini player 높이만큼 위로 이동)
- * - 0.0 ~ -1.0: PartiallyExpanded → Hidden (점진적으로 원위치)
+ * - 1.0 ~ 0.0: Expanded → PartiallyExpanded (mini player 높이만큼 하단 패딩)
+ * - 0.0 ~ -1.0: PartiallyExpanded → Hidden (점진적으로 패딩 감소)
  *
- * graphicsLayer를 사용하여 recomposition 없이 draw 단계에서만 처리
+ * layout modifier를 사용하여 recomposition 없이 layout 단계에서만 처리
+ * (graphicsLayer의 translationY와 달리 컨텐츠를 위로 이동시키지 않음)
  */
 private fun Modifier.dynamicBottomPadding(
-    baseBottomPaddingPx: Int,
     miniPlayerHeightPx: Int,
     bottomSheetOffset: () -> Float
-): Modifier = this.graphicsLayer {
+): Modifier = this.layout { measurable, constraints ->
     val offset = bottomSheetOffset()
 
     val additionalPadding = when {
-        offset >= 0f -> miniPlayerHeightPx.toFloat()
+        offset >= 0f -> miniPlayerHeightPx
         else -> {
             val progress = (offset + 1f).coerceIn(0f, 1f)
-            miniPlayerHeightPx * progress
+            (miniPlayerHeightPx * progress).toInt()
         }
     }
 
-    translationY = -additionalPadding
+    // 하단 패딩을 위해 높이를 줄여서 측정
+    val newMaxHeight = (constraints.maxHeight - additionalPadding).coerceAtLeast(0)
+    val newMinHeight = (constraints.minHeight - additionalPadding).coerceIn(0, newMaxHeight)
+    val adjustedConstraints = constraints.copy(
+        minHeight = newMinHeight,
+        maxHeight = newMaxHeight
+    )
+    val placeable = measurable.measure(adjustedConstraints)
+
+    // 전체 높이는 컨텐츠 + 하단 패딩
+    layout(placeable.width, placeable.height + additionalPadding) {
+        placeable.placeRelative(0, 0)  // 컨텐츠는 상단에 고정
+    }
 }
 
 

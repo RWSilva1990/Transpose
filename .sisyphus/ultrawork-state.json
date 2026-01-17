@@ -1,0 +1,7 @@
+{
+  "active": true,
+  "started_at": "2026-01-14T16:09:27.773Z",
+  "original_prompt": "ultrawork모드로 전환한 후 다음 작업을 진행해줘.\n\n나는 실시간 voice remove를 진행하고 싶어. 현재 chrome extentioin도 그렇고 점차 실시간 voice remove가 상용화되는 것 같거든. 내 프로젝트의 스펙을 잘 살펴보고, 어떻게 실시간 voice remove를 구현할 수 있는지 서칭 및 연구해볼래? 그리고 구현 계획을 나한테 알려줘",
+  "reinforcement_count": 99,
+  "last_checked_at": "2026-01-17T16:53:40.782Z"
+}

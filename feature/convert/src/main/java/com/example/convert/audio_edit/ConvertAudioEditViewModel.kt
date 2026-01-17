@@ -1,8 +1,11 @@
 package com.example.convert.audio_edit
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.example.media.manager.AudioEffectsManager
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
@@ -159,6 +162,13 @@ class ConvertAudioEditViewModel @Inject constructor(
     fun updateChorusStereo(value: Float) = audioEffectsManager.updateChorusStereo(value)
     fun setChorusParams() = audioEffectsManager.setChorusParams()
     fun initChorusValues() = audioEffectsManager.initChorusValues()
+    fun applyChorusPreset(mix: Float, depthMs: Float, detune: Float, stereo: Float) {
+        audioEffectsManager.updateChorusMix(mix)
+        audioEffectsManager.updateChorusDepthMs(depthMs)
+        audioEffectsManager.updateChorusDetune(detune)
+        audioEffectsManager.updateChorusStereo(stereo)
+        audioEffectsManager.setChorusParams()
+    }
 
     val isLimiterEnabled = audioEffectsManager.isLimiterEnabled
     val limiterInputGainDb = audioEffectsManager.limiterInputGainDb
@@ -172,13 +182,22 @@ class ConvertAudioEditViewModel @Inject constructor(
     fun updateLimiterReleaseMs(value: Float) = audioEffectsManager.updateLimiterReleaseMs(value)
     fun setLimiterParams() = audioEffectsManager.setLimiterParams()
     fun initLimiterValues() = audioEffectsManager.initLimiterValues()
+    fun applyLimiterPreset(inputGainDb: Float, limitDb: Float, attackMs: Float, releaseMs: Float) {
+        audioEffectsManager.updateLimiterInputGainDb(inputGainDb)
+        audioEffectsManager.updateLimiterLimitDb(limitDb)
+        audioEffectsManager.updateLimiterAttackMs(attackMs)
+        audioEffectsManager.updateLimiterReleaseMs(releaseMs)
+        audioEffectsManager.setLimiterParams()
+    }
 
     val isSignalsmithReverbEnabled = audioEffectsManager.isSignalsmithReverbEnabled
+    val signalsmithReverbPreset = audioEffectsManager.signalsmithReverbPreset
     val signalsmithReverbDry = audioEffectsManager.signalsmithReverbDry
     val signalsmithReverbWet = audioEffectsManager.signalsmithReverbWet
     val signalsmithReverbRoomMs = audioEffectsManager.signalsmithReverbRoomMs
     val signalsmithReverbDecaySec = audioEffectsManager.signalsmithReverbDecaySec
     fun updateIsSignalsmithReverbEnabled() = audioEffectsManager.updateIsSignalsmithReverbEnabled()
+    fun updateSignalsmithReverbPreset(presetIndex: Int) = audioEffectsManager.updateSignalsmithReverbPreset(presetIndex)
     fun updateSignalsmithReverbDry(value: Float) = audioEffectsManager.updateSignalsmithReverbDry(value)
     fun updateSignalsmithReverbWet(value: Float) = audioEffectsManager.updateSignalsmithReverbWet(value)
     fun updateSignalsmithReverbRoomMs(value: Float) = audioEffectsManager.updateSignalsmithReverbRoomMs(value)
@@ -186,24 +205,15 @@ class ConvertAudioEditViewModel @Inject constructor(
     fun setSignalsmithReverbParams() = audioEffectsManager.setSignalsmithReverbParams()
     fun initSignalsmithReverbValues() = audioEffectsManager.initSignalsmithReverbValues()
 
-    val isCrunchEnabled = audioEffectsManager.isCrunchEnabled
-    val crunchDriveDb = audioEffectsManager.crunchDriveDb
-    val crunchFuzz = audioEffectsManager.crunchFuzz
-    val crunchToneHz = audioEffectsManager.crunchToneHz
-    fun updateIsCrunchEnabled() = audioEffectsManager.updateIsCrunchEnabled()
-    fun updateCrunchDriveDb(value: Float) = audioEffectsManager.updateCrunchDriveDb(value)
-    fun updateCrunchFuzz(value: Float) = audioEffectsManager.updateCrunchFuzz(value)
-    fun updateCrunchToneHz(value: Float) = audioEffectsManager.updateCrunchToneHz(value)
-    fun setCrunchParams() = audioEffectsManager.setCrunchParams()
-    fun initCrunchValues() = audioEffectsManager.initCrunchValues()
-
     val isEqEnabled = audioEffectsManager.isEqEnabled
+    val eqPreset = audioEffectsManager.eqPreset
     val eqBand1Gain = audioEffectsManager.eqBand1Gain
     val eqBand2Gain = audioEffectsManager.eqBand2Gain
     val eqBand3Gain = audioEffectsManager.eqBand3Gain
     val eqBand4Gain = audioEffectsManager.eqBand4Gain
     val eqBand5Gain = audioEffectsManager.eqBand5Gain
     fun updateIsEqEnabled() = audioEffectsManager.updateIsEqEnabled()
+    fun updateEqPreset(presetIndex: Int) = audioEffectsManager.updateEqPreset(presetIndex)
     fun updateEqBandGain(band: Int, gain: Float) = audioEffectsManager.updateEqBandGain(band, gain)
     fun initEqValues() = audioEffectsManager.initEqValues()
 
@@ -221,6 +231,14 @@ class ConvertAudioEditViewModel @Inject constructor(
     fun updateCompMakeupGainDb(value: Float) = audioEffectsManager.updateCompMakeupGainDb(value)
     fun setCompressorParams() = audioEffectsManager.setCompressorParams()
     fun initCompressorValues() = audioEffectsManager.initCompressorValues()
+    fun applyCompressorPreset(thresholdDb: Float, ratio: Float, attackMs: Float, releaseMs: Float, makeupGainDb: Float) {
+        audioEffectsManager.updateCompThresholdDb(thresholdDb)
+        audioEffectsManager.updateCompRatio(ratio)
+        audioEffectsManager.updateCompAttackMs(attackMs)
+        audioEffectsManager.updateCompReleaseMs(releaseMs)
+        audioEffectsManager.updateCompMakeupGainDb(makeupGainDb)
+        audioEffectsManager.setCompressorParams()
+    }
 
     val isPitchDetectionEnabled = audioEffectsManager.isPitchDetectionEnabled
     fun updateIsPitchDetectionEnabled() = audioEffectsManager.updateIsPitchDetectionEnabled()
@@ -234,61 +252,30 @@ class ConvertAudioEditViewModel @Inject constructor(
     fun updateHrtfAzimuth(azimuth: Int) = audioEffectsManager.updateHrtfAzimuth(azimuth)
     fun initHrtfValues() = audioEffectsManager.initHrtfValues()
 
-    val isPhaserEnabled = audioEffectsManager.isPhaserEnabled
-    val phaserLfoFreq = audioEffectsManager.phaserLfoFreq
-    val phaserLfoDepth = audioEffectsManager.phaserLfoDepth
-    val phaserFeedback = audioEffectsManager.phaserFeedback
-    val phaserPoles = audioEffectsManager.phaserPoles
-    fun updateIsPhaserEnabled() = audioEffectsManager.updateIsPhaserEnabled()
-    fun updatePhaserLfoFreq(value: Float) = audioEffectsManager.updatePhaserLfoFreq(value)
-    fun updatePhaserLfoDepth(value: Float) = audioEffectsManager.updatePhaserLfoDepth(value)
-    fun updatePhaserFeedback(value: Float) = audioEffectsManager.updatePhaserFeedback(value)
-    fun updatePhaserPoles(value: Int) = audioEffectsManager.updatePhaserPoles(value)
-    fun setPhaserParams() = audioEffectsManager.setPhaserParams()
-    fun initPhaserValues() = audioEffectsManager.initPhaserValues()
+    // ---------------------------------------------------------
+    // Stereo Widener
+    // ---------------------------------------------------------
+    val isStereoWidenerEnabled = audioEffectsManager.isStereoWidenerEnabled
+    val stereoWidenerWidth = audioEffectsManager.stereoWidenerWidth
+    fun updateIsStereoWidenerEnabled() = audioEffectsManager.updateIsStereoWidenerEnabled()
+    fun updateStereoWidenerWidth(value: Float) = audioEffectsManager.updateStereoWidenerWidth(value)
+    fun setStereoWidenerParams() = audioEffectsManager.setStereoWidenerParams()
+    fun initStereoWidenerValues() = audioEffectsManager.initStereoWidenerValues()
+    fun applyStereoWidenerPreset(width: Float) {
+        audioEffectsManager.updateStereoWidenerWidth(width)
+        audioEffectsManager.setStereoWidenerParams()
+    }
 
-    val isFlangerEnabled = audioEffectsManager.isFlangerEnabled
-    val flangerLfoFreq = audioEffectsManager.flangerLfoFreq
-    val flangerLfoDepth = audioEffectsManager.flangerLfoDepth
-    val flangerFeedback = audioEffectsManager.flangerFeedback
-    val flangerDelayMs = audioEffectsManager.flangerDelayMs
-    fun updateIsFlangerEnabled() = audioEffectsManager.updateIsFlangerEnabled()
-    fun updateFlangerLfoFreq(value: Float) = audioEffectsManager.updateFlangerLfoFreq(value)
-    fun updateFlangerLfoDepth(value: Float) = audioEffectsManager.updateFlangerLfoDepth(value)
-    fun updateFlangerFeedback(value: Float) = audioEffectsManager.updateFlangerFeedback(value)
-    fun updateFlangerDelayMs(value: Float) = audioEffectsManager.updateFlangerDelayMs(value)
-    fun setFlangerParams() = audioEffectsManager.setFlangerParams()
-    fun initFlangerValues() = audioEffectsManager.initFlangerValues()
-
-    val isTremoloEnabled = audioEffectsManager.isTremoloEnabled
-    val tremoloFreq = audioEffectsManager.tremoloFreq
-    val tremoloDepth = audioEffectsManager.tremoloDepth
-    val tremoloWaveform = audioEffectsManager.tremoloWaveform
-    fun updateIsTremoloEnabled() = audioEffectsManager.updateIsTremoloEnabled()
-    fun updateTremoloFreq(value: Float) = audioEffectsManager.updateTremoloFreq(value)
-    fun updateTremoloDepth(value: Float) = audioEffectsManager.updateTremoloDepth(value)
-    fun updateTremoloWaveform(value: Int) = audioEffectsManager.updateTremoloWaveform(value)
-    fun setTremoloParams() = audioEffectsManager.setTremoloParams()
-    fun initTremoloValues() = audioEffectsManager.initTremoloValues()
-
-    val isAutowahEnabled = audioEffectsManager.isAutowahEnabled
-    val autowahWah = audioEffectsManager.autowahWah
-    val autowahMix = audioEffectsManager.autowahMix
-    val autowahLevel = audioEffectsManager.autowahLevel
-    fun updateIsAutowahEnabled() = audioEffectsManager.updateIsAutowahEnabled()
-    fun updateAutowahWah(value: Float) = audioEffectsManager.updateAutowahWah(value)
-    fun updateAutowahMix(value: Float) = audioEffectsManager.updateAutowahMix(value)
-    fun updateAutowahLevel(value: Float) = audioEffectsManager.updateAutowahLevel(value)
-    fun setAutowahParams() = audioEffectsManager.setAutowahParams()
-    fun initAutowahValues() = audioEffectsManager.initAutowahValues()
-
-    val isDecimatorEnabled = audioEffectsManager.isDecimatorEnabled
-    val decimatorBitcrush = audioEffectsManager.decimatorBitcrush
-    val decimatorDownsample = audioEffectsManager.decimatorDownsample
-    fun updateIsDecimatorEnabled() = audioEffectsManager.updateIsDecimatorEnabled()
-    fun updateDecimatorBitcrush(value: Float) = audioEffectsManager.updateDecimatorBitcrush(value)
-    fun updateDecimatorDownsample(value: Float) = audioEffectsManager.updateDecimatorDownsample(value)
-    fun setDecimatorParams() = audioEffectsManager.setDecimatorParams()
-    fun initDecimatorValues() = audioEffectsManager.initDecimatorValues()
+    // ---------------------------------------------------------
+    // DJ Filter
+    // ---------------------------------------------------------
+    val isDjFilterEnabled = audioEffectsManager.isDjFilterEnabled
+    val djFilterPosition = audioEffectsManager.djFilterPosition
+    val djFilterResonance = audioEffectsManager.djFilterResonance
+    fun updateIsDjFilterEnabled() = audioEffectsManager.updateIsDjFilterEnabled()
+    fun updateDjFilterPosition(value: Float) = audioEffectsManager.updateDjFilterPosition(value)
+    fun updateDjFilterResonance(value: Float) = audioEffectsManager.updateDjFilterResonance(value)
+    fun setDjFilterParams() = audioEffectsManager.setDjFilterParams()
+    fun initDjFilterValues() = audioEffectsManager.initDjFilterValues()
 
 }

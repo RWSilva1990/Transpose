@@ -58,25 +58,8 @@ class MainViewModel @Inject constructor(
     private val nowPlayingStateHolder: NowPlayingStateHolder,
     private val playbackPreferencesRepository: PlaybackPreferencesRepository,
     private val updateRepository: UpdateRepository,
-    private val playbackModeController: PlaybackModeController,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
-
-    fun onVideoModeSelected() {
-        playbackModeController.switchToVideoMode()
-    }
-
-    fun onAudioModeSelected() {
-        playbackModeController.switchToAudioMode()
-    }
-    
-    fun onVideoWithDspModeSelected() {
-        playbackModeController.switchToVideoWithDspMode()
-    }
-
-    fun onPitchChanged(pitch: Float) {
-        playbackModeController.setPitch(pitch)
-    }
 
     private val _updateDialogState = MutableStateFlow<UpdateDialogState>(UpdateDialogState.Hidden)
     val updateDialogState: StateFlow<UpdateDialogState> = _updateDialogState.asStateFlow()

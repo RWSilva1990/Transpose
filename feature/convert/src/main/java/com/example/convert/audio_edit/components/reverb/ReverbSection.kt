@@ -32,6 +32,7 @@ fun ReverbSection(
     modifier: Modifier = Modifier,
     title: String,
     convertAudioEditViewModel: ConvertAudioEditViewModel,
+    onExpandChanged: (Boolean) -> Unit = {}
 ) {
     val reverbValue by convertAudioEditViewModel.reverbValue.collectAsState()
     val isEnabled by convertAudioEditViewModel.isReverbEnabled.collectAsState()
@@ -39,7 +40,10 @@ fun ReverbSection(
 
     Column(
         modifier = modifier
-            .clickable() { isExpanded = !isExpanded }
+            .clickable {
+                isExpanded = !isExpanded
+                onExpandChanged(isExpanded)
+            }
             .fillMaxWidth()
     ) {
         ExpandableSectionTitle(

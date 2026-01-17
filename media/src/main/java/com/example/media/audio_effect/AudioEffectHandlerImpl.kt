@@ -78,7 +78,7 @@ class AudioEffectHandlerImpl @Inject constructor(
     }
 
     override fun initPitchValue() {
-        currentPitchSemitones = -2.0
+        currentPitchSemitones = 0.0
         signalsmithProcessor.get().setPitchSemitones(currentPitchSemitones.toFloat())
 
         val currentTempo = exoPlayer.playbackParameters.speed

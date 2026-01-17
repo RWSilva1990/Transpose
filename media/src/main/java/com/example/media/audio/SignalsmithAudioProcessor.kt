@@ -61,11 +61,6 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
     private var reverbRoomMs: Float = 50.0f
     private var reverbDecaySec: Float = 2.0f
 
-    private var crunchEnabled: Boolean = false
-    private var crunchDriveDb: Float = 0.0f
-    private var crunchFuzz: Float = 0.0f
-    private var crunchToneHz: Float = 5000.0f
-
     private var eqEnabled: Boolean = false
     private var eqBand1Freq: Float = 60.0f
     private var eqBand1Gain: Float = 0.0f
@@ -89,33 +84,14 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
 
     private var hrtfEnabled: Boolean = false
     private var hrtfIntensity: Float = 1.0f
-    private var hrtfAzimuth: Int = 30
+    private var hrtfAzimuth: Int = 0  // 0 = Front, negative = Left, positive = Right
 
-    private var phaserEnabled: Boolean = false
-    private var phaserLfoFreq: Float = 0.5f
-    private var phaserLfoDepth: Float = 0.5f
-    private var phaserFeedback: Float = 0.7f
-    private var phaserPoles: Int = 4
+    private var stereoWidenerEnabled: Boolean = false
+    private var stereoWidenerWidth: Float = 1.0f  // 0.0-2.0, 1.0 = original
 
-    private var flangerEnabled: Boolean = false
-    private var flangerLfoFreq: Float = 0.2f
-    private var flangerLfoDepth: Float = 0.5f
-    private var flangerFeedback: Float = 0.5f
-    private var flangerDelayMs: Float = 3.0f
-
-    private var tremoloEnabled: Boolean = false
-    private var tremoloFreq: Float = 5.0f
-    private var tremoloDepth: Float = 0.5f
-    private var tremoloWaveform: Int = 0
-
-    private var autowahEnabled: Boolean = false
-    private var autowahWah: Float = 0.5f
-    private var autowahMix: Float = 50.0f
-    private var autowahLevel: Float = 0.5f
-
-    private var decimatorEnabled: Boolean = false
-    private var decimatorBitcrush: Float = 0.5f
-    private var decimatorDownsample: Float = 0.5f
+    private var djFilterEnabled: Boolean = false
+    private var djFilterPosition: Float = 0.0f  // -1.0 = full lowpass, 0.0 = bypass, 1.0 = full highpass
+    private var djFilterResonance: Float = 0.7f
 
     fun setPitchSemitones(semitones: Float) {
         pitchSemitones = semitones.coerceIn(-24f, 24f)
@@ -181,22 +157,6 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
         reverbDecaySec = decaySec
         if (nativeHandle != 0L) {
             nativeSetReverbParams(nativeHandle, dry, wet, roomMs, decaySec)
-        }
-    }
-
-    fun setCrunchEnabled(enabled: Boolean) {
-        crunchEnabled = enabled
-        if (nativeHandle != 0L) {
-            nativeSetCrunchEnabled(nativeHandle, enabled)
-        }
-    }
-
-    fun setCrunchParams(driveDb: Float, fuzz: Float, toneHz: Float) {
-        crunchDriveDb = driveDb
-        crunchFuzz = fuzz
-        crunchToneHz = toneHz
-        if (nativeHandle != 0L) {
-            nativeSetCrunchParams(nativeHandle, driveDb, fuzz, toneHz)
         }
     }
 
@@ -288,84 +248,32 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
         }
     }
 
-    fun setPhaserEnabled(enabled: Boolean) {
-        phaserEnabled = enabled
+    fun setStereoWidenerEnabled(enabled: Boolean) {
+        stereoWidenerEnabled = enabled
         if (nativeHandle != 0L) {
-            nativeSetPhaserEnabled(nativeHandle, enabled)
+            nativeSetStereoWidenerEnabled(nativeHandle, enabled)
         }
     }
 
-    fun setPhaserParams(lfoFreq: Float, lfoDepth: Float, feedback: Float, poles: Int) {
-        phaserLfoFreq = lfoFreq
-        phaserLfoDepth = lfoDepth
-        phaserFeedback = feedback
-        phaserPoles = poles
+    fun setStereoWidenerParams(width: Float) {
+        stereoWidenerWidth = width
         if (nativeHandle != 0L) {
-            nativeSetPhaserParams(nativeHandle, lfoFreq, lfoDepth, feedback, poles)
+            nativeSetStereoWidenerParams(nativeHandle, width)
         }
     }
 
-    fun setFlangerEnabled(enabled: Boolean) {
-        flangerEnabled = enabled
+    fun setDjFilterEnabled(enabled: Boolean) {
+        djFilterEnabled = enabled
         if (nativeHandle != 0L) {
-            nativeSetFlangerEnabled(nativeHandle, enabled)
+            nativeSetDjFilterEnabled(nativeHandle, enabled)
         }
     }
 
-    fun setFlangerParams(lfoFreq: Float, lfoDepth: Float, feedback: Float, delayMs: Float) {
-        flangerLfoFreq = lfoFreq
-        flangerLfoDepth = lfoDepth
-        flangerFeedback = feedback
-        flangerDelayMs = delayMs
+    fun setDjFilterParams(position: Float, resonance: Float) {
+        djFilterPosition = position.coerceIn(-1.0f, 1.0f)
+        djFilterResonance = resonance.coerceIn(0.1f, 2.0f)
         if (nativeHandle != 0L) {
-            nativeSetFlangerParams(nativeHandle, lfoFreq, lfoDepth, feedback, delayMs)
-        }
-    }
-
-    fun setTremoloEnabled(enabled: Boolean) {
-        tremoloEnabled = enabled
-        if (nativeHandle != 0L) {
-            nativeSetTremoloEnabled(nativeHandle, enabled)
-        }
-    }
-
-    fun setTremoloParams(freq: Float, depth: Float, waveform: Int) {
-        tremoloFreq = freq
-        tremoloDepth = depth
-        tremoloWaveform = waveform
-        if (nativeHandle != 0L) {
-            nativeSetTremoloParams(nativeHandle, freq, depth, waveform)
-        }
-    }
-
-    fun setAutowahEnabled(enabled: Boolean) {
-        autowahEnabled = enabled
-        if (nativeHandle != 0L) {
-            nativeSetAutowahEnabled(nativeHandle, enabled)
-        }
-    }
-
-    fun setAutowahParams(wah: Float, mix: Float, level: Float) {
-        autowahWah = wah
-        autowahMix = mix
-        autowahLevel = level
-        if (nativeHandle != 0L) {
-            nativeSetAutowahParams(nativeHandle, wah, mix, level)
-        }
-    }
-
-    fun setDecimatorEnabled(enabled: Boolean) {
-        decimatorEnabled = enabled
-        if (nativeHandle != 0L) {
-            nativeSetDecimatorEnabled(nativeHandle, enabled)
-        }
-    }
-
-    fun setDecimatorParams(bitcrush: Float, downsample: Float) {
-        decimatorBitcrush = bitcrush
-        decimatorDownsample = downsample
-        if (nativeHandle != 0L) {
-            nativeSetDecimatorParams(nativeHandle, bitcrush, downsample)
+            nativeSetDjFilterParams(nativeHandle, djFilterPosition, djFilterResonance)
         }
     }
 
@@ -405,9 +313,6 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
             nativeSetReverbEnabled(nativeHandle, reverbEnabled)
             nativeSetReverbParams(nativeHandle, reverbDry, reverbWet, reverbRoomMs, reverbDecaySec)
 
-            nativeSetCrunchEnabled(nativeHandle, crunchEnabled)
-            nativeSetCrunchParams(nativeHandle, crunchDriveDb, crunchFuzz, crunchToneHz)
-
             nativeSetEqEnabled(nativeHandle, eqEnabled)
             nativeSetEqBand(nativeHandle, 0, eqBand1Freq, eqBand1Gain)
             nativeSetEqBand(nativeHandle, 1, eqBand2Freq, eqBand2Gain)
@@ -423,20 +328,11 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
             nativeSetHrtfEnabled(nativeHandle, hrtfEnabled)
             nativeSetHrtfParams(nativeHandle, hrtfIntensity, hrtfAzimuth)
 
-            nativeSetPhaserEnabled(nativeHandle, phaserEnabled)
-            nativeSetPhaserParams(nativeHandle, phaserLfoFreq, phaserLfoDepth, phaserFeedback, phaserPoles)
+            nativeSetStereoWidenerEnabled(nativeHandle, stereoWidenerEnabled)
+            nativeSetStereoWidenerParams(nativeHandle, stereoWidenerWidth)
 
-            nativeSetFlangerEnabled(nativeHandle, flangerEnabled)
-            nativeSetFlangerParams(nativeHandle, flangerLfoFreq, flangerLfoDepth, flangerFeedback, flangerDelayMs)
-
-            nativeSetTremoloEnabled(nativeHandle, tremoloEnabled)
-            nativeSetTremoloParams(nativeHandle, tremoloFreq, tremoloDepth, tremoloWaveform)
-
-            nativeSetAutowahEnabled(nativeHandle, autowahEnabled)
-            nativeSetAutowahParams(nativeHandle, autowahWah, autowahMix, autowahLevel)
-
-            nativeSetDecimatorEnabled(nativeHandle, decimatorEnabled)
-            nativeSetDecimatorParams(nativeHandle, decimatorBitcrush, decimatorDownsample)
+            nativeSetDjFilterEnabled(nativeHandle, djFilterEnabled)
+            nativeSetDjFilterParams(nativeHandle, djFilterPosition, djFilterResonance)
         }
 
         Log.d(TAG, "configure: nativeHandle=$nativeHandle")
@@ -520,6 +416,7 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
             val actualOutputBytes = actualOutputFrames * bytesPerFrame
             processingBuffer!!.position(0)
             processingBuffer!!.limit(actualOutputBytes)
+
             outputBuffer = processingBuffer!!
         } else {
             outputBuffer = AudioProcessor.EMPTY_BUFFER
@@ -641,15 +538,6 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
         decaySec: Float
     )
 
-    private external fun nativeSetCrunchEnabled(handle: Long, enabled: Boolean)
-
-    private external fun nativeSetCrunchParams(
-        handle: Long,
-        driveDb: Float,
-        fuzz: Float,
-        toneHz: Float
-    )
-
     private external fun nativeSetEqEnabled(handle: Long, enabled: Boolean)
 
     private external fun nativeSetEqBand(
@@ -682,51 +570,13 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
         azimuth: Int
     )
 
-    private external fun nativeSetPhaserEnabled(handle: Long, enabled: Boolean)
+    private external fun nativeSetStereoWidenerEnabled(handle: Long, enabled: Boolean)
 
-    private external fun nativeSetPhaserParams(
-        handle: Long,
-        lfoFreq: Float,
-        lfoDepth: Float,
-        feedback: Float,
-        poles: Int
-    )
+    private external fun nativeSetStereoWidenerParams(handle: Long, width: Float)
 
-    private external fun nativeSetFlangerEnabled(handle: Long, enabled: Boolean)
+    private external fun nativeSetDjFilterEnabled(handle: Long, enabled: Boolean)
 
-    private external fun nativeSetFlangerParams(
-        handle: Long,
-        lfoFreq: Float,
-        lfoDepth: Float,
-        feedback: Float,
-        delayMs: Float
-    )
-
-    private external fun nativeSetTremoloEnabled(handle: Long, enabled: Boolean)
-
-    private external fun nativeSetTremoloParams(
-        handle: Long,
-        freq: Float,
-        depth: Float,
-        waveform: Int
-    )
-
-    private external fun nativeSetAutowahEnabled(handle: Long, enabled: Boolean)
-
-    private external fun nativeSetAutowahParams(
-        handle: Long,
-        wah: Float,
-        mix: Float,
-        level: Float
-    )
-
-    private external fun nativeSetDecimatorEnabled(handle: Long, enabled: Boolean)
-
-    private external fun nativeSetDecimatorParams(
-        handle: Long,
-        bitcrush: Float,
-        downsample: Float
-    )
+    private external fun nativeSetDjFilterParams(handle: Long, position: Float, resonance: Float)
 
     private external fun nativeFlush(handle: Long)
     

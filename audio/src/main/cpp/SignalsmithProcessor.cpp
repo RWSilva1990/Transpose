@@ -14,27 +14,27 @@
 #include "signalsmith-basics/chorus.h"
 #include "signalsmith-basics/limiter.h"
 #include "signalsmith-basics/reverb.h"
-#include "signalsmith-basics/crunch.h"
 #include "signalsmith/basics/modules/dsp/filters.h"
 
 #include "mit_hrtf_lib.h"
 #include "FFTConvolver.h"
 
-#include "Effects/phaser.h"
-#include "Effects/flanger.h"
-#include "Effects/tremolo.h"
-#include "Effects/autowah.h"
-#include "Effects/decimator.h"
+// iir1 Library for DJ Filter
+#include "Iir.h"
 
 #define LOG_TAG "SignalsmithProc"
 #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
 
 namespace {
-constexpr int PROCESS_BLOCK_FRAMES = 512;
-constexpr int HRTF_SAMPLE_RATE = 44100;
-constexpr int HRTF_ELEVATION = 0;
-constexpr int HRTF_SUBJECT = 1;
+const int PROCESS_BLOCK_FRAMES = 512;
+const int HRTF_SAMPLE_RATE = 44100;
+const int HRTF_ELEVATION = 0;
+const int HRTF_SUBJECT = 1;
+
+// Gain compensation for HRTF processing - disabled to prevent distortion
+// The binaural stereo approach preserves level well, no compensation needed
+const float HRTF_GAIN_COMPENSATION = 1.0f;  // No boost - cleaner sound
 }
 
 class SignalsmithProcessor {
@@ -47,16 +47,19 @@ public:
         , chorusEnabled_(false)
         , limiterEnabled_(false)
         , reverbEnabled_(false)
-        , crunchEnabled_(false)
         , eqEnabled_(false)
         , compressorEnabled_(false)
         , pitchDetectionEnabled_(false)
         , hrtfEnabled_(false)
-        , phaserEnabled_(false)
-        , flangerEnabled_(false)
-        , tremoloEnabled_(false)
-        , autowahEnabled_(false)
-        , decimatorEnabled_(false)
+        , hrtfActiveBuffer_(0)
+        , hrtfPendingBuffer_(-1)
+        , hrtfCrossfadeProgress_(1.0f)
+        , hrtfCrossfading_(false)
+        , stereoWidenerEnabled_(false)
+        , stereoWidenerWidth_(1.0f)
+        , djFilterEnabled_(false)
+        , djFilterPosition_(0.0f)  // -1.0 = full lowpass, 0.0 = bypass, 1.0 = full highpass
+        , djFilterResonance_(0.7f) // Q factor
         , chorusMix_(0.5f)
         , chorusDepthMs_(10.0f)
         , chorusDetune_(10.0f)
@@ -69,9 +72,6 @@ public:
         , reverbWet_(0.3f)
         , reverbRoomMs_(50.0f)
         , reverbDecaySec_(2.0f)
-        , crunchDriveDb_(0.0f)
-        , crunchFuzz_(0.0f)
-        , crunchToneHz_(5000.0f)
         , eqBand1Freq_(60.0f)
         , eqBand1Gain_(0.0f)
         , eqBand2Freq_(250.0f)
@@ -89,25 +89,11 @@ public:
         , compMakeupGainDb_(0.0f)
         , detectedPitch_(0.0f)
         , hrtfIntensity_(1.0f)
-        , hrtfAzimuth_(30)
-        , hrtfInitialized_(false)
-        , hrtfCurrentAzimuth_(0)
-        , phaserLfoFreq_(0.5f)
-        , phaserLfoDepth_(0.5f)
-        , phaserFeedback_(0.7f)
-        , phaserPoles_(4)
-        , flangerLfoFreq_(0.2f)
-        , flangerLfoDepth_(0.5f)
-        , flangerFeedback_(0.5f)
-        , flangerDelayMs_(3.0f)
-        , tremoloFreq_(5.0f)
-        , tremoloDepth_(0.5f)
-        , tremoloWaveform_(0)
-        , autowahWah_(0.5f)
-        , autowahMix_(50.0f)
-        , autowahLevel_(0.5f)
-        , decimatorBitcrush_(0.5f)
-        , decimatorDownsample_(0.5f) {
+        , hrtfAzimuth_(0)  // 0 = Front, negative = Left, positive = Right
+{
+        // Initialize high-frequency compensation filter for HRTF
+        // This compensates for the natural high-frequency roll-off in HRTF processing
+        initPresenceBoostFilter();
 
         stretch_.presetDefault(channelCount_, sampleRate_);
 
@@ -123,6 +109,15 @@ public:
 
         hrtfTempBufferL_.resize(PROCESS_BLOCK_FRAMES);
         hrtfTempBufferR_.resize(PROCESS_BLOCK_FRAMES);
+        hrtfTempBufferL2_.resize(PROCESS_BLOCK_FRAMES);
+        hrtfTempBufferR2_.resize(PROCESS_BLOCK_FRAMES);
+        hrtfMonoBuffer_.resize(PROCESS_BLOCK_FRAMES);  // For correct HRTF processing
+
+        // Pending convolver temp buffers for crossfade
+        hrtfPendingTempBufferL_.resize(PROCESS_BLOCK_FRAMES);
+        hrtfPendingTempBufferR_.resize(PROCESS_BLOCK_FRAMES);
+        hrtfPendingTempBufferL2_.resize(PROCESS_BLOCK_FRAMES);
+        hrtfPendingTempBufferR2_.resize(PROCESS_BLOCK_FRAMES);
 
         chorusEffect_ = std::make_unique<signalsmith::basics::ChorusFloat>(50.0f);
         chorusEffect_->configure(sampleRate_, PROCESS_BLOCK_FRAMES, channelCount_);
@@ -136,29 +131,16 @@ public:
         reverbEffect_->configure(sampleRate_, PROCESS_BLOCK_FRAMES, channelCount_ == 2 ? 2 : 1);
         reverbEffect_->reset();
 
-        crunchEffect_ = std::make_unique<signalsmith::basics::CrunchFloat>(true);
-        crunchEffect_->configure(sampleRate_, PROCESS_BLOCK_FRAMES, channelCount_);
-        crunchEffect_->reset();
-
-        phaserL_.Init(sampleRate_);
-        phaserR_.Init(sampleRate_);
-        phaserL_.SetPoles(4);
-        phaserR_.SetPoles(4);
-
-        flangerL_.Init(sampleRate_);
-        flangerR_.Init(sampleRate_);
-
-        tremoloL_.Init(sampleRate_);
-        tremoloR_.Init(sampleRate_);
-
-        autowahL_.Init(sampleRate_);
-        autowahR_.Init(sampleRate_);
-
-        decimatorL_.Init();
-        decimatorR_.Init();
-
         LOGD("Created: sampleRate=%d, channels=%d, inputLatency=%d, outputLatency=%d",
              sampleRate_, channelCount_, stretch_.inputLatency(), stretch_.outputLatency());
+
+        // Check sample rate mismatch with HRTF
+        if (sampleRate_ != HRTF_SAMPLE_RATE) {
+            LOGE("⚠️ SAMPLE RATE MISMATCH! Audio=%dHz, HRTF=%dHz - This may cause crackling!",
+                 sampleRate_, HRTF_SAMPLE_RATE);
+        } else {
+            LOGD("✓ Sample rate OK: %dHz", sampleRate_);
+        }
     }
 
     int process(const short* input, int inputBytes, short* output, int maxOutputFrames) {
@@ -241,13 +223,6 @@ public:
         reverbDecaySec_.store(decaySec, std::memory_order_relaxed);
     }
 
-    void setCrunchEnabled(bool enabled) { crunchEnabled_.store(enabled, std::memory_order_relaxed); }
-    void setCrunchParams(float driveDb, float fuzz, float toneHz) {
-        crunchDriveDb_.store(driveDb, std::memory_order_relaxed);
-        crunchFuzz_.store(fuzz, std::memory_order_relaxed);
-        crunchToneHz_.store(toneHz, std::memory_order_relaxed);
-    }
-
     void setEqEnabled(bool enabled) {
         eqEnabled_.store(enabled, std::memory_order_relaxed);
         if (!enabled) {
@@ -288,7 +263,18 @@ public:
     void setHrtfEnabled(bool enabled) {
         hrtfEnabled_.store(enabled, std::memory_order_relaxed);
         if (!enabled) {
-            hrtfInitialized_ = false;
+            // Reset old double-buffer system (legacy mono)
+            hrtfInitialized_[0] = false;
+            hrtfInitialized_[1] = false;
+            hrtfCrossfading_ = false;
+            hrtfCrossfadeProgress_ = 1.0f;
+            // Reset binaural stereo double-buffer system
+            hrtfBinauralInitialized_[0] = false;
+            hrtfBinauralInitialized_[1] = false;
+            hrtfBinauralActiveIndex_ = 0;
+            hrtfBinauralPendingIndex_ = 1;
+            hrtfBinauralCrossfading_ = false;
+            hrtfBinauralCrossfadeProgress_ = 0.0f;
         }
     }
 
@@ -297,44 +283,32 @@ public:
         hrtfAzimuth_.store(azimuth, std::memory_order_relaxed);
     }
 
-    void setPhaserEnabled(bool enabled) { phaserEnabled_.store(enabled, std::memory_order_relaxed); }
-    void setPhaserParams(float lfoFreq, float lfoDepth, float feedback, int poles) {
-        phaserLfoFreq_.store(lfoFreq, std::memory_order_relaxed);
-        phaserLfoDepth_.store(lfoDepth, std::memory_order_relaxed);
-        phaserFeedback_.store(feedback, std::memory_order_relaxed);
-        phaserPoles_.store(poles, std::memory_order_relaxed);
+    void setStereoWidenerEnabled(bool enabled) { stereoWidenerEnabled_.store(enabled, std::memory_order_relaxed); }
+    void setStereoWidenerParams(float width) {
+        stereoWidenerWidth_.store(width, std::memory_order_relaxed);
     }
 
-    void setFlangerEnabled(bool enabled) { flangerEnabled_.store(enabled, std::memory_order_relaxed); }
-    void setFlangerParams(float lfoFreq, float lfoDepth, float feedback, float delayMs) {
-        flangerLfoFreq_.store(lfoFreq, std::memory_order_relaxed);
-        flangerLfoDepth_.store(lfoDepth, std::memory_order_relaxed);
-        flangerFeedback_.store(feedback, std::memory_order_relaxed);
-        flangerDelayMs_.store(delayMs, std::memory_order_relaxed);
+    void setDjFilterEnabled(bool enabled) {
+        djFilterEnabled_.store(enabled, std::memory_order_relaxed);
+        if (!enabled) {
+            // Reset filters when disabled
+            djFilterNeedsReset_ = true;
+        }
     }
-
-    void setTremoloEnabled(bool enabled) { tremoloEnabled_.store(enabled, std::memory_order_relaxed); }
-    void setTremoloParams(float freq, float depth, int waveform) {
-        tremoloFreq_.store(freq, std::memory_order_relaxed);
-        tremoloDepth_.store(depth, std::memory_order_relaxed);
-        tremoloWaveform_.store(waveform, std::memory_order_relaxed);
-    }
-
-    void setAutowahEnabled(bool enabled) { autowahEnabled_.store(enabled, std::memory_order_relaxed); }
-    void setAutowahParams(float wah, float mix, float level) {
-        autowahWah_.store(wah, std::memory_order_relaxed);
-        autowahMix_.store(mix, std::memory_order_relaxed);
-        autowahLevel_.store(level, std::memory_order_relaxed);
-    }
-
-    void setDecimatorEnabled(bool enabled) { decimatorEnabled_.store(enabled, std::memory_order_relaxed); }
-    void setDecimatorParams(float bitcrush, float downsample) {
-        decimatorBitcrush_.store(bitcrush, std::memory_order_relaxed);
-        decimatorDownsample_.store(downsample, std::memory_order_relaxed);
+    void setDjFilterParams(float position, float resonance) {
+        djFilterPosition_.store(position, std::memory_order_relaxed);
+        djFilterResonance_.store(resonance, std::memory_order_relaxed);
     }
 
 private:
     using BiquadFilter = signalsmith::filters::BiquadStatic<float>;
+
+    // Presence boost filters disabled - they were causing harsh/tearing sound
+    // The binaural stereo approach with virtual speakers preserves natural frequency response
+    void initPresenceBoostFilter() {
+        // No-op - presence boost disabled for cleaner, more natural sound
+        // The MIT HRTF already has good high-frequency response
+    }
 
     bool shouldBypass() const {
         if (pitchSemitones_.load(std::memory_order_relaxed) != 0.0f) return false;
@@ -342,15 +316,11 @@ private:
         if (chorusEnabled_.load(std::memory_order_relaxed)) return false;
         if (limiterEnabled_.load(std::memory_order_relaxed)) return false;
         if (reverbEnabled_.load(std::memory_order_relaxed)) return false;
-        if (crunchEnabled_.load(std::memory_order_relaxed)) return false;
         if (eqEnabled_.load(std::memory_order_relaxed)) return false;
         if (compressorEnabled_.load(std::memory_order_relaxed)) return false;
         if (hrtfEnabled_.load(std::memory_order_relaxed)) return false;
-        if (phaserEnabled_.load(std::memory_order_relaxed)) return false;
-        if (flangerEnabled_.load(std::memory_order_relaxed)) return false;
-        if (tremoloEnabled_.load(std::memory_order_relaxed)) return false;
-        if (autowahEnabled_.load(std::memory_order_relaxed)) return false;
-        if (decimatorEnabled_.load(std::memory_order_relaxed)) return false;
+        if (stereoWidenerEnabled_.load(std::memory_order_relaxed)) return false;
+        if (djFilterEnabled_.load(std::memory_order_relaxed)) return false;
 
         return true;
     }
@@ -414,17 +384,6 @@ private:
             reverbEffect_->rt20 = reverbDecaySec_.load(std::memory_order_relaxed);
 
             reverbEffect_->process(effectInPtrs, effectOutPtrs, frames);
-            std::memcpy(effectsBufferLeft_.data(), effectOutputL_.data(), static_cast<size_t>(frames) * sizeof(float));
-            std::memcpy(effectsBufferRight_.data(), effectOutputR_.data(), static_cast<size_t>(frames) * sizeof(float));
-        }
-
-        if (crunchEnabled_.load(std::memory_order_relaxed) && crunchEffect_) {
-            const float driveDb = crunchDriveDb_.load(std::memory_order_relaxed);
-            crunchEffect_->drive = std::pow(10.0f, driveDb / 20.0f);
-            crunchEffect_->fuzz = crunchFuzz_.load(std::memory_order_relaxed);
-            crunchEffect_->toneHz = crunchToneHz_.load(std::memory_order_relaxed);
-
-            crunchEffect_->process(effectInPtrs, effectOutPtrs, frames);
             std::memcpy(effectsBufferLeft_.data(), effectOutputL_.data(), static_cast<size_t>(frames) * sizeof(float));
             std::memcpy(effectsBufferRight_.data(), effectOutputR_.data(), static_cast<size_t>(frames) * sizeof(float));
         }
@@ -497,121 +456,206 @@ private:
 
         if (hrtfEnabled_.load(std::memory_order_relaxed)) {
             const int azimuth = hrtfAzimuth_.load(std::memory_order_relaxed);
-            const float intensity = hrtfIntensity_.load(std::memory_order_relaxed);
+            const float rawIntensity = hrtfIntensity_.load(std::memory_order_relaxed);
+            const float intensity = std::max(0.0f, std::min(1.0f, rawIntensity));
 
-            if (!hrtfInitialized_ || hrtfCurrentAzimuth_ != azimuth) {
-                maybeInitHrtf(azimuth);
-            }
+            // =========================================================================
+            // 3D STEREO POSITIONING - Move entire stereo image in 3D space
+            // =========================================================================
+            // azimuth controls where the stereo image appears:
+            // - azimuth = 0: front (normal stereo)
+            // - azimuth = -90: left side
+            // - azimuth = +90: right side
+            // - azimuth = ±180: behind
+            //
+            // We keep L and R channels separate, but move their virtual speaker
+            // positions based on the azimuth. This preserves stereo width while
+            // moving the entire sound field in 3D space.
+            // =========================================================================
 
-            if (hrtfInitialized_) {
-                hrtfConvolverL_.process(effectsBufferLeft_.data(), hrtfTempBufferL_.data(), frames);
-                hrtfConvolverR_.process(effectsBufferRight_.data(), hrtfTempBufferR_.data(), frames);
+            // Calculate virtual speaker positions offset by azimuth
+            // Base stereo spread is ±30 degrees, then offset by azimuth
+            const int stereoSpread = 30;
+            int leftSpeakerAzimuth = azimuth - stereoSpread;
+            int rightSpeakerAzimuth = azimuth + stereoSpread;
 
-                for (int i = 0; i < frames; i++) {
-                    effectsBufferLeft_[i] = effectsBufferLeft_[i] * (1.0f - intensity) + hrtfTempBufferL_[i] * intensity;
-                    effectsBufferRight_[i] = effectsBufferRight_[i] * (1.0f - intensity) + hrtfTempBufferR_[i] * intensity;
+            // Wrap to -180 to 180 range
+            if (leftSpeakerAzimuth < -180) leftSpeakerAzimuth += 360;
+            if (leftSpeakerAzimuth > 180) leftSpeakerAzimuth -= 360;
+            if (rightSpeakerAzimuth < -180) rightSpeakerAzimuth += 360;
+            if (rightSpeakerAzimuth > 180) rightSpeakerAzimuth -= 360;
+
+            // Initialize or update HRTF filters for both speaker positions
+            maybeInitBinauralHrtf(leftSpeakerAzimuth, rightSpeakerAzimuth);
+
+            const int active = hrtfBinauralActiveIndex_;
+            const int pending = hrtfBinauralPendingIndex_;
+
+            if (hrtfBinauralInitialized_[active]) {
+                // Process LEFT channel through LEFT virtual speaker HRTF (active buffer)
+                hrtfLeftSpeakerConvolverL_[active].process(effectsBufferLeft_.data(), hrtfTempBufferL_.data(), frames);
+                hrtfLeftSpeakerConvolverR_[active].process(effectsBufferLeft_.data(), hrtfTempBufferR_.data(), frames);
+
+                // Process RIGHT channel through RIGHT virtual speaker HRTF (active buffer)
+                hrtfRightSpeakerConvolverL_[active].process(effectsBufferRight_.data(), hrtfTempBufferL2_.data(), frames);
+                hrtfRightSpeakerConvolverR_[active].process(effectsBufferRight_.data(), hrtfTempBufferR2_.data(), frames);
+
+                // If crossfading, also process through pending buffer
+                if (hrtfBinauralCrossfading_ && hrtfBinauralInitialized_[pending]) {
+                    // Process through pending buffer
+                    hrtfLeftSpeakerConvolverL_[pending].process(effectsBufferLeft_.data(), hrtfPendingTempBufferL_.data(), frames);
+                    hrtfLeftSpeakerConvolverR_[pending].process(effectsBufferLeft_.data(), hrtfPendingTempBufferR_.data(), frames);
+                    hrtfRightSpeakerConvolverL_[pending].process(effectsBufferRight_.data(), hrtfPendingTempBufferL2_.data(), frames);
+                    hrtfRightSpeakerConvolverR_[pending].process(effectsBufferRight_.data(), hrtfPendingTempBufferR2_.data(), frames);
+
+                    // Blend between active and pending outputs
+                    const float crossfadeStep = 1.0f / static_cast<float>(frames);
+                    for (int i = 0; i < frames; i++) {
+                        // Smooth per-sample crossfade
+                        float fadeProgress = hrtfBinauralCrossfadeProgress_ + crossfadeStep * static_cast<float>(i);
+                        fadeProgress = std::min(1.0f, fadeProgress);
+
+                        // Active buffer output
+                        float activeL = hrtfTempBufferL_[i] + hrtfTempBufferL2_[i];
+                        float activeR = hrtfTempBufferR_[i] + hrtfTempBufferR2_[i];
+
+                        // Pending buffer output
+                        float pendingL = hrtfPendingTempBufferL_[i] + hrtfPendingTempBufferL2_[i];
+                        float pendingR = hrtfPendingTempBufferR_[i] + hrtfPendingTempBufferR2_[i];
+
+                        // Crossfade blend
+                        float binauralL = activeL * (1.0f - fadeProgress) + pendingL * fadeProgress;
+                        float binauralR = activeR * (1.0f - fadeProgress) + pendingR * fadeProgress;
+
+                        effectsBufferLeft_[i] = effectsBufferLeft_[i] * (1.0f - intensity) + binauralL * intensity;
+                        effectsBufferRight_[i] = effectsBufferRight_[i] * (1.0f - intensity) + binauralR * intensity;
+                    }
+
+                    // Update crossfade progress for next block
+                    hrtfBinauralCrossfadeProgress_ += 1.0f;  // One block = full transition
+
+                    // Check if crossfade is complete - just swap indices!
+                    if (hrtfBinauralCrossfadeProgress_ >= 1.0f) {
+                        // Swap indices (no data copy, just pointer swap)
+                        hrtfBinauralActiveIndex_ = pending;
+                        hrtfBinauralPendingIndex_ = active;
+
+                        hrtfBinauralCrossfading_ = false;
+                        hrtfBinauralCrossfadeProgress_ = 0.0f;
+                    }
+                } else {
+                    // No crossfade, just use active buffer
+                    for (int i = 0; i < frames; i++) {
+                        float binauralL = hrtfTempBufferL_[i] + hrtfTempBufferL2_[i];
+                        float binauralR = hrtfTempBufferR_[i] + hrtfTempBufferR2_[i];
+
+                        effectsBufferLeft_[i] = effectsBufferLeft_[i] * (1.0f - intensity) + binauralL * intensity;
+                        effectsBufferRight_[i] = effectsBufferRight_[i] * (1.0f - intensity) + binauralR * intensity;
+                    }
                 }
             }
         }
 
-        if (phaserEnabled_.load(std::memory_order_relaxed)) {
-            const float lfoFreq = phaserLfoFreq_.load(std::memory_order_relaxed);
-            const float lfoDepth = phaserLfoDepth_.load(std::memory_order_relaxed);
-            const float feedback = phaserFeedback_.load(std::memory_order_relaxed);
-            const int poles = phaserPoles_.load(std::memory_order_relaxed);
+        // DJ Filter - Lowpass/Highpass sweep filter
+        // Position: -1.0 = full lowpass, 0.0 = bypass, 1.0 = full highpass
+        if (djFilterEnabled_.load(std::memory_order_relaxed)) {
+            const float position = djFilterPosition_.load(std::memory_order_relaxed);
+            const float resonance = djFilterResonance_.load(std::memory_order_relaxed);
 
-            phaserL_.SetLfoFreq(lfoFreq);
-            phaserR_.SetLfoFreq(lfoFreq);
-            phaserL_.SetLfoDepth(lfoDepth);
-            phaserR_.SetLfoDepth(lfoDepth);
-            phaserL_.SetFeedback(feedback);
-            phaserR_.SetFeedback(feedback);
-            phaserL_.SetPoles(poles);
-            phaserR_.SetPoles(poles);
+            // Reset filters if needed
+            if (djFilterNeedsReset_) {
+                djLowpassL_.reset();
+                djLowpassR_.reset();
+                djHighpassL_.reset();
+                djHighpassR_.reset();
+                djFilterNeedsReset_ = false;
+            }
 
-            for (int i = 0; i < frames; i++) {
-                effectsBufferLeft_[i] = phaserL_.Process(effectsBufferLeft_[i]);
-                effectsBufferRight_[i] = phaserR_.Process(effectsBufferRight_[i]);
+            // Deadzone around 0 for bypass
+            const float deadzone = 0.05f;
+            if (std::fabs(position) > deadzone) {
+                if (position < 0.0f) {
+                    // Lowpass mode: position -1.0 = 200Hz, position -0.05 = ~20000Hz
+                    const float normalizedPos = (-position - deadzone) / (1.0f - deadzone);
+                    const float minFreq = 200.0f;
+                    const float maxFreq = 18000.0f;
+                    // Exponential mapping for more natural feel
+                    const float cutoff = maxFreq * std::pow(minFreq / maxFreq, normalizedPos);
+
+                    // Only reconfigure if cutoff changed significantly
+                    if (std::fabs(cutoff - djFilterLastCutoff_) > 10.0f || djFilterLastMode_ != -1) {
+                        djLowpassL_.setup(sampleRate_, cutoff);
+                        djLowpassR_.setup(sampleRate_, cutoff);
+                        djFilterLastCutoff_ = cutoff;
+                        djFilterLastMode_ = -1;
+                    }
+
+                    for (int i = 0; i < frames; i++) {
+                        effectsBufferLeft_[i] = djLowpassL_.filter(effectsBufferLeft_[i]);
+                        effectsBufferRight_[i] = djLowpassR_.filter(effectsBufferRight_[i]);
+                    }
+                } else {
+                    // Highpass mode: position 0.05 = ~20Hz, position 1.0 = 8000Hz
+                    const float normalizedPos = (position - deadzone) / (1.0f - deadzone);
+                    const float minFreq = 20.0f;
+                    const float maxFreq = 8000.0f;
+                    // Exponential mapping
+                    const float cutoff = minFreq * std::pow(maxFreq / minFreq, normalizedPos);
+
+                    if (std::fabs(cutoff - djFilterLastCutoff_) > 10.0f || djFilterLastMode_ != 1) {
+                        djHighpassL_.setup(sampleRate_, cutoff);
+                        djHighpassR_.setup(sampleRate_, cutoff);
+                        djFilterLastCutoff_ = cutoff;
+                        djFilterLastMode_ = 1;
+                    }
+
+                    for (int i = 0; i < frames; i++) {
+                        effectsBufferLeft_[i] = djHighpassL_.filter(effectsBufferLeft_[i]);
+                        effectsBufferRight_[i] = djHighpassR_.filter(effectsBufferRight_[i]);
+                    }
+                }
             }
         }
 
-        if (flangerEnabled_.load(std::memory_order_relaxed)) {
-            const float lfoFreq = flangerLfoFreq_.load(std::memory_order_relaxed);
-            const float lfoDepth = flangerLfoDepth_.load(std::memory_order_relaxed);
-            const float feedback = flangerFeedback_.load(std::memory_order_relaxed);
-            const float delayMs = flangerDelayMs_.load(std::memory_order_relaxed);
-
-            flangerL_.SetLfoFreq(lfoFreq);
-            flangerR_.SetLfoFreq(lfoFreq);
-            flangerL_.SetLfoDepth(lfoDepth);
-            flangerR_.SetLfoDepth(lfoDepth);
-            flangerL_.SetFeedback(feedback);
-            flangerR_.SetFeedback(feedback);
-            flangerL_.SetDelayMs(delayMs);
-            flangerR_.SetDelayMs(delayMs);
+        // Stereo Widener - Mid-Side processing with parameter smoothing
+        // Width < 1.0 = narrower (more mono), Width = 1.0 = original, Width > 1.0 = wider
+        if (stereoWidenerEnabled_.load(std::memory_order_relaxed)) {
+            const float targetWidth = stereoWidenerWidth_.load(std::memory_order_relaxed);
+            const float smoothingCoef = 0.001f;  // Smooth parameter changes to prevent clicks
 
             for (int i = 0; i < frames; i++) {
-                effectsBufferLeft_[i] = flangerL_.Process(effectsBufferLeft_[i]);
-                effectsBufferRight_[i] = flangerR_.Process(effectsBufferRight_[i]);
-            }
-        }
+                // Smooth the width parameter to prevent crackling
+                stereoWidenerWidthSmoothed_ += (targetWidth - stereoWidenerWidthSmoothed_) * smoothingCoef;
 
-        if (tremoloEnabled_.load(std::memory_order_relaxed)) {
-            const float freq = tremoloFreq_.load(std::memory_order_relaxed);
-            const float depth = tremoloDepth_.load(std::memory_order_relaxed);
-            const int waveform = tremoloWaveform_.load(std::memory_order_relaxed);
+                const float left = effectsBufferLeft_[i];
+                const float right = effectsBufferRight_[i];
 
-            tremoloL_.SetFreq(freq);
-            tremoloR_.SetFreq(freq);
-            tremoloL_.SetDepth(depth);
-            tremoloR_.SetDepth(depth);
-            tremoloL_.SetWaveform(waveform);
-            tremoloR_.SetWaveform(waveform);
+                // Convert to Mid-Side
+                const float mid = (left + right) * 0.5f;
+                const float side = (left - right) * 0.5f;
 
-            for (int i = 0; i < frames; i++) {
-                effectsBufferLeft_[i] = tremoloL_.Process(effectsBufferLeft_[i]);
-                effectsBufferRight_[i] = tremoloR_.Process(effectsBufferRight_[i]);
-            }
-        }
+                // Apply width (scale side signal)
+                const float wideSide = side * stereoWidenerWidthSmoothed_;
 
-        if (autowahEnabled_.load(std::memory_order_relaxed)) {
-            const float wah = autowahWah_.load(std::memory_order_relaxed);
-            const float mix = autowahMix_.load(std::memory_order_relaxed);
-            const float level = autowahLevel_.load(std::memory_order_relaxed);
+                // Convert back to Left-Right with soft limiting to prevent clipping
+                float outL = mid + wideSide;
+                float outR = mid - wideSide;
 
-            autowahL_.SetWah(wah);
-            autowahR_.SetWah(wah);
-            autowahL_.SetDryWet(mix);
-            autowahR_.SetDryWet(mix);
-            autowahL_.SetLevel(level);
-            autowahR_.SetLevel(level);
+                // Soft clip to prevent harsh distortion
+                outL = std::tanh(outL);
+                outR = std::tanh(outR);
 
-            for (int i = 0; i < frames; i++) {
-                effectsBufferLeft_[i] = autowahL_.Process(effectsBufferLeft_[i]);
-                effectsBufferRight_[i] = autowahR_.Process(effectsBufferRight_[i]);
-            }
-        }
-
-        if (decimatorEnabled_.load(std::memory_order_relaxed)) {
-            const float bitcrush = decimatorBitcrush_.load(std::memory_order_relaxed);
-            const float downsample = decimatorDownsample_.load(std::memory_order_relaxed);
-
-            decimatorL_.SetBitcrushFactor(bitcrush);
-            decimatorR_.SetBitcrushFactor(bitcrush);
-            decimatorL_.SetDownsampleFactor(downsample);
-            decimatorR_.SetDownsampleFactor(downsample);
-
-            for (int i = 0; i < frames; i++) {
-                effectsBufferLeft_[i] = decimatorL_.Process(effectsBufferLeft_[i]);
-                effectsBufferRight_[i] = decimatorR_.Process(effectsBufferRight_[i]);
+                effectsBufferLeft_[i] = outL;
+                effectsBufferRight_[i] = outR;
             }
         }
     }
 
-    void maybeInitHrtf(int azimuth) {
+    // Initialize HRTF filter in the inactive buffer (non-blocking for audio thread)
+    void prepareHrtfFilter(int azimuth, int bufferIndex) {
         const unsigned int taps = mit_hrtf_availability(azimuth, HRTF_ELEVATION, HRTF_SAMPLE_RATE, HRTF_SUBJECT);
         if (taps == 0) {
-            hrtfInitialized_ = false;
+            hrtfInitialized_[bufferIndex] = false;
             return;
         }
 
@@ -628,11 +672,108 @@ private:
             irR[i] = hrtfR[i] / 32768.0f;
         }
 
-        hrtfConvolverL_.init(PROCESS_BLOCK_FRAMES, irL.data(), taps);
-        hrtfConvolverR_.init(PROCESS_BLOCK_FRAMES, irR.data(), taps);
+        hrtfConvolverL_[bufferIndex].init(PROCESS_BLOCK_FRAMES, irL.data(), taps);
+        hrtfConvolverR_[bufferIndex].init(PROCESS_BLOCK_FRAMES, irR.data(), taps);
 
-        hrtfCurrentAzimuth_ = azimuth;
-        hrtfInitialized_ = true;
+        hrtfCurrentAzimuth_[bufferIndex] = azimuth;
+        hrtfInitialized_[bufferIndex] = true;
+    }
+
+    // Check if we need to prepare a new HRTF filter and start crossfade
+    void maybeInitHrtf(int azimuth) {
+        // If first time initialization
+        if (!hrtfInitialized_[hrtfActiveBuffer_]) {
+            prepareHrtfFilter(azimuth, hrtfActiveBuffer_);
+            return;
+        }
+
+        // If azimuth changed and we're not already crossfading
+        if (hrtfCurrentAzimuth_[hrtfActiveBuffer_] != azimuth && !hrtfCrossfading_) {
+            // Prepare new filter in the inactive buffer
+            int inactiveBuffer = 1 - hrtfActiveBuffer_;
+            prepareHrtfFilter(azimuth, inactiveBuffer);
+
+            if (hrtfInitialized_[inactiveBuffer]) {
+                // Start crossfade
+                hrtfPendingBuffer_ = inactiveBuffer;
+                hrtfCrossfading_ = true;
+                hrtfCrossfadeProgress_ = 0.0f;
+            }
+        }
+    }
+
+    // =========================================================================
+    // Binaural Stereo HRTF Initialization with Double-Buffer Crossfade
+    // =========================================================================
+    void maybeInitBinauralHrtf(int leftAzimuth, int rightAzimuth) {
+        const int active = hrtfBinauralActiveIndex_;
+
+        // First time initialization
+        if (!hrtfBinauralInitialized_[active]) {
+            initBinauralHrtfToBuffer(leftAzimuth, rightAzimuth, active);
+            return;
+        }
+
+        // If azimuth changed and not already crossfading, prepare pending buffer
+        bool needsUpdate = (hrtfBinauralLeftAzimuth_[active] != leftAzimuth) ||
+                          (hrtfBinauralRightAzimuth_[active] != rightAzimuth);
+
+        if (needsUpdate && !hrtfBinauralCrossfading_) {
+            const int pending = hrtfBinauralPendingIndex_;
+
+            // Initialize pending buffer with new azimuth
+            if (initBinauralHrtfToBuffer(leftAzimuth, rightAzimuth, pending)) {
+                hrtfBinauralCrossfading_ = true;
+                hrtfBinauralCrossfadeProgress_ = 0.0f;
+            }
+        }
+    }
+
+    // Initialize HRTF convolvers to a specific buffer index
+    bool initBinauralHrtfToBuffer(int leftAzimuth, int rightAzimuth, int bufferIndex) {
+        bool success = true;
+
+        // Left speaker
+        const unsigned int tapsL = mit_hrtf_availability(leftAzimuth, HRTF_ELEVATION, HRTF_SAMPLE_RATE, HRTF_SUBJECT);
+        if (tapsL > 0) {
+            int actualAz = leftAzimuth, actualEl = HRTF_ELEVATION;
+            std::vector<short> hL(tapsL), hR(tapsL);
+            mit_hrtf_get(&actualAz, &actualEl, HRTF_SAMPLE_RATE, HRTF_SUBJECT, hL.data(), hR.data());
+            std::vector<float> irL(tapsL), irR(tapsL);
+            for (unsigned int i = 0; i < tapsL; i++) {
+                irL[i] = hL[i] / 32768.0f;
+                irR[i] = hR[i] / 32768.0f;
+            }
+            hrtfLeftSpeakerConvolverL_[bufferIndex].init(PROCESS_BLOCK_FRAMES, irL.data(), tapsL);
+            hrtfLeftSpeakerConvolverR_[bufferIndex].init(PROCESS_BLOCK_FRAMES, irR.data(), tapsL);
+        } else {
+            success = false;
+        }
+
+        // Right speaker
+        const unsigned int tapsR = mit_hrtf_availability(rightAzimuth, HRTF_ELEVATION, HRTF_SAMPLE_RATE, HRTF_SUBJECT);
+        if (tapsR > 0) {
+            int actualAz = rightAzimuth, actualEl = HRTF_ELEVATION;
+            std::vector<short> hL(tapsR), hR(tapsR);
+            mit_hrtf_get(&actualAz, &actualEl, HRTF_SAMPLE_RATE, HRTF_SUBJECT, hL.data(), hR.data());
+            std::vector<float> irL(tapsR), irR(tapsR);
+            for (unsigned int i = 0; i < tapsR; i++) {
+                irL[i] = hL[i] / 32768.0f;
+                irR[i] = hR[i] / 32768.0f;
+            }
+            hrtfRightSpeakerConvolverL_[bufferIndex].init(PROCESS_BLOCK_FRAMES, irL.data(), tapsR);
+            hrtfRightSpeakerConvolverR_[bufferIndex].init(PROCESS_BLOCK_FRAMES, irR.data(), tapsR);
+        } else {
+            success = false;
+        }
+
+        if (success) {
+            hrtfBinauralLeftAzimuth_[bufferIndex] = leftAzimuth;
+            hrtfBinauralRightAzimuth_[bufferIndex] = rightAzimuth;
+            hrtfBinauralInitialized_[bufferIndex] = true;
+        }
+
+        return success;
     }
 
     void shortToFloatDeinterleaved(const short* input, int frames) {
@@ -690,12 +831,10 @@ private:
     std::unique_ptr<signalsmith::basics::ChorusFloat> chorusEffect_;
     std::unique_ptr<signalsmith::basics::LimiterFloat> limiterEffect_;
     std::unique_ptr<signalsmith::basics::ReverbFloat> reverbEffect_;
-    std::unique_ptr<signalsmith::basics::CrunchFloat> crunchEffect_;
 
     std::atomic<bool> chorusEnabled_;
     std::atomic<bool> limiterEnabled_;
     std::atomic<bool> reverbEnabled_;
-    std::atomic<bool> crunchEnabled_;
 
     std::atomic<bool> eqEnabled_;
     std::atomic<bool> compressorEnabled_;
@@ -706,29 +845,73 @@ private:
     std::atomic<bool> hrtfEnabled_;
     std::atomic<float> hrtfIntensity_;
     std::atomic<int> hrtfAzimuth_;
-    fftconvolver::FFTConvolver hrtfConvolverL_;
-    fftconvolver::FFTConvolver hrtfConvolverR_;
-    bool hrtfInitialized_;
-    int hrtfCurrentAzimuth_;
+
+    // Double-buffered HRTF convolvers for glitch-free filter switching
+    fftconvolver::FFTConvolver hrtfConvolverL_[2];
+    fftconvolver::FFTConvolver hrtfConvolverR_[2];
+    int hrtfActiveBuffer_ = 0;          // Currently active convolver (0 or 1)
+    int hrtfPendingBuffer_ = -1;        // Buffer being prepared (-1 = none)
+    bool hrtfInitialized_[2] = {false, false};
+    int hrtfCurrentAzimuth_[2] = {0, 0};
+
+    // Crossfade state
+    float hrtfCrossfadeProgress_ = 1.0f;  // 0.0 = old filter, 1.0 = new filter
+    static constexpr float HRTF_CROSSFADE_RATE = 0.02f;  // ~50 blocks for full transition
+    bool hrtfCrossfading_ = false;
+
     std::vector<float> hrtfTempBufferL_;
     std::vector<float> hrtfTempBufferR_;
+    std::vector<float> hrtfTempBufferL2_;  // For crossfade
+    std::vector<float> hrtfTempBufferR2_;  // For crossfade
+    std::vector<float> hrtfMonoBuffer_;    // Mono mix for correct HRTF processing
 
-    daisysp::Phaser phaserL_;
-    daisysp::Phaser phaserR_;
-    daisysp::Flanger flangerL_;
-    daisysp::Flanger flangerR_;
-    daisysp::Tremolo tremoloL_;
-    daisysp::Tremolo tremoloR_;
-    daisysp::Autowah autowahL_;
-    daisysp::Autowah autowahR_;
-    daisysp::Decimator decimatorL_;
-    daisysp::Decimator decimatorR_;
+    // Pending convolver temp buffers (for crossfade blending)
+    std::vector<float> hrtfPendingTempBufferL_;
+    std::vector<float> hrtfPendingTempBufferR_;
+    std::vector<float> hrtfPendingTempBufferL2_;
+    std::vector<float> hrtfPendingTempBufferR2_;
 
-    std::atomic<bool> phaserEnabled_;
-    std::atomic<bool> flangerEnabled_;
-    std::atomic<bool> tremoloEnabled_;
-    std::atomic<bool> autowahEnabled_;
-    std::atomic<bool> decimatorEnabled_;
+    // High-frequency compensation filters for HRTF (presence boost)
+    BiquadFilter hrtfPresenceFilterL_;
+    BiquadFilter hrtfPresenceFilterR_;
+    BiquadFilter hrtfPresenceFilterL2_;  // For crossfade
+    BiquadFilter hrtfPresenceFilterR2_;  // For crossfade
+
+    // Binaural Stereo (Virtual Speaker) HRTF convolvers - double buffered
+    // [0] and [1] are swapped via index for glitch-free transitions
+    fftconvolver::FFTConvolver hrtfLeftSpeakerConvolverL_[2];   // Left speaker -> Left ear
+    fftconvolver::FFTConvolver hrtfLeftSpeakerConvolverR_[2];   // Left speaker -> Right ear
+    fftconvolver::FFTConvolver hrtfRightSpeakerConvolverL_[2];  // Right speaker -> Left ear
+    fftconvolver::FFTConvolver hrtfRightSpeakerConvolverR_[2];  // Right speaker -> Right ear
+
+    // Binaural double-buffer state
+    int hrtfBinauralActiveIndex_ = 0;      // Currently active buffer (0 or 1)
+    int hrtfBinauralPendingIndex_ = 1;     // Buffer being prepared
+    bool hrtfBinauralInitialized_[2] = {false, false};
+    int hrtfBinauralLeftAzimuth_[2] = {0, 0};
+    int hrtfBinauralRightAzimuth_[2] = {0, 0};
+
+    // Binaural crossfade state
+    bool hrtfBinauralCrossfading_ = false;
+    float hrtfBinauralCrossfadeProgress_ = 0.0f;
+
+    std::atomic<bool> stereoWidenerEnabled_;
+    std::atomic<float> stereoWidenerWidth_;  // 0.0-2.0, 1.0 = original
+    float stereoWidenerWidthSmoothed_ = 1.0f;  // Smoothed width for click-free parameter changes
+
+    // DJ Filter - Butterworth lowpass/highpass
+    std::atomic<bool> djFilterEnabled_;
+    std::atomic<float> djFilterPosition_;   // -1.0 = full lowpass, 0.0 = bypass, 1.0 = full highpass
+    std::atomic<float> djFilterResonance_;  // Resonance/Q factor
+    bool djFilterNeedsReset_ = false;
+    float djFilterLastCutoff_ = 0.0f;
+    int djFilterLastMode_ = 0;  // -1 = lowpass, 0 = bypass, 1 = highpass
+
+    // iir1 Butterworth filters for DJ filter (4th order for steeper slope)
+    Iir::Butterworth::LowPass<4> djLowpassL_;
+    Iir::Butterworth::LowPass<4> djLowpassR_;
+    Iir::Butterworth::HighPass<4> djHighpassL_;
+    Iir::Butterworth::HighPass<4> djHighpassR_;
 
     std::atomic<float> chorusMix_;
     std::atomic<float> chorusDepthMs_;
@@ -744,10 +927,6 @@ private:
     std::atomic<float> reverbWet_;
     std::atomic<float> reverbRoomMs_;
     std::atomic<float> reverbDecaySec_;
-
-    std::atomic<float> crunchDriveDb_;
-    std::atomic<float> crunchFuzz_;
-    std::atomic<float> crunchToneHz_;
 
     std::atomic<float> eqBand1Freq_;
     std::atomic<float> eqBand1Gain_;
@@ -769,27 +948,6 @@ private:
     std::atomic<float> compReleaseMs_;
     std::atomic<float> compMakeupGainDb_;
     float compEnvelope_ = 0.0f;
-
-    std::atomic<float> phaserLfoFreq_;
-    std::atomic<float> phaserLfoDepth_;
-    std::atomic<float> phaserFeedback_;
-    std::atomic<int> phaserPoles_;
-
-    std::atomic<float> flangerLfoFreq_;
-    std::atomic<float> flangerLfoDepth_;
-    std::atomic<float> flangerFeedback_;
-    std::atomic<float> flangerDelayMs_;
-
-    std::atomic<float> tremoloFreq_;
-    std::atomic<float> tremoloDepth_;
-    std::atomic<int> tremoloWaveform_;
-
-    std::atomic<float> autowahWah_;
-    std::atomic<float> autowahMix_;
-    std::atomic<float> autowahLevel_;
-
-    std::atomic<float> decimatorBitcrush_;
-    std::atomic<float> decimatorDownsample_;
 };
 
 extern "C" {
@@ -981,32 +1139,6 @@ Java_com_example_media_audio_SignalsmithAudioProcessor_nativeSetReverbParams(
 }
 
 JNIEXPORT void JNICALL
-Java_com_example_media_audio_SignalsmithAudioProcessor_nativeSetCrunchEnabled(
-        JNIEnv*,
-        jobject,
-        jlong handle,
-        jboolean enabled) {
-
-    if (handle == 0) return;
-    auto* processor = reinterpret_cast<SignalsmithProcessor*>(handle);
-    processor->setCrunchEnabled(enabled);
-}
-
-JNIEXPORT void JNICALL
-Java_com_example_media_audio_SignalsmithAudioProcessor_nativeSetCrunchParams(
-        JNIEnv*,
-        jobject,
-        jlong handle,
-        jfloat driveDb,
-        jfloat fuzz,
-        jfloat toneHz) {
-
-    if (handle == 0) return;
-    auto* processor = reinterpret_cast<SignalsmithProcessor*>(handle);
-    processor->setCrunchParams(driveDb, fuzz, toneHz);
-}
-
-JNIEXPORT void JNICALL
 Java_com_example_media_audio_SignalsmithAudioProcessor_nativeSetEqEnabled(
         JNIEnv*,
         jobject,
@@ -1109,7 +1241,7 @@ Java_com_example_media_audio_SignalsmithAudioProcessor_nativeSetHrtfParams(
 }
 
 JNIEXPORT void JNICALL
-Java_com_example_media_audio_SignalsmithAudioProcessor_nativeSetPhaserEnabled(
+Java_com_example_media_audio_SignalsmithAudioProcessor_nativeSetStereoWidenerEnabled(
         JNIEnv*,
         jobject,
         jlong handle,
@@ -1117,53 +1249,23 @@ Java_com_example_media_audio_SignalsmithAudioProcessor_nativeSetPhaserEnabled(
 
     if (handle == 0) return;
     auto* processor = reinterpret_cast<SignalsmithProcessor*>(handle);
-    processor->setPhaserEnabled(enabled);
+    processor->setStereoWidenerEnabled(enabled);
 }
 
 JNIEXPORT void JNICALL
-Java_com_example_media_audio_SignalsmithAudioProcessor_nativeSetPhaserParams(
+Java_com_example_media_audio_SignalsmithAudioProcessor_nativeSetStereoWidenerParams(
         JNIEnv*,
         jobject,
         jlong handle,
-        jfloat lfoFreq,
-        jfloat lfoDepth,
-        jfloat feedback,
-        jint poles) {
+        jfloat width) {
 
     if (handle == 0) return;
     auto* processor = reinterpret_cast<SignalsmithProcessor*>(handle);
-    processor->setPhaserParams(lfoFreq, lfoDepth, feedback, poles);
+    processor->setStereoWidenerParams(width);
 }
 
 JNIEXPORT void JNICALL
-Java_com_example_media_audio_SignalsmithAudioProcessor_nativeSetFlangerEnabled(
-        JNIEnv*,
-        jobject,
-        jlong handle,
-        jboolean enabled) {
-
-    if (handle == 0) return;
-    auto* processor = reinterpret_cast<SignalsmithProcessor*>(handle);
-    processor->setFlangerEnabled(enabled);
-}
-
-JNIEXPORT void JNICALL
-Java_com_example_media_audio_SignalsmithAudioProcessor_nativeSetFlangerParams(
-        JNIEnv*,
-        jobject,
-        jlong handle,
-        jfloat lfoFreq,
-        jfloat lfoDepth,
-        jfloat feedback,
-        jfloat delayMs) {
-
-    if (handle == 0) return;
-    auto* processor = reinterpret_cast<SignalsmithProcessor*>(handle);
-    processor->setFlangerParams(lfoFreq, lfoDepth, feedback, delayMs);
-}
-
-JNIEXPORT void JNICALL
-Java_com_example_media_audio_SignalsmithAudioProcessor_nativeSetTremoloEnabled(
+Java_com_example_media_audio_SignalsmithAudioProcessor_nativeSetDjFilterEnabled(
         JNIEnv*,
         jobject,
         jlong handle,
@@ -1171,72 +1273,20 @@ Java_com_example_media_audio_SignalsmithAudioProcessor_nativeSetTremoloEnabled(
 
     if (handle == 0) return;
     auto* processor = reinterpret_cast<SignalsmithProcessor*>(handle);
-    processor->setTremoloEnabled(enabled);
+    processor->setDjFilterEnabled(enabled);
 }
 
 JNIEXPORT void JNICALL
-Java_com_example_media_audio_SignalsmithAudioProcessor_nativeSetTremoloParams(
+Java_com_example_media_audio_SignalsmithAudioProcessor_nativeSetDjFilterParams(
         JNIEnv*,
         jobject,
         jlong handle,
-        jfloat freq,
-        jfloat depth,
-        jint waveform) {
+        jfloat position,
+        jfloat resonance) {
 
     if (handle == 0) return;
     auto* processor = reinterpret_cast<SignalsmithProcessor*>(handle);
-    processor->setTremoloParams(freq, depth, waveform);
-}
-
-JNIEXPORT void JNICALL
-Java_com_example_media_audio_SignalsmithAudioProcessor_nativeSetAutowahEnabled(
-        JNIEnv*,
-        jobject,
-        jlong handle,
-        jboolean enabled) {
-
-    if (handle == 0) return;
-    auto* processor = reinterpret_cast<SignalsmithProcessor*>(handle);
-    processor->setAutowahEnabled(enabled);
-}
-
-JNIEXPORT void JNICALL
-Java_com_example_media_audio_SignalsmithAudioProcessor_nativeSetAutowahParams(
-        JNIEnv*,
-        jobject,
-        jlong handle,
-        jfloat wah,
-        jfloat mix,
-        jfloat level) {
-
-    if (handle == 0) return;
-    auto* processor = reinterpret_cast<SignalsmithProcessor*>(handle);
-    processor->setAutowahParams(wah, mix, level);
-}
-
-JNIEXPORT void JNICALL
-Java_com_example_media_audio_SignalsmithAudioProcessor_nativeSetDecimatorEnabled(
-        JNIEnv*,
-        jobject,
-        jlong handle,
-        jboolean enabled) {
-
-    if (handle == 0) return;
-    auto* processor = reinterpret_cast<SignalsmithProcessor*>(handle);
-    processor->setDecimatorEnabled(enabled);
-}
-
-JNIEXPORT void JNICALL
-Java_com_example_media_audio_SignalsmithAudioProcessor_nativeSetDecimatorParams(
-        JNIEnv*,
-        jobject,
-        jlong handle,
-        jfloat bitcrush,
-        jfloat downsample) {
-
-    if (handle == 0) return;
-    auto* processor = reinterpret_cast<SignalsmithProcessor*>(handle);
-    processor->setDecimatorParams(bitcrush, downsample);
+    processor->setDjFilterParams(position, resonance);
 }
 
 }

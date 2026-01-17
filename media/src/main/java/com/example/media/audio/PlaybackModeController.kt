@@ -10,7 +10,7 @@ class PlaybackModeController @Inject constructor(
     private val superpoweredBridge: SuperpoweredBridge
 ) {
     companion object {
-        const val DEFAULT_PITCH_SEMITONES = -2.0
+        const val DEFAULT_PITCH_SEMITONES = 0.0
         const val DEFAULT_TEMPO_SEMITONES = 0.0
     }
 
