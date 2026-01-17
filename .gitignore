@@ -136,3 +136,10 @@ superpowered-sdk/
 .claude/
 *.claude
 CLAUDE.md
+
+# Planning and report MD files (keep README*.md and library docs)
+AUDIOPROCESSOR_MIGRATION_REPORT_KO.md
+CHROME_EXTENSION_TRANSPOSE_PROMPT_KO.md
+SIGNALSMITH_INTEGRATION.md
+TODO_AUDIOPROCESSOR_MIGRATION.md
+*_PLAN.md

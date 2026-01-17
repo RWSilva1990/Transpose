@@ -28,10 +28,7 @@ const int PROCESS_BLOCK_FRAMES = 512;
 const int HRTF_SAMPLE_RATE = 44100;
 const int HRTF_ELEVATION = 0;
 const int HRTF_SUBJECT = 1;
-
-// Gain compensation for HRTF processing - disabled to prevent distortion
-// The binaural stereo approach preserves level well, no compensation needed
-const float HRTF_GAIN_COMPENSATION = 1.0f;  // No boost - cleaner sound
+const float HRTF_GAIN_COMPENSATION = 1.0f;
 }
 
 class SignalsmithProcessor {
@@ -83,10 +80,8 @@ public:
         , compMakeupGainDb_(0.0f)
         , detectedPitch_(0.0f)
         , hrtfIntensity_(1.0f)
-        , hrtfAzimuth_(0)  // 0 = Front, negative = Left, positive = Right
+        , hrtfAzimuth_(0)
 {
-        // Initialize high-frequency compensation filter for HRTF
-        // This compensates for the natural high-frequency roll-off in HRTF processing
         initPresenceBoostFilter();
 
         stretch_.presetDefault(channelCount_, sampleRate_);
@@ -105,9 +100,8 @@ public:
         hrtfTempBufferR_.resize(PROCESS_BLOCK_FRAMES);
         hrtfTempBufferL2_.resize(PROCESS_BLOCK_FRAMES);
         hrtfTempBufferR2_.resize(PROCESS_BLOCK_FRAMES);
-        hrtfMonoBuffer_.resize(PROCESS_BLOCK_FRAMES);  // For correct HRTF processing
+        hrtfMonoBuffer_.resize(PROCESS_BLOCK_FRAMES);
 
-        // Pending convolver temp buffers for crossfade
         hrtfPendingTempBufferL_.resize(PROCESS_BLOCK_FRAMES);
         hrtfPendingTempBufferR_.resize(PROCESS_BLOCK_FRAMES);
         hrtfPendingTempBufferL2_.resize(PROCESS_BLOCK_FRAMES);
@@ -128,12 +122,8 @@ public:
         LOGD("Created: sampleRate=%d, channels=%d, inputLatency=%d, outputLatency=%d",
              sampleRate_, channelCount_, stretch_.inputLatency(), stretch_.outputLatency());
 
-        // Check sample rate mismatch with HRTF
         if (sampleRate_ != HRTF_SAMPLE_RATE) {
-            LOGE("⚠️ SAMPLE RATE MISMATCH! Audio=%dHz, HRTF=%dHz - This may cause crackling!",
-                 sampleRate_, HRTF_SAMPLE_RATE);
-        } else {
-            LOGD("✓ Sample rate OK: %dHz", sampleRate_);
+            LOGE("Sample rate mismatch: Audio=%dHz, HRTF=%dHz", sampleRate_, HRTF_SAMPLE_RATE);
         }
     }
 
@@ -285,11 +275,7 @@ public:
 private:
     using BiquadFilter = signalsmith::filters::BiquadStatic<float>;
 
-    // Presence boost filters disabled - they were causing harsh/tearing sound
-    // The binaural stereo approach with virtual speakers preserves natural frequency response
     void initPresenceBoostFilter() {
-        // No-op - presence boost disabled for cleaner, more natural sound
-        // The MIT HRTF already has good high-frequency response
     }
 
     bool shouldBypass() const {
@@ -440,71 +426,44 @@ private:
             const float rawIntensity = hrtfIntensity_.load(std::memory_order_relaxed);
             const float intensity = std::max(0.0f, std::min(1.0f, rawIntensity));
 
-            // =========================================================================
-            // 3D STEREO POSITIONING - Move entire stereo image in 3D space
-            // =========================================================================
-            // azimuth controls where the stereo image appears:
-            // - azimuth = 0: front (normal stereo)
-            // - azimuth = -90: left side
-            // - azimuth = +90: right side
-            // - azimuth = ±180: behind
-            //
-            // We keep L and R channels separate, but move their virtual speaker
-            // positions based on the azimuth. This preserves stereo width while
-            // moving the entire sound field in 3D space.
-            // =========================================================================
-
-            // Calculate virtual speaker positions offset by azimuth
-            // Base stereo spread is ±30 degrees, then offset by azimuth
             const int stereoSpread = 30;
             int leftSpeakerAzimuth = azimuth - stereoSpread;
             int rightSpeakerAzimuth = azimuth + stereoSpread;
 
-            // Wrap to -180 to 180 range
             if (leftSpeakerAzimuth < -180) leftSpeakerAzimuth += 360;
             if (leftSpeakerAzimuth > 180) leftSpeakerAzimuth -= 360;
             if (rightSpeakerAzimuth < -180) rightSpeakerAzimuth += 360;
             if (rightSpeakerAzimuth > 180) rightSpeakerAzimuth -= 360;
 
-            // Initialize or update HRTF filters for both speaker positions
             maybeInitBinauralHrtf(leftSpeakerAzimuth, rightSpeakerAzimuth);
 
             const int active = hrtfBinauralActiveIndex_;
             const int pending = hrtfBinauralPendingIndex_;
 
             if (hrtfBinauralInitialized_[active]) {
-                // Process LEFT channel through LEFT virtual speaker HRTF (active buffer)
                 hrtfLeftSpeakerConvolverL_[active].process(effectsBufferLeft_.data(), hrtfTempBufferL_.data(), frames);
                 hrtfLeftSpeakerConvolverR_[active].process(effectsBufferLeft_.data(), hrtfTempBufferR_.data(), frames);
 
-                // Process RIGHT channel through RIGHT virtual speaker HRTF (active buffer)
                 hrtfRightSpeakerConvolverL_[active].process(effectsBufferRight_.data(), hrtfTempBufferL2_.data(), frames);
                 hrtfRightSpeakerConvolverR_[active].process(effectsBufferRight_.data(), hrtfTempBufferR2_.data(), frames);
 
-                // If crossfading, also process through pending buffer
                 if (hrtfBinauralCrossfading_ && hrtfBinauralInitialized_[pending]) {
-                    // Process through pending buffer
                     hrtfLeftSpeakerConvolverL_[pending].process(effectsBufferLeft_.data(), hrtfPendingTempBufferL_.data(), frames);
                     hrtfLeftSpeakerConvolverR_[pending].process(effectsBufferLeft_.data(), hrtfPendingTempBufferR_.data(), frames);
                     hrtfRightSpeakerConvolverL_[pending].process(effectsBufferRight_.data(), hrtfPendingTempBufferL2_.data(), frames);
                     hrtfRightSpeakerConvolverR_[pending].process(effectsBufferRight_.data(), hrtfPendingTempBufferR2_.data(), frames);
 
-                    // Blend between active and pending outputs
                     const float crossfadeStep = 1.0f / static_cast<float>(frames);
                     for (int i = 0; i < frames; i++) {
-                        // Smooth per-sample crossfade
                         float fadeProgress = hrtfBinauralCrossfadeProgress_ + crossfadeStep * static_cast<float>(i);
                         fadeProgress = std::min(1.0f, fadeProgress);
 
-                        // Active buffer output
                         float activeL = hrtfTempBufferL_[i] + hrtfTempBufferL2_[i];
                         float activeR = hrtfTempBufferR_[i] + hrtfTempBufferR2_[i];
 
-                        // Pending buffer output
                         float pendingL = hrtfPendingTempBufferL_[i] + hrtfPendingTempBufferL2_[i];
                         float pendingR = hrtfPendingTempBufferR_[i] + hrtfPendingTempBufferR2_[i];
 
-                        // Crossfade blend
                         float binauralL = activeL * (1.0f - fadeProgress) + pendingL * fadeProgress;
                         float binauralR = activeR * (1.0f - fadeProgress) + pendingR * fadeProgress;
 
@@ -512,12 +471,9 @@ private:
                         effectsBufferRight_[i] = effectsBufferRight_[i] * (1.0f - intensity) + binauralR * intensity;
                     }
 
-                    // Update crossfade progress for next block
-                    hrtfBinauralCrossfadeProgress_ += 1.0f;  // One block = full transition
+                    hrtfBinauralCrossfadeProgress_ += 1.0f;
 
-                    // Check if crossfade is complete - just swap indices!
                     if (hrtfBinauralCrossfadeProgress_ >= 1.0f) {
-                        // Swap indices (no data copy, just pointer swap)
                         hrtfBinauralActiveIndex_ = pending;
                         hrtfBinauralPendingIndex_ = active;
 
@@ -525,7 +481,6 @@ private:
                         hrtfBinauralCrossfadeProgress_ = 0.0f;
                     }
                 } else {
-                    // No crossfade, just use active buffer
                     for (int i = 0; i < frames; i++) {
                         float binauralL = hrtfTempBufferL_[i] + hrtfTempBufferL2_[i];
                         float binauralR = hrtfTempBufferR_[i] + hrtfTempBufferR2_[i];
@@ -537,31 +492,24 @@ private:
             }
         }
 
-        // Stereo Widener - Mid-Side processing with parameter smoothing
-        // Width < 1.0 = narrower (more mono), Width = 1.0 = original, Width > 1.0 = wider
         if (stereoWidenerEnabled_.load(std::memory_order_relaxed)) {
             const float targetWidth = stereoWidenerWidth_.load(std::memory_order_relaxed);
-            const float smoothingCoef = 0.001f;  // Smooth parameter changes to prevent clicks
+            const float smoothingCoef = 0.001f;
 
             for (int i = 0; i < frames; i++) {
-                // Smooth the width parameter to prevent crackling
                 stereoWidenerWidthSmoothed_ += (targetWidth - stereoWidenerWidthSmoothed_) * smoothingCoef;
 
                 const float left = effectsBufferLeft_[i];
                 const float right = effectsBufferRight_[i];
 
-                // Convert to Mid-Side
                 const float mid = (left + right) * 0.5f;
                 const float side = (left - right) * 0.5f;
 
-                // Apply width (scale side signal)
                 const float wideSide = side * stereoWidenerWidthSmoothed_;
 
-                // Convert back to Left-Right with soft limiting to prevent clipping
                 float outL = mid + wideSide;
                 float outR = mid - wideSide;
 
-                // Soft clip to prevent harsh distortion
                 outL = std::tanh(outL);
                 outR = std::tanh(outR);
 
@@ -571,7 +519,6 @@ private:
         }
     }
 
-    // Initialize HRTF filter in the inactive buffer (non-blocking for audio thread)
     void prepareHrtfFilter(int azimuth, int bufferIndex) {
         const unsigned int taps = mit_hrtf_availability(azimuth, HRTF_ELEVATION, HRTF_SAMPLE_RATE, HRTF_SUBJECT);
         if (taps == 0) {
@@ -599,22 +546,17 @@ private:
         hrtfInitialized_[bufferIndex] = true;
     }
 
-    // Check if we need to prepare a new HRTF filter and start crossfade
     void maybeInitHrtf(int azimuth) {
-        // If first time initialization
         if (!hrtfInitialized_[hrtfActiveBuffer_]) {
             prepareHrtfFilter(azimuth, hrtfActiveBuffer_);
             return;
         }
 
-        // If azimuth changed and we're not already crossfading
         if (hrtfCurrentAzimuth_[hrtfActiveBuffer_] != azimuth && !hrtfCrossfading_) {
-            // Prepare new filter in the inactive buffer
             int inactiveBuffer = 1 - hrtfActiveBuffer_;
             prepareHrtfFilter(azimuth, inactiveBuffer);
 
             if (hrtfInitialized_[inactiveBuffer]) {
-                // Start crossfade
                 hrtfPendingBuffer_ = inactiveBuffer;
                 hrtfCrossfading_ = true;
                 hrtfCrossfadeProgress_ = 0.0f;
@@ -622,26 +564,20 @@ private:
         }
     }
 
-    // =========================================================================
-    // Binaural Stereo HRTF Initialization with Double-Buffer Crossfade
-    // =========================================================================
     void maybeInitBinauralHrtf(int leftAzimuth, int rightAzimuth) {
         const int active = hrtfBinauralActiveIndex_;
 
-        // First time initialization
         if (!hrtfBinauralInitialized_[active]) {
             initBinauralHrtfToBuffer(leftAzimuth, rightAzimuth, active);
             return;
         }
 
-        // If azimuth changed and not already crossfading, prepare pending buffer
         bool needsUpdate = (hrtfBinauralLeftAzimuth_[active] != leftAzimuth) ||
                           (hrtfBinauralRightAzimuth_[active] != rightAzimuth);
 
         if (needsUpdate && !hrtfBinauralCrossfading_) {
             const int pending = hrtfBinauralPendingIndex_;
 
-            // Initialize pending buffer with new azimuth
             if (initBinauralHrtfToBuffer(leftAzimuth, rightAzimuth, pending)) {
                 hrtfBinauralCrossfading_ = true;
                 hrtfBinauralCrossfadeProgress_ = 0.0f;
@@ -649,11 +585,9 @@ private:
         }
     }
 
-    // Initialize HRTF convolvers to a specific buffer index
     bool initBinauralHrtfToBuffer(int leftAzimuth, int rightAzimuth, int bufferIndex) {
         bool success = true;
 
-        // Left speaker
         const unsigned int tapsL = mit_hrtf_availability(leftAzimuth, HRTF_ELEVATION, HRTF_SAMPLE_RATE, HRTF_SUBJECT);
         if (tapsL > 0) {
             int actualAz = leftAzimuth, actualEl = HRTF_ELEVATION;
@@ -766,58 +700,50 @@ private:
     std::atomic<float> hrtfIntensity_;
     std::atomic<int> hrtfAzimuth_;
 
-    // Double-buffered HRTF convolvers for glitch-free filter switching
     fftconvolver::FFTConvolver hrtfConvolverL_[2];
     fftconvolver::FFTConvolver hrtfConvolverR_[2];
-    int hrtfActiveBuffer_ = 0;          // Currently active convolver (0 or 1)
-    int hrtfPendingBuffer_ = -1;        // Buffer being prepared (-1 = none)
+    int hrtfActiveBuffer_ = 0;
+    int hrtfPendingBuffer_ = -1;
     bool hrtfInitialized_[2] = {false, false};
     int hrtfCurrentAzimuth_[2] = {0, 0};
 
-    // Crossfade state
-    float hrtfCrossfadeProgress_ = 1.0f;  // 0.0 = old filter, 1.0 = new filter
-    static constexpr float HRTF_CROSSFADE_RATE = 0.02f;  // ~50 blocks for full transition
+    float hrtfCrossfadeProgress_ = 1.0f;
+    static constexpr float HRTF_CROSSFADE_RATE = 0.02f;
     bool hrtfCrossfading_ = false;
 
     std::vector<float> hrtfTempBufferL_;
     std::vector<float> hrtfTempBufferR_;
-    std::vector<float> hrtfTempBufferL2_;  // For crossfade
-    std::vector<float> hrtfTempBufferR2_;  // For crossfade
-    std::vector<float> hrtfMonoBuffer_;    // Mono mix for correct HRTF processing
+    std::vector<float> hrtfTempBufferL2_;
+    std::vector<float> hrtfTempBufferR2_;
+    std::vector<float> hrtfMonoBuffer_;
 
-    // Pending convolver temp buffers (for crossfade blending)
     std::vector<float> hrtfPendingTempBufferL_;
     std::vector<float> hrtfPendingTempBufferR_;
     std::vector<float> hrtfPendingTempBufferL2_;
     std::vector<float> hrtfPendingTempBufferR2_;
 
-    // High-frequency compensation filters for HRTF (presence boost)
     BiquadFilter hrtfPresenceFilterL_;
     BiquadFilter hrtfPresenceFilterR_;
-    BiquadFilter hrtfPresenceFilterL2_;  // For crossfade
-    BiquadFilter hrtfPresenceFilterR2_;  // For crossfade
+    BiquadFilter hrtfPresenceFilterL2_;
+    BiquadFilter hrtfPresenceFilterR2_;
 
-    // Binaural Stereo (Virtual Speaker) HRTF convolvers - double buffered
-    // [0] and [1] are swapped via index for glitch-free transitions
-    fftconvolver::FFTConvolver hrtfLeftSpeakerConvolverL_[2];   // Left speaker -> Left ear
-    fftconvolver::FFTConvolver hrtfLeftSpeakerConvolverR_[2];   // Left speaker -> Right ear
-    fftconvolver::FFTConvolver hrtfRightSpeakerConvolverL_[2];  // Right speaker -> Left ear
-    fftconvolver::FFTConvolver hrtfRightSpeakerConvolverR_[2];  // Right speaker -> Right ear
+    fftconvolver::FFTConvolver hrtfLeftSpeakerConvolverL_[2];
+    fftconvolver::FFTConvolver hrtfLeftSpeakerConvolverR_[2];
+    fftconvolver::FFTConvolver hrtfRightSpeakerConvolverL_[2];
+    fftconvolver::FFTConvolver hrtfRightSpeakerConvolverR_[2];
 
-    // Binaural double-buffer state
-    int hrtfBinauralActiveIndex_ = 0;      // Currently active buffer (0 or 1)
-    int hrtfBinauralPendingIndex_ = 1;     // Buffer being prepared
+    int hrtfBinauralActiveIndex_ = 0;
+    int hrtfBinauralPendingIndex_ = 1;
     bool hrtfBinauralInitialized_[2] = {false, false};
     int hrtfBinauralLeftAzimuth_[2] = {0, 0};
     int hrtfBinauralRightAzimuth_[2] = {0, 0};
 
-    // Binaural crossfade state
     bool hrtfBinauralCrossfading_ = false;
     float hrtfBinauralCrossfadeProgress_ = 0.0f;
 
     std::atomic<bool> stereoWidenerEnabled_;
-    std::atomic<float> stereoWidenerWidth_;  // 0.0-2.0, 1.0 = original
-    float stereoWidenerWidthSmoothed_ = 1.0f;  // Smoothed width for click-free parameter changes
+    std::atomic<float> stereoWidenerWidth_;
+    float stereoWidenerWidthSmoothed_ = 1.0f;
 
     std::atomic<float> chorusMix_;
     std::atomic<float> chorusDepthMs_;

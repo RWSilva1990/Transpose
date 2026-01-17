@@ -251,6 +251,7 @@ fun MainScreen(
             }
         ) { playerBottomSheetScaffoldPadding ->
             val miniPlayerHeightPx = with(density) { GraphicsLayerConstants.PEEK_HEIGHT.roundToPx() }
+            val bottomNavHeightPx = with(density) { 56.dp.roundToPx() }
 
             when (selectedTab) {
                 MainTab.Home -> {
@@ -262,6 +263,7 @@ fun MainScreen(
                             .nestedScroll(nestedScrollConnection)
                             .dynamicBottomPadding(
                                 miniPlayerHeightPx = miniPlayerHeightPx,
+                                bottomNavHeightPx = bottomNavHeightPx,
                                 bottomSheetOffset = { bottomSheetOffset }
                             ),
                         onUpdateCheckClick = {},
@@ -279,6 +281,7 @@ fun MainScreen(
                             .nestedScroll(nestedScrollConnection)
                             .dynamicBottomPadding(
                                 miniPlayerHeightPx = miniPlayerHeightPx,
+                                bottomNavHeightPx = bottomNavHeightPx,
                                 bottomSheetOffset = { bottomSheetOffset }
                             ),
                         bottomSheetState = sheetState,
@@ -297,6 +300,7 @@ fun MainScreen(
                             .nestedScroll(nestedScrollConnection)
                             .dynamicBottomPadding(
                                 miniPlayerHeightPx = miniPlayerHeightPx,
+                                bottomNavHeightPx = bottomNavHeightPx,
                                 bottomSheetOffset = { bottomSheetOffset }
                             ),
                         bottomSheetState = sheetState,
@@ -418,20 +422,36 @@ private fun channelRouteFor(tab: MainTab, channelId: String) = when (tab) {
  * - 1.0 ~ 0.0: Expanded → PartiallyExpanded (mini player 높이만큼 하단 패딩)
  * - 0.0 ~ -1.0: PartiallyExpanded → Hidden (점진적으로 패딩 감소)
  *
- * layout modifier를 사용하여 recomposition 없이 layout 단계에서만 처리
- * (graphicsLayer의 translationY와 달리 컨텐츠를 위로 이동시키지 않음)
+ * BottomNavigation 패딩:
+ * - offset <= 0: BottomNav가 완전히 보임 → 전체 높이 패딩
+ * - offset >= 1: BottomNav가 숨겨짐 → 0 패딩
+ * - 0 < offset < 1: 선형 보간
  */
 private fun Modifier.dynamicBottomPadding(
     miniPlayerHeightPx: Int,
+    bottomNavHeightPx: Int,
     bottomSheetOffset: () -> Float
 ): Modifier = this.layout { measurable, constraints ->
     val offset = bottomSheetOffset()
 
-    val additionalPadding = when {
+    // Mini player 패딩: offset >= 0일 때 전체, offset이 -1로 갈수록 0으로 감소
+    val miniPlayerPadding = when {
         offset >= 0f -> miniPlayerHeightPx
         else -> {
             val progress = (offset + 1f).coerceIn(0f, 1f)
             (miniPlayerHeightPx * progress).toInt()
+        }
+    }
+
+    // BottomNav 패딩 계산
+    // - offset >= 0: Mini player가 BottomNav를 덮으므로 BottomNav 패딩 불필요
+    // - offset < 0: Mini player가 사라지면서 BottomNav가 노출됨
+    val additionalPadding = when {
+        offset >= 0f -> miniPlayerPadding  // Mini player가 BottomNav를 덮음
+        else -> {
+            // Mini player가 사라지면서 BottomNav가 드러남
+            // 둘 중 큰 값을 사용하여 컨텐츠가 가려지지 않도록 함
+            maxOf(miniPlayerPadding, bottomNavHeightPx)
         }
     }
 

@@ -196,7 +196,7 @@ fun ConvertAudioEditScreen(
 
         // Bottom padding for BottomNavigation
         item(key = "spacer6") {
-            Spacer(modifier = Modifier.height(500.dp))
+            Spacer(modifier = Modifier.height(10.dp))
         }
     }
 }
