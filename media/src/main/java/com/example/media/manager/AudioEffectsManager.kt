@@ -1,499 +1,93 @@
 package com.example.media.manager
 
-import android.os.Bundle
-import androidx.media3.session.MediaController
-import androidx.media3.session.SessionCommand
 import com.example.media.audio.SignalsmithAudioProcessor
-import com.example.media.MediaSessionCallback
-import com.example.media.audio_effect.data.equalizer.EqualizerPresets
-import com.example.media.audio_effect.data.equalizer.EqualizerSettings
 import com.example.media.audio_effect.data.eq.SignalsmithEqPresets
-import com.example.media.audio_effect.data.reverb.ReverbPresets
 import com.example.media.audio_effect.data.reverb.SignalsmithReverbPresets
-import com.example.util.Logger
+import dagger.Lazy
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class AudioEffectsManager @Inject constructor(
-    private val controllerProvider: MediaControllerProvider,
-    private val signalsmithAudioProcessor: SignalsmithAudioProcessor
+    private val signalsmithAudioProcessor: SignalsmithAudioProcessor,
+    private val mediaPlaybackManager: Lazy<MediaPlaybackManager>
 ) {
-
-    private val mediaController: MediaController?
-        get() = controllerProvider.mediaController.value
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     // =========================
     // Pitch / Tempo
     // =========================
 
-    private val DEFAULT_PITCH_VALUE = 100
+    private fun semitonesToUiValue(semitones: Float): Int = ((semitones * 10) + 100).toInt()
 
-    private val _pitchValue = MutableStateFlow(DEFAULT_PITCH_VALUE)
-    val pitchValue: StateFlow<Int> = _pitchValue.asStateFlow()
+    val pitchValue: StateFlow<Int> = signalsmithAudioProcessor.pitchSemitonesFlow
+        .map { semitonesToUiValue(it) }
+        .stateIn(scope, SharingStarted.Eagerly, 100)
 
-    private val _tempoValue = MutableStateFlow(100)
-    val tempoValue: StateFlow<Int> = _tempoValue.asStateFlow()
-
-    fun updatePitchValue(value: Int) {
-        _pitchValue.value = value
-    }
-
-    fun setPitch() {
-        sendSessionCommand(MediaSessionCallback.SET_PITCH, Bundle().apply {
-            putInt("value", pitchValue.value)
-        })
-    }
-
-    fun initPitchValue() {
-        sendSessionAction(MediaSessionCallback.INIT_PITCH_VALUE)
-        _pitchValue.value = DEFAULT_PITCH_VALUE
-    }
+    private fun uiValueToSemitones(uiValue: Int): Float = (uiValue - 100) / 10f
+    private fun semitonesToRate(semitones: Float): Float = Math.pow(2.0, semitones.toDouble() / 12.0).toFloat()
 
     fun pitchPlusOne() {
-        sendSessionAction(MediaSessionCallback.PITCH_PLUS)
-        _pitchValue.update { it + 10 }
-
+        signalsmithAudioProcessor.addPitchSemitone()
     }
 
     fun pitchMinusOne() {
-        sendSessionAction(MediaSessionCallback.PITCH_MINUS)
-        _pitchValue.update { it - 10 }
-
+        signalsmithAudioProcessor.subtractPitchSemitone()
     }
 
-    fun setTempo() {
-        sendSessionCommand(MediaSessionCallback.SET_TEMPO, Bundle().apply {
-            putInt("value", tempoValue.value)
-        })
+    fun initPitchValue() {
+        signalsmithAudioProcessor.resetPitch()
     }
 
-    fun updateTempoValue(value: Int) {
-        _tempoValue.value = value
+    fun updatePitchValue(uiValue: Int) {
+        signalsmithAudioProcessor.setPitchSemitones(uiValueToSemitones(uiValue))
     }
 
-    fun initTempoValue() {
-        sendSessionAction(MediaSessionCallback.INIT_TEMPO_VALUE)
-        _tempoValue.update { 100 }
+    fun setPitch() {
+    }
+
+    private val _tempoSemitones = MutableStateFlow(0f)
+
+    val tempoValue: StateFlow<Int> = _tempoSemitones
+        .map { semitonesToUiValue(it) }
+        .stateIn(scope, SharingStarted.Eagerly, 100)
+
+    private fun applyTempoToPlayer() {
+        val tempoRate = semitonesToRate(_tempoSemitones.value)
+        mediaPlaybackManager.get().setPlaybackSpeed(tempoRate)
     }
 
     fun tempoPlusOne() {
-        sendSessionAction(MediaSessionCallback.TEMPO_PLUS)
-        _tempoValue.update { it + 10 }
+        _tempoSemitones.value = (_tempoSemitones.value + 1f).coerceIn(-24f, 24f)
+        applyTempoToPlayer()
     }
 
     fun tempoMinusOne() {
-        sendSessionAction(MediaSessionCallback.TEMPO_MINUS)
-        _tempoValue.update { it - 10 }
+        _tempoSemitones.value = (_tempoSemitones.value - 1f).coerceIn(-24f, 24f)
+        applyTempoToPlayer()
     }
 
-
-    // =========================
-    // Equalizer
-    // =========================
-
-    private val _isEqualizerEnabled = MutableStateFlow(false)
-    val isEqualizerEnabled: StateFlow<Boolean> = _isEqualizerEnabled.asStateFlow()
-
-    private val _equalizerCurrentPreset = MutableStateFlow(EqualizerPresets.PRESET_DEFAULT)
-    val equalizerCurrentPreset: StateFlow<Int> = _equalizerCurrentPreset.asStateFlow()
-
-    private val _equalizerSettings = MutableStateFlow(EqualizerSettings())
-    val equalizerSettings: StateFlow<EqualizerSettings> = _equalizerSettings.asStateFlow()
-
-    fun updateIsEqualizerEnabled() {
-        if (_isEqualizerEnabled.value) {
-            // EQ를 끄기 전에 init (원래 로직 맞춤)
-            initEqualizerValue()
-        }
-        _isEqualizerEnabled.value = !_isEqualizerEnabled.value
+    fun initTempoValue() {
+        _tempoSemitones.value = 0f
+        applyTempoToPlayer()
     }
 
-    fun initEqualizerValue() {
-        // Preset DEFAULT로 세팅
-        updateEqualizerWithPreset(EqualizerPresets.PRESET_DEFAULT)
+    fun updateTempoValue(uiValue: Int) {
+        _tempoSemitones.value = uiValueToSemitones(uiValue).coerceIn(-24f, 24f)
+        applyTempoToPlayer()
     }
 
-    fun updateEqualizerWithPreset(presetIndex: Int) {
-        _equalizerCurrentPreset.value = presetIndex
-        val presetValues = EqualizerPresets.getPresetGainValues(presetIndex)
-        _equalizerSettings.value = EqualizerSettings(
-            bandLevels = presetValues.map { it.toFloat() },
-            presetName = EqualizerPresets.effectTypes[presetIndex]
-        )
-        setEqualizerWithPreset()
+    fun setTempo() {
     }
-
-    private fun setEqualizerWithPreset() {
-        if (!_isEqualizerEnabled.value) return
-        sendSessionCommand(
-            MediaSessionCallback.SET_EQUALIZER_PRESET,
-            Bundle().apply { putInt("value", _equalizerCurrentPreset.value) }
-        )
-    }
-
-    fun disableEqualizer() {
-        if (!_isEqualizerEnabled.value) return
-        sendSessionAction(MediaSessionCallback.DISABLE_EQUALIZER)
-        _isEqualizerEnabled.value = false
-    }
-
-    fun setEqualizerWithCustomValue(changedBand: Int) {
-        if (!_isEqualizerEnabled.value) return
-        val bandLevel = equalizerSettings.value.bandLevels[changedBand].toInt()
-        sendSessionCommand(
-            MediaSessionCallback.SET_EQUALIZER_CUSTOM,
-            Bundle().apply {
-                putInt("band", changedBand)
-                putInt("level", bandLevel)
-            }
-        )
-    }
-
-    fun updateEqualizerBandLevel(index: Int, newValue: Float) {
-        _equalizerSettings.update { current ->
-            current.withUpdatedBandLevel(index, newValue)
-        }
-        // preset을 DEFAULT로 되돌리는 로직
-        _equalizerCurrentPreset.value = EqualizerPresets.PRESET_DEFAULT
-    }
-
-
-    // =========================
-    // Reverb
-    // =========================
-
-    private val _isReverbEnabled = MutableStateFlow(false)
-    val isReverbEnabled: StateFlow<Boolean> = _isReverbEnabled.asStateFlow()
-
-    private val _reverbCurrentPreset = MutableStateFlow(ReverbPresets.PRESET_NONE)
-    val reverbCurrentPreset: StateFlow<Int> = _reverbCurrentPreset.asStateFlow()
-
-    private val _reverbValue = MutableStateFlow(0)
-    val reverbValue: StateFlow<Int> = _reverbValue.asStateFlow()
-
-    fun updateIsReverbEnabled() {
-        // 토글
-        if (_isReverbEnabled.value) {
-            // 꺼질 때 => disable
-            disableReverb()
-        } else {
-            _isReverbEnabled.value = true
-            setPresetReverb()
-        }
-    }
-
-    fun updateReverbCurrentPreset(presetIndex: Int) {
-        _reverbCurrentPreset.value = presetIndex
-        setPresetReverb()
-    }
-
-    fun initReverbValue() {
-        _reverbValue.value = 0
-        setPresetReverb()
-    }
-
-    fun updateReverbValue(value: Int) {
-        _reverbValue.value = value
-    }
-
-
-    fun setPresetReverb() {
-        if (!_isReverbEnabled.value) return
-        val action = MediaSessionCallback.SET_REVERB
-        val bundle = Bundle().apply {
-            putInt("presetIndex", _reverbCurrentPreset.value)
-            putInt("sendLevel", _reverbValue.value)
-        }
-        sendSessionCommand(action, bundle)
-    }
-
-    fun disableReverb() {
-        if (!_isReverbEnabled.value) return
-        sendSessionAction(MediaSessionCallback.DISABLE_REVERB)
-        _isReverbEnabled.value = false
-        _reverbCurrentPreset.value = ReverbPresets.PRESET_NONE
-        _reverbValue.value = 0
-    }
-
-
-    // =========================
-    // BassBoost
-    // =========================
-
-    private val _bassBoostValue = MutableStateFlow(0)
-    val bassBoostValue: StateFlow<Int> = _bassBoostValue.asStateFlow()
-
-    fun updateBassBoostValue(value: Int) {
-        _bassBoostValue.value = value
-    }
-
-    fun setBassBoost() {
-        val action = MediaSessionCallback.SET_BASS_BOOST
-        val bundle = Bundle().apply {
-            putInt("value", bassBoostValue.value)
-        }
-        sendSessionCommand(action, bundle)
-    }
-
-    fun initBassBoostValue() {
-        _bassBoostValue.value = 0
-        setBassBoost()
-    }
-
-
-    // =========================
-    // LoudnessEnhancer
-    // =========================
-
-    private val _loudnessEnhancerValue = MutableStateFlow(0)
-    val loudnessEnhancerValue: StateFlow<Int> = _loudnessEnhancerValue.asStateFlow()
-
-    fun updateLoudnessEnhancerValue(value: Int) {
-        _loudnessEnhancerValue.value = value
-    }
-
-    fun setLoudnessEnhancer() {
-        val action = MediaSessionCallback.SET_LOUDNESS_ENHANCER
-        val bundle = Bundle().apply {
-            putInt("value", loudnessEnhancerValue.value)
-        }
-        sendSessionCommand(action, bundle)
-    }
-
-    fun initLoudnessEnhancerValue() {
-        _loudnessEnhancerValue.value = 0
-        setLoudnessEnhancer()
-    }
-
-
-    // =========================
-    // Virtualizer
-    // =========================
-
-    private val _virtualizerValue = MutableStateFlow(0)
-    val virtualizerValue: StateFlow<Int> = _virtualizerValue.asStateFlow()
-
-    fun updateVirtualizerValue(value: Int) {
-        _virtualizerValue.value = value
-    }
-
-    fun setVirtualizer() {
-        val action = MediaSessionCallback.SET_VIRTUALIZER
-        val bundle = Bundle().apply {
-            putInt("value", virtualizerValue.value)
-        }
-        sendSessionCommand(action, bundle)
-    }
-
-    fun initVirtualizerValue() {
-        _virtualizerValue.value = 0
-        setVirtualizer()
-    }
-
-
-    // =========================
-    // HapticGenerator
-    // =========================
-
-    private val _isHapticGeneratorEnabled = MutableStateFlow(false)
-    val isHapticGeneratorEnabled: StateFlow<Boolean> = _isHapticGeneratorEnabled.asStateFlow()
-
-    fun updateIsHapticGeneratorEnabled() {
-        // 토글
-        if (_isHapticGeneratorEnabled.value) {
-            setHapticGenerator(false)
-        } else {
-            setHapticGenerator(true)
-        }
-        _isHapticGeneratorEnabled.value = !_isHapticGeneratorEnabled.value
-    }
-
-    private fun setHapticGenerator(isEnabled: Boolean) {
-        val action = MediaSessionCallback.SET_HAPTIC_GENERATOR
-        val bundle = Bundle().apply {
-            putBoolean("isEnabled", isEnabled)
-        }
-        sendSessionCommand(action, bundle)
-    }
-
-
-    // =========================
-    // EnvironmentalReverb
-    // =========================
-
-    private val _isEnvironmentalReverbEnabled = MutableStateFlow(false)
-    val isEnvironmentalReverbEnabled: StateFlow<Boolean> = _isEnvironmentalReverbEnabled.asStateFlow()
-
-    private val _roomLevel = MutableStateFlow(0)
-    val roomLevel: StateFlow<Int> = _roomLevel.asStateFlow()
-
-    private val _roomHFLevel = MutableStateFlow(0)
-    val roomHFLevel: StateFlow<Int> = _roomHFLevel.asStateFlow()
-
-    private val _decayTime = MutableStateFlow(0)
-    val decayTime: StateFlow<Int> = _decayTime.asStateFlow()
-
-    private val _decayHFRatio = MutableStateFlow(0)
-    val decayHFRatio: StateFlow<Int> = _decayHFRatio.asStateFlow()
-
-    private val _reflectionsLevel = MutableStateFlow(0)
-    val reflectionsLevel: StateFlow<Int> = _reflectionsLevel.asStateFlow()
-
-    private val _reflectionsDelay = MutableStateFlow(0)
-    val reflectionsDelay: StateFlow<Int> = _reflectionsDelay.asStateFlow()
-
-    private val _reverbLevel = MutableStateFlow(0)
-    val reverbLevel: StateFlow<Int> = _reverbLevel.asStateFlow()
-
-    private val _reverbDelay = MutableStateFlow(0)
-    val reverbDelay: StateFlow<Int> = _reverbDelay.asStateFlow()
-
-    private val _diffusion = MutableStateFlow(0)
-    val diffusion: StateFlow<Int> = _diffusion.asStateFlow()
-
-    private val _density = MutableStateFlow(0)
-    val density: StateFlow<Int> = _density.asStateFlow()
-
-    fun updateIsEnvironmentalReverbEnabled(isEnabled: Boolean) {
-        _isEnvironmentalReverbEnabled.value = isEnabled
-        setEnvironmentalReverb()
-    }
-
-    fun updateRoomLevel(value: Int) {
-        _roomLevel.value = value
-    }
-
-    fun updateRoomHFLevel(value: Int) {
-        _roomHFLevel.value = value
-    }
-
-    fun updateDecayTime(value: Int) {
-        _decayTime.value = value
-    }
-
-    fun updateDecayHFRatio(value: Int) {
-        _decayHFRatio.value = value
-    }
-
-    fun updateReflectionsLevel(value: Int) {
-        _reflectionsLevel.value = value
-    }
-
-    fun updateReflectionsDelay(value: Int) {
-        _reflectionsDelay.value = value
-    }
-
-    fun updateReverbLevel(value: Int) {
-        _reverbLevel.value = value
-    }
-
-    fun updateReverbDelay(value: Int) {
-        _reverbDelay.value = value
-    }
-
-    fun updateDiffusion(value: Int) {
-        _diffusion.value = value
-    }
-
-    fun updateDensity(value: Int) {
-        _density.value = value
-    }
-
-    fun initEnvironmentalReverbValues() {
-        _roomLevel.value = 0
-        _roomHFLevel.value = 0
-        _decayTime.value = 0
-        _decayHFRatio.value = 0
-        _reflectionsLevel.value = 0
-        _reflectionsDelay.value = 0
-        _reverbLevel.value = 0
-        _reverbDelay.value = 0
-        _diffusion.value = 0
-        _density.value = 0
-        setEnvironmentalReverb()
-    }
-
-    fun initRoomLevel() {
-        _roomLevel.value = 0
-        setEnvironmentalReverb()
-    }
-
-    fun initRoomHFLevel() {
-        _roomHFLevel.value = 0
-        setEnvironmentalReverb()
-    }
-
-    fun initDecayTime() {
-        _decayTime.value = 0
-        setEnvironmentalReverb()
-    }
-
-    fun initDecayHFRatio() {
-        _decayHFRatio.value = 0
-        setEnvironmentalReverb()
-    }
-
-    fun initReflectionsLevel() {
-        _reflectionsLevel.value = 0
-        setEnvironmentalReverb()
-    }
-
-    fun initReflectionsDelay() {
-        _reflectionsDelay.value = 0
-        setEnvironmentalReverb()
-    }
-
-    fun initReverbLevel() {
-        _reverbLevel.value = 0
-        setEnvironmentalReverb()
-    }
-
-    fun initReverbDelay() {
-        _reverbDelay.value = 0
-        setEnvironmentalReverb()
-    }
-
-    fun initDiffusion() {
-        _diffusion.value = 0
-        setEnvironmentalReverb()
-    }
-
-    fun initDensity() {
-        _density.value = 0
-        setEnvironmentalReverb()
-    }
-
-    fun setEnvironmentalReverb() {
-        val action = MediaSessionCallback.SET_ENVIRONMENT_REVERB
-        val bundle = Bundle().apply {
-            putBoolean("isEnabled", _isEnvironmentalReverbEnabled.value)
-            putInt("roomLevel", _roomLevel.value)
-            putInt("roomHFLevel", _roomHFLevel.value)
-            putInt("decayTime", _decayTime.value)
-            putInt("decayHFRatio", _decayHFRatio.value)
-            putInt("reflectionsLevel", _reflectionsLevel.value)
-            putInt("reflectionsDelay", _reflectionsDelay.value)
-            putInt("reverbLevel", _reverbLevel.value)
-            putInt("reverbDelay", _reverbDelay.value)
-            putInt("diffusion", _diffusion.value)
-            putInt("density", _density.value)
-        }
-        sendSessionCommand(action, bundle)
-    }
-
-    fun disableEnvironmentalReverb() {
-        _isEnvironmentalReverbEnabled.value = false
-        setEnvironmentalReverb()
-    }
-
 
     // =========================
     // Signalsmith Chorus
@@ -593,16 +187,16 @@ class AudioEffectsManager @Inject constructor(
     private val _signalsmithReverbPreset = MutableStateFlow(SignalsmithReverbPresets.PRESET_DEFAULT)
     val signalsmithReverbPreset: StateFlow<Int> = _signalsmithReverbPreset.asStateFlow()
 
-    private val _signalsmithReverbDry = MutableStateFlow(0.95f)  // Default preset values
+    private val _signalsmithReverbDry = MutableStateFlow(0.95f)
     val signalsmithReverbDry: StateFlow<Float> = _signalsmithReverbDry.asStateFlow()
 
-    private val _signalsmithReverbWet = MutableStateFlow(0.2f)  // Default preset values
+    private val _signalsmithReverbWet = MutableStateFlow(0.2f)
     val signalsmithReverbWet: StateFlow<Float> = _signalsmithReverbWet.asStateFlow()
 
-    private val _signalsmithReverbRoomMs = MutableStateFlow(25f)  // Default preset values
+    private val _signalsmithReverbRoomMs = MutableStateFlow(25f)
     val signalsmithReverbRoomMs: StateFlow<Float> = _signalsmithReverbRoomMs.asStateFlow()
 
-    private val _signalsmithReverbDecaySec = MutableStateFlow(0.5f)  // Default preset values
+    private val _signalsmithReverbDecaySec = MutableStateFlow(0.5f)
     val signalsmithReverbDecaySec: StateFlow<Float> = _signalsmithReverbDecaySec.asStateFlow()
 
     fun updateIsSignalsmithReverbEnabled() {
@@ -622,19 +216,19 @@ class AudioEffectsManager @Inject constructor(
 
     fun updateSignalsmithReverbDry(value: Float) {
         _signalsmithReverbDry.value = value
-        _signalsmithReverbPreset.value = -1  // Custom
+        _signalsmithReverbPreset.value = -1
     }
     fun updateSignalsmithReverbWet(value: Float) {
         _signalsmithReverbWet.value = value
-        _signalsmithReverbPreset.value = -1  // Custom
+        _signalsmithReverbPreset.value = -1
     }
     fun updateSignalsmithReverbRoomMs(value: Float) {
         _signalsmithReverbRoomMs.value = value
-        _signalsmithReverbPreset.value = -1  // Custom
+        _signalsmithReverbPreset.value = -1
     }
     fun updateSignalsmithReverbDecaySec(value: Float) {
         _signalsmithReverbDecaySec.value = value
-        _signalsmithReverbPreset.value = -1  // Custom
+        _signalsmithReverbPreset.value = -1
     }
 
     fun setSignalsmithReverbParams() {
@@ -655,10 +249,13 @@ class AudioEffectsManager @Inject constructor(
     }
 
 
+    // =========================
+    // Signalsmith EQ
+    // =========================
+
     private val _isEqEnabled = MutableStateFlow(false)
     val isEqEnabled: StateFlow<Boolean> = _isEqEnabled.asStateFlow()
 
-    // -1 means custom (user adjusted bands manually), 0+ means preset index
     private val _eqPreset = MutableStateFlow(SignalsmithEqPresets.PRESET_FLAT)
     val eqPreset: StateFlow<Int> = _eqPreset.asStateFlow()
 
@@ -704,7 +301,6 @@ class AudioEffectsManager @Inject constructor(
     }
 
     fun updateEqBandGain(band: Int, gain: Float) {
-        // Mark as custom when user manually adjusts a band
         _eqPreset.value = -1
         val freq = when (band) {
             0 -> _eqBand1Freq.value
@@ -726,7 +322,6 @@ class AudioEffectsManager @Inject constructor(
         _eqBand3Gain.value = gains[2]
         _eqBand4Gain.value = gains[3]
         _eqBand5Gain.value = gains[4]
-        // Apply to processor
         val freqs = listOf(60f, 250f, 1000f, 4000f, 12000f)
         for (i in 0..4) {
             signalsmithAudioProcessor.setEqBand(i, freqs[i], gains[i])
@@ -743,6 +338,10 @@ class AudioEffectsManager @Inject constructor(
         }
     }
 
+
+    // =========================
+    // Signalsmith Compressor
+    // =========================
 
     private val _isCompressorEnabled = MutableStateFlow(false)
     val isCompressorEnabled: StateFlow<Boolean> = _isCompressorEnabled.asStateFlow()
@@ -790,6 +389,10 @@ class AudioEffectsManager @Inject constructor(
     }
 
 
+    // =========================
+    // Signalsmith Pitch Detection
+    // =========================
+
     private val _isPitchDetectionEnabled = MutableStateFlow(false)
     val isPitchDetectionEnabled: StateFlow<Boolean> = _isPitchDetectionEnabled.asStateFlow()
 
@@ -801,13 +404,17 @@ class AudioEffectsManager @Inject constructor(
     fun getDetectedPitch(): Float = signalsmithAudioProcessor.getDetectedPitch()
 
 
+    // =========================
+    // Signalsmith HRTF
+    // =========================
+
     private val _isHrtfEnabled = MutableStateFlow(false)
     val isHrtfEnabled: StateFlow<Boolean> = _isHrtfEnabled.asStateFlow()
 
     private val _hrtfIntensity = MutableStateFlow(1.0f)
     val hrtfIntensity: StateFlow<Float> = _hrtfIntensity.asStateFlow()
 
-    private val _hrtfAzimuth = MutableStateFlow(0)  // 0 = Front, negative = Left, positive = Right
+    private val _hrtfAzimuth = MutableStateFlow(0)
     val hrtfAzimuth: StateFlow<Int> = _hrtfAzimuth.asStateFlow()
 
     fun updateIsHrtfEnabled() {
@@ -831,9 +438,10 @@ class AudioEffectsManager @Inject constructor(
 
     fun initHrtfValues() {
         _hrtfIntensity.value = 1.0f
-        _hrtfAzimuth.value = 0  // Front
+        _hrtfAzimuth.value = 0
         setHrtfParams()
     }
+
 
     // =========================
     // Stereo Widener
@@ -842,7 +450,7 @@ class AudioEffectsManager @Inject constructor(
     private val _isStereoWidenerEnabled = MutableStateFlow(false)
     val isStereoWidenerEnabled: StateFlow<Boolean> = _isStereoWidenerEnabled.asStateFlow()
 
-    private val _stereoWidenerWidth = MutableStateFlow(1.0f)  // 0.0-2.0, 1.0 = original
+    private val _stereoWidenerWidth = MutableStateFlow(1.0f)
     val stereoWidenerWidth: StateFlow<Float> = _stereoWidenerWidth.asStateFlow()
 
     fun updateIsStereoWidenerEnabled() {
@@ -861,22 +469,6 @@ class AudioEffectsManager @Inject constructor(
         setStereoWidenerParams()
     }
 
-
-    // =========================
-    // Helpers
-    // =========================
-    private fun sendSessionAction(action: String) {
-        val ctrl = mediaController ?: return
-        Logger.d("sendSessionAction $action")
-        val sessionCommand = SessionCommand(action, Bundle())
-        ctrl.sendCustomCommand(sessionCommand, Bundle())
-    }
-
-    private fun sendSessionCommand(action: String, bundle: Bundle) {
-        val ctrl = mediaController ?: return
-        val sessionCommand = SessionCommand(action, bundle)
-        ctrl.sendCustomCommand(sessionCommand, bundle)
-    }
 
     fun release() {
         // No resources to release currently

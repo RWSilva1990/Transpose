@@ -11,16 +11,8 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import com.example.media.CustomHttpDataSource
 import com.example.media.CustomMediaSourceFactory
-import com.example.media.audio.HybridAudioSink
-import com.example.media.audio.HybridRenderersFactory
-import com.example.media.audio.PlaybackModeController
-import com.example.media.audio.SuperpoweredBridge
-import com.example.media.audio.SignalsmithBridgeImpl
 import com.example.media.audio.SignalsmithAudioProcessor
 import com.example.media.audio.ProcessorRenderersFactory
-import com.example.audio.SignalsmithAudioEngine
-import com.example.media.audio_effect.AudioEffectHandlerImpl
-import dagger.Lazy
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -42,8 +34,7 @@ class MediaModule {
     @OptIn(UnstableApi::class)
     @Provides
     @Singleton
-    fun provideCustomMediaSourceFactory(@ApplicationContext context: Context): CustomMediaSourceFactory{
-
+    fun provideCustomMediaSourceFactory(@ApplicationContext context: Context): CustomMediaSourceFactory {
         val custom = CustomHttpDataSource.Factory()
             .setRangeParameterEnabled(true)
             .setRnParameterEnabled(true)
@@ -51,9 +42,7 @@ class MediaModule {
             .setAllowCrossProtocolRedirects(true)
 
         return CustomMediaSourceFactory(context, custom)
-
     }
-
 
     @OptIn(UnstableApi::class)
     @Provides
@@ -86,42 +75,6 @@ class MediaModule {
     @Provides
     @Singleton
     fun providePlayer(exoPlayer: ExoPlayer): Player = exoPlayer
-
-
-    @Provides
-    @Singleton
-    fun provideAudioEffectHandler(
-        player: Player,
-        playbackModeController: Lazy<PlaybackModeController>,
-        signalsmithProcessor: Lazy<SignalsmithAudioProcessor>
-    ): AudioEffectHandlerImpl =
-        AudioEffectHandlerImpl(player as ExoPlayer, playbackModeController, signalsmithProcessor)
-
-    @Provides
-    @Singleton
-    fun provideSuperpoweredBridge(engine: SignalsmithAudioEngine): SuperpoweredBridge {
-        return SignalsmithBridgeImpl(engine)
-    }
-
-    @OptIn(UnstableApi::class)
-    @Provides
-    @Singleton
-    fun provideHybridAudioSink(
-        @ApplicationContext context: Context,
-        superpoweredBridge: SuperpoweredBridge
-    ): HybridAudioSink {
-        return HybridAudioSink(context, superpoweredBridge)
-    }
-
-    @OptIn(UnstableApi::class)
-    @Provides
-    @Singleton
-    fun provideHybridRenderersFactory(
-        @ApplicationContext context: Context,
-        hybridAudioSink: HybridAudioSink
-    ): HybridRenderersFactory {
-        return HybridRenderersFactory(context, hybridAudioSink)
-    }
 
     @Provides
     @Singleton

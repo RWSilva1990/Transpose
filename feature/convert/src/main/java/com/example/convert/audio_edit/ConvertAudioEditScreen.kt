@@ -17,12 +17,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import com.example.convert.R
-import com.example.convert.audio_edit.components.bassboost.BassBoostSection
-import com.example.convert.audio_edit.components.equalizer.EqualizerSection
-import com.example.convert.audio_edit.components.loudness_enhancer.LoudnessEnhancerSection
 import com.example.convert.audio_edit.components.pitch.PitchSection
-import com.example.convert.audio_edit.components.reverb.ReverbSection
 import com.example.convert.audio_edit.components.signalsmith.ChorusSection
 import com.example.convert.audio_edit.components.signalsmith.CompressorSection
 import com.example.convert.audio_edit.components.signalsmith.EqSection
@@ -31,7 +26,6 @@ import com.example.convert.audio_edit.components.signalsmith.SignalsmithReverbSe
 import com.example.convert.audio_edit.components.signalsmith.SignalsmithVirtualizerSection
 import com.example.convert.audio_edit.components.signalsmith.StereoWidenerSection
 import com.example.convert.audio_edit.components.tempo.TempoSection
-import com.example.convert.audio_edit.components.virtualizer.VirtualizerSection
 import com.example.transpose.core.ui.R as CoreUiR
 import kotlinx.coroutines.launch
 
@@ -87,47 +81,6 @@ fun ConvertAudioEditScreen(
         }
 
         item(key = "spacer1") {
-            Spacer(modifier = Modifier.height(10.dp))
-        }
-
-        // Android Audio Effects
-        item(key = "equalizer") {
-            EqualizerSection(
-                title = stringResource(id = R.string.equalizer_text),
-                convertAudioEditViewModel = convertAudioEditViewModel
-            )
-        }
-
-        item(key = "spacer2") {
-            Spacer(modifier = Modifier.height(10.dp))
-        }
-
-        item(key = "reverb") {
-            ReverbSection(
-                title = stringResource(id = R.string.preset_reverb_text),
-                convertAudioEditViewModel = convertAudioEditViewModel
-            )
-        }
-
-        item(key = "bassboost") {
-            BassBoostSection(
-                convertAudioEditViewModel = convertAudioEditViewModel
-            )
-        }
-
-        item(key = "loudness") {
-            LoudnessEnhancerSection(
-                convertAudioEditViewModel = convertAudioEditViewModel
-            )
-        }
-
-        item(key = "virtualizer") {
-            VirtualizerSection(
-                convertAudioEditViewModel = convertAudioEditViewModel
-            )
-        }
-
-        item(key = "spacer3") {
             Spacer(modifier = Modifier.height(10.dp))
         }
 
