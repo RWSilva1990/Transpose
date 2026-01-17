@@ -23,14 +23,18 @@ import com.example.convert.audio_edit.components.ExpandableSectionTitle
 fun EqualizerSection(
     modifier: Modifier = Modifier,
     title: String,
-    convertAudioEditViewModel: ConvertAudioEditViewModel
+    convertAudioEditViewModel: ConvertAudioEditViewModel,
+    onExpandChanged: (Boolean) -> Unit = {}
 ) {
     val isEnabled by convertAudioEditViewModel.isEqualizerEnabled.collectAsState()
     var isExpanded by rememberSaveable { mutableStateOf(false) }
 
     Column(
         modifier = modifier
-            .clickable() { isExpanded = !isExpanded }
+            .clickable {
+                isExpanded = !isExpanded
+                onExpandChanged(isExpanded)
+            }
             .fillMaxWidth()
     ) {
         ExpandableSectionTitle(

@@ -7,12 +7,17 @@ import com.example.media.audio.SignalsmithAudioProcessor
 import com.example.media.MediaSessionCallback
 import com.example.media.audio_effect.data.equalizer.EqualizerPresets
 import com.example.media.audio_effect.data.equalizer.EqualizerSettings
+import com.example.media.audio_effect.data.eq.SignalsmithEqPresets
 import com.example.media.audio_effect.data.reverb.ReverbPresets
+import com.example.media.audio_effect.data.reverb.SignalsmithReverbPresets
 import com.example.util.Logger
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -585,16 +590,19 @@ class AudioEffectsManager @Inject constructor(
     private val _isSignalsmithReverbEnabled = MutableStateFlow(false)
     val isSignalsmithReverbEnabled: StateFlow<Boolean> = _isSignalsmithReverbEnabled.asStateFlow()
 
-    private val _signalsmithReverbDry = MutableStateFlow(1f)
+    private val _signalsmithReverbPreset = MutableStateFlow(SignalsmithReverbPresets.PRESET_DEFAULT)
+    val signalsmithReverbPreset: StateFlow<Int> = _signalsmithReverbPreset.asStateFlow()
+
+    private val _signalsmithReverbDry = MutableStateFlow(0.95f)  // Default preset values
     val signalsmithReverbDry: StateFlow<Float> = _signalsmithReverbDry.asStateFlow()
 
-    private val _signalsmithReverbWet = MutableStateFlow(0.3f)
+    private val _signalsmithReverbWet = MutableStateFlow(0.2f)  // Default preset values
     val signalsmithReverbWet: StateFlow<Float> = _signalsmithReverbWet.asStateFlow()
 
-    private val _signalsmithReverbRoomMs = MutableStateFlow(50f)
+    private val _signalsmithReverbRoomMs = MutableStateFlow(25f)  // Default preset values
     val signalsmithReverbRoomMs: StateFlow<Float> = _signalsmithReverbRoomMs.asStateFlow()
 
-    private val _signalsmithReverbDecaySec = MutableStateFlow(2f)
+    private val _signalsmithReverbDecaySec = MutableStateFlow(0.5f)  // Default preset values
     val signalsmithReverbDecaySec: StateFlow<Float> = _signalsmithReverbDecaySec.asStateFlow()
 
     fun updateIsSignalsmithReverbEnabled() {
@@ -602,10 +610,32 @@ class AudioEffectsManager @Inject constructor(
         signalsmithAudioProcessor.setReverbEnabled(_isSignalsmithReverbEnabled.value)
     }
 
-    fun updateSignalsmithReverbDry(value: Float) { _signalsmithReverbDry.value = value }
-    fun updateSignalsmithReverbWet(value: Float) { _signalsmithReverbWet.value = value }
-    fun updateSignalsmithReverbRoomMs(value: Float) { _signalsmithReverbRoomMs.value = value }
-    fun updateSignalsmithReverbDecaySec(value: Float) { _signalsmithReverbDecaySec.value = value }
+    fun updateSignalsmithReverbPreset(presetIndex: Int) {
+        _signalsmithReverbPreset.value = presetIndex
+        val preset = SignalsmithReverbPresets.getPreset(presetIndex)
+        _signalsmithReverbDry.value = preset.dry
+        _signalsmithReverbWet.value = preset.wet
+        _signalsmithReverbRoomMs.value = preset.roomMs
+        _signalsmithReverbDecaySec.value = preset.decaySec
+        setSignalsmithReverbParams()
+    }
+
+    fun updateSignalsmithReverbDry(value: Float) {
+        _signalsmithReverbDry.value = value
+        _signalsmithReverbPreset.value = -1  // Custom
+    }
+    fun updateSignalsmithReverbWet(value: Float) {
+        _signalsmithReverbWet.value = value
+        _signalsmithReverbPreset.value = -1  // Custom
+    }
+    fun updateSignalsmithReverbRoomMs(value: Float) {
+        _signalsmithReverbRoomMs.value = value
+        _signalsmithReverbPreset.value = -1  // Custom
+    }
+    fun updateSignalsmithReverbDecaySec(value: Float) {
+        _signalsmithReverbDecaySec.value = value
+        _signalsmithReverbPreset.value = -1  // Custom
+    }
 
     fun setSignalsmithReverbParams() {
         signalsmithAudioProcessor.setReverbParams(
@@ -615,53 +645,22 @@ class AudioEffectsManager @Inject constructor(
     }
 
     fun initSignalsmithReverbValues() {
-        _signalsmithReverbDry.value = 1f
-        _signalsmithReverbWet.value = 0.3f
-        _signalsmithReverbRoomMs.value = 50f
-        _signalsmithReverbDecaySec.value = 2f
+        _signalsmithReverbPreset.value = SignalsmithReverbPresets.PRESET_DEFAULT
+        val preset = SignalsmithReverbPresets.getPreset(SignalsmithReverbPresets.PRESET_DEFAULT)
+        _signalsmithReverbDry.value = preset.dry
+        _signalsmithReverbWet.value = preset.wet
+        _signalsmithReverbRoomMs.value = preset.roomMs
+        _signalsmithReverbDecaySec.value = preset.decaySec
         setSignalsmithReverbParams()
-    }
-
-
-    // =========================
-    // Signalsmith Crunch
-    // =========================
-
-    private val _isCrunchEnabled = MutableStateFlow(false)
-    val isCrunchEnabled: StateFlow<Boolean> = _isCrunchEnabled.asStateFlow()
-
-    private val _crunchDriveDb = MutableStateFlow(0f)
-    val crunchDriveDb: StateFlow<Float> = _crunchDriveDb.asStateFlow()
-
-    private val _crunchFuzz = MutableStateFlow(0f)
-    val crunchFuzz: StateFlow<Float> = _crunchFuzz.asStateFlow()
-
-    private val _crunchToneHz = MutableStateFlow(5000f)
-    val crunchToneHz: StateFlow<Float> = _crunchToneHz.asStateFlow()
-
-    fun updateIsCrunchEnabled() {
-        _isCrunchEnabled.value = !_isCrunchEnabled.value
-        signalsmithAudioProcessor.setCrunchEnabled(_isCrunchEnabled.value)
-    }
-
-    fun updateCrunchDriveDb(value: Float) { _crunchDriveDb.value = value }
-    fun updateCrunchFuzz(value: Float) { _crunchFuzz.value = value }
-    fun updateCrunchToneHz(value: Float) { _crunchToneHz.value = value }
-
-    fun setCrunchParams() {
-        signalsmithAudioProcessor.setCrunchParams(_crunchDriveDb.value, _crunchFuzz.value, _crunchToneHz.value)
-    }
-
-    fun initCrunchValues() {
-        _crunchDriveDb.value = 0f
-        _crunchFuzz.value = 0f
-        _crunchToneHz.value = 5000f
-        setCrunchParams()
     }
 
 
     private val _isEqEnabled = MutableStateFlow(false)
     val isEqEnabled: StateFlow<Boolean> = _isEqEnabled.asStateFlow()
+
+    // -1 means custom (user adjusted bands manually), 0+ means preset index
+    private val _eqPreset = MutableStateFlow(SignalsmithEqPresets.PRESET_FLAT)
+    val eqPreset: StateFlow<Int> = _eqPreset.asStateFlow()
 
     private val _eqBand1Freq = MutableStateFlow(60f)
     val eqBand1Freq: StateFlow<Float> = _eqBand1Freq.asStateFlow()
@@ -705,6 +704,8 @@ class AudioEffectsManager @Inject constructor(
     }
 
     fun updateEqBandGain(band: Int, gain: Float) {
+        // Mark as custom when user manually adjusts a band
+        _eqPreset.value = -1
         val freq = when (band) {
             0 -> _eqBand1Freq.value
             1 -> _eqBand2Freq.value
@@ -716,7 +717,24 @@ class AudioEffectsManager @Inject constructor(
         updateEqBand(band, freq, gain)
     }
 
+    fun updateEqPreset(presetIndex: Int) {
+        _eqPreset.value = presetIndex
+        val preset = SignalsmithEqPresets.getPreset(presetIndex)
+        val gains = preset.gains
+        _eqBand1Gain.value = gains[0]
+        _eqBand2Gain.value = gains[1]
+        _eqBand3Gain.value = gains[2]
+        _eqBand4Gain.value = gains[3]
+        _eqBand5Gain.value = gains[4]
+        // Apply to processor
+        val freqs = listOf(60f, 250f, 1000f, 4000f, 12000f)
+        for (i in 0..4) {
+            signalsmithAudioProcessor.setEqBand(i, freqs[i], gains[i])
+        }
+    }
+
     fun initEqValues() {
+        _eqPreset.value = SignalsmithEqPresets.PRESET_FLAT
         _eqBand1Gain.value = 0f; _eqBand2Gain.value = 0f; _eqBand3Gain.value = 0f
         _eqBand4Gain.value = 0f; _eqBand5Gain.value = 0f
         for (i in 0..4) {
@@ -789,7 +807,7 @@ class AudioEffectsManager @Inject constructor(
     private val _hrtfIntensity = MutableStateFlow(1.0f)
     val hrtfIntensity: StateFlow<Float> = _hrtfIntensity.asStateFlow()
 
-    private val _hrtfAzimuth = MutableStateFlow(30)
+    private val _hrtfAzimuth = MutableStateFlow(0)  // 0 = Front, negative = Left, positive = Right
     val hrtfAzimuth: StateFlow<Int> = _hrtfAzimuth.asStateFlow()
 
     fun updateIsHrtfEnabled() {
@@ -813,182 +831,71 @@ class AudioEffectsManager @Inject constructor(
 
     fun initHrtfValues() {
         _hrtfIntensity.value = 1.0f
-        _hrtfAzimuth.value = 30
+        _hrtfAzimuth.value = 0  // Front
         setHrtfParams()
     }
 
+    // =========================
+    // Stereo Widener
+    // =========================
 
-    private val _isPhaserEnabled = MutableStateFlow(false)
-    val isPhaserEnabled: StateFlow<Boolean> = _isPhaserEnabled.asStateFlow()
+    private val _isStereoWidenerEnabled = MutableStateFlow(false)
+    val isStereoWidenerEnabled: StateFlow<Boolean> = _isStereoWidenerEnabled.asStateFlow()
 
-    private val _phaserLfoFreq = MutableStateFlow(0.5f)
-    val phaserLfoFreq: StateFlow<Float> = _phaserLfoFreq.asStateFlow()
+    private val _stereoWidenerWidth = MutableStateFlow(1.0f)  // 0.0-2.0, 1.0 = original
+    val stereoWidenerWidth: StateFlow<Float> = _stereoWidenerWidth.asStateFlow()
 
-    private val _phaserLfoDepth = MutableStateFlow(0.5f)
-    val phaserLfoDepth: StateFlow<Float> = _phaserLfoDepth.asStateFlow()
-
-    private val _phaserFeedback = MutableStateFlow(0.7f)
-    val phaserFeedback: StateFlow<Float> = _phaserFeedback.asStateFlow()
-
-    private val _phaserPoles = MutableStateFlow(4)
-    val phaserPoles: StateFlow<Int> = _phaserPoles.asStateFlow()
-
-    fun updateIsPhaserEnabled() {
-        _isPhaserEnabled.value = !_isPhaserEnabled.value
-        signalsmithAudioProcessor.setPhaserEnabled(_isPhaserEnabled.value)
+    fun updateIsStereoWidenerEnabled() {
+        _isStereoWidenerEnabled.value = !_isStereoWidenerEnabled.value
+        signalsmithAudioProcessor.setStereoWidenerEnabled(_isStereoWidenerEnabled.value)
     }
 
-    fun updatePhaserLfoFreq(value: Float) { _phaserLfoFreq.value = value }
-    fun updatePhaserLfoDepth(value: Float) { _phaserLfoDepth.value = value }
-    fun updatePhaserFeedback(value: Float) { _phaserFeedback.value = value }
-    fun updatePhaserPoles(value: Int) { _phaserPoles.value = value }
+    fun updateStereoWidenerWidth(value: Float) { _stereoWidenerWidth.value = value }
 
-    fun setPhaserParams() {
-        signalsmithAudioProcessor.setPhaserParams(
-            _phaserLfoFreq.value, _phaserLfoDepth.value, _phaserFeedback.value, _phaserPoles.value
-        )
+    fun setStereoWidenerParams() {
+        signalsmithAudioProcessor.setStereoWidenerParams(_stereoWidenerWidth.value)
     }
 
-    fun initPhaserValues() {
-        _phaserLfoFreq.value = 0.5f
-        _phaserLfoDepth.value = 0.5f
-        _phaserFeedback.value = 0.7f
-        _phaserPoles.value = 4
-        setPhaserParams()
+    fun initStereoWidenerValues() {
+        _stereoWidenerWidth.value = 1.0f
+        setStereoWidenerParams()
     }
 
 
-    private val _isFlangerEnabled = MutableStateFlow(false)
-    val isFlangerEnabled: StateFlow<Boolean> = _isFlangerEnabled.asStateFlow()
+    // =========================
+    // DJ Filter (iir1 Butterworth)
+    // =========================
 
-    private val _flangerLfoFreq = MutableStateFlow(0.2f)
-    val flangerLfoFreq: StateFlow<Float> = _flangerLfoFreq.asStateFlow()
+    private val _isDjFilterEnabled = MutableStateFlow(false)
+    val isDjFilterEnabled: StateFlow<Boolean> = _isDjFilterEnabled.asStateFlow()
 
-    private val _flangerLfoDepth = MutableStateFlow(0.5f)
-    val flangerLfoDepth: StateFlow<Float> = _flangerLfoDepth.asStateFlow()
+    private val _djFilterPosition = MutableStateFlow(0.0f)  // -1.0 = full lowpass, 0.0 = bypass, 1.0 = full highpass
+    val djFilterPosition: StateFlow<Float> = _djFilterPosition.asStateFlow()
 
-    private val _flangerFeedback = MutableStateFlow(0.5f)
-    val flangerFeedback: StateFlow<Float> = _flangerFeedback.asStateFlow()
+    private val _djFilterResonance = MutableStateFlow(0.7f)
+    val djFilterResonance: StateFlow<Float> = _djFilterResonance.asStateFlow()
 
-    private val _flangerDelayMs = MutableStateFlow(3.0f)
-    val flangerDelayMs: StateFlow<Float> = _flangerDelayMs.asStateFlow()
-
-    fun updateIsFlangerEnabled() {
-        _isFlangerEnabled.value = !_isFlangerEnabled.value
-        signalsmithAudioProcessor.setFlangerEnabled(_isFlangerEnabled.value)
+    fun updateIsDjFilterEnabled() {
+        _isDjFilterEnabled.value = !_isDjFilterEnabled.value
+        signalsmithAudioProcessor.setDjFilterEnabled(_isDjFilterEnabled.value)
     }
 
-    fun updateFlangerLfoFreq(value: Float) { _flangerLfoFreq.value = value }
-    fun updateFlangerLfoDepth(value: Float) { _flangerLfoDepth.value = value }
-    fun updateFlangerFeedback(value: Float) { _flangerFeedback.value = value }
-    fun updateFlangerDelayMs(value: Float) { _flangerDelayMs.value = value }
-
-    fun setFlangerParams() {
-        signalsmithAudioProcessor.setFlangerParams(
-            _flangerLfoFreq.value, _flangerLfoDepth.value, _flangerFeedback.value, _flangerDelayMs.value
-        )
+    fun updateDjFilterPosition(value: Float) {
+        _djFilterPosition.value = value.coerceIn(-1.0f, 1.0f)
     }
 
-    fun initFlangerValues() {
-        _flangerLfoFreq.value = 0.2f
-        _flangerLfoDepth.value = 0.5f
-        _flangerFeedback.value = 0.5f
-        _flangerDelayMs.value = 3.0f
-        setFlangerParams()
+    fun updateDjFilterResonance(value: Float) {
+        _djFilterResonance.value = value.coerceIn(0.1f, 2.0f)
     }
 
-
-    private val _isTremoloEnabled = MutableStateFlow(false)
-    val isTremoloEnabled: StateFlow<Boolean> = _isTremoloEnabled.asStateFlow()
-
-    private val _tremoloFreq = MutableStateFlow(5.0f)
-    val tremoloFreq: StateFlow<Float> = _tremoloFreq.asStateFlow()
-
-    private val _tremoloDepth = MutableStateFlow(0.5f)
-    val tremoloDepth: StateFlow<Float> = _tremoloDepth.asStateFlow()
-
-    private val _tremoloWaveform = MutableStateFlow(0)
-    val tremoloWaveform: StateFlow<Int> = _tremoloWaveform.asStateFlow()
-
-    fun updateIsTremoloEnabled() {
-        _isTremoloEnabled.value = !_isTremoloEnabled.value
-        signalsmithAudioProcessor.setTremoloEnabled(_isTremoloEnabled.value)
+    fun setDjFilterParams() {
+        signalsmithAudioProcessor.setDjFilterParams(_djFilterPosition.value, _djFilterResonance.value)
     }
 
-    fun updateTremoloFreq(value: Float) { _tremoloFreq.value = value }
-    fun updateTremoloDepth(value: Float) { _tremoloDepth.value = value }
-    fun updateTremoloWaveform(value: Int) { _tremoloWaveform.value = value }
-
-    fun setTremoloParams() {
-        signalsmithAudioProcessor.setTremoloParams(_tremoloFreq.value, _tremoloDepth.value, _tremoloWaveform.value)
-    }
-
-    fun initTremoloValues() {
-        _tremoloFreq.value = 5.0f
-        _tremoloDepth.value = 0.5f
-        _tremoloWaveform.value = 0
-        setTremoloParams()
-    }
-
-
-    private val _isAutowahEnabled = MutableStateFlow(false)
-    val isAutowahEnabled: StateFlow<Boolean> = _isAutowahEnabled.asStateFlow()
-
-    private val _autowahWah = MutableStateFlow(0.5f)
-    val autowahWah: StateFlow<Float> = _autowahWah.asStateFlow()
-
-    private val _autowahMix = MutableStateFlow(50.0f)
-    val autowahMix: StateFlow<Float> = _autowahMix.asStateFlow()
-
-    private val _autowahLevel = MutableStateFlow(0.5f)
-    val autowahLevel: StateFlow<Float> = _autowahLevel.asStateFlow()
-
-    fun updateIsAutowahEnabled() {
-        _isAutowahEnabled.value = !_isAutowahEnabled.value
-        signalsmithAudioProcessor.setAutowahEnabled(_isAutowahEnabled.value)
-    }
-
-    fun updateAutowahWah(value: Float) { _autowahWah.value = value }
-    fun updateAutowahMix(value: Float) { _autowahMix.value = value }
-    fun updateAutowahLevel(value: Float) { _autowahLevel.value = value }
-
-    fun setAutowahParams() {
-        signalsmithAudioProcessor.setAutowahParams(_autowahWah.value, _autowahMix.value, _autowahLevel.value)
-    }
-
-    fun initAutowahValues() {
-        _autowahWah.value = 0.5f
-        _autowahMix.value = 50.0f
-        _autowahLevel.value = 0.5f
-        setAutowahParams()
-    }
-
-
-    private val _isDecimatorEnabled = MutableStateFlow(false)
-    val isDecimatorEnabled: StateFlow<Boolean> = _isDecimatorEnabled.asStateFlow()
-
-    private val _decimatorBitcrush = MutableStateFlow(0.5f)
-    val decimatorBitcrush: StateFlow<Float> = _decimatorBitcrush.asStateFlow()
-
-    private val _decimatorDownsample = MutableStateFlow(0.5f)
-    val decimatorDownsample: StateFlow<Float> = _decimatorDownsample.asStateFlow()
-
-    fun updateIsDecimatorEnabled() {
-        _isDecimatorEnabled.value = !_isDecimatorEnabled.value
-        signalsmithAudioProcessor.setDecimatorEnabled(_isDecimatorEnabled.value)
-    }
-
-    fun updateDecimatorBitcrush(value: Float) { _decimatorBitcrush.value = value }
-    fun updateDecimatorDownsample(value: Float) { _decimatorDownsample.value = value }
-
-    fun setDecimatorParams() {
-        signalsmithAudioProcessor.setDecimatorParams(_decimatorBitcrush.value, _decimatorDownsample.value)
-    }
-
-    fun initDecimatorValues() {
-        _decimatorBitcrush.value = 0.5f
-        _decimatorDownsample.value = 0.5f
-        setDecimatorParams()
+    fun initDjFilterValues() {
+        _djFilterPosition.value = 0.0f
+        _djFilterResonance.value = 0.7f
+        setDjFilterParams()
     }
 
 
@@ -1008,8 +915,7 @@ class AudioEffectsManager @Inject constructor(
         ctrl.sendCustomCommand(sessionCommand, bundle)
     }
 
-    // 필요하다면 release() 등 추가
     fun release() {
-        // 예: Flow 초기화 or cleanup
+        // No resources to release currently
     }
 }

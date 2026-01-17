@@ -36,6 +36,7 @@ fun FloatSliderSection(
     ) {
         val (titleText, valueText, resetButton, slider) = createRefs()
 
+        // 제목: 왼쪽 정렬
         Text(
             text = title,
             fontSize = 14.sp,
@@ -47,17 +48,19 @@ fun FloatSliderSection(
             }
         )
 
+        // 값: 제목 오른쪽, 리셋버튼 왼쪽에 배치 (겹침 방지)
         Text(
             text = displayValueText,
             fontSize = 14.sp,
             color = AppColors.BlueBackground,
-            textAlign = TextAlign.Center,
+            textAlign = TextAlign.End,
             modifier = Modifier
                 .constrainAs(valueText) {
-                    start.linkTo(parent.start)
-                    end.linkTo(parent.end)
+                    start.linkTo(titleText.end, margin = 8.dp)
+                    end.linkTo(resetButton.start)
                     top.linkTo(parent.top)
                     bottom.linkTo(slider.top)
+                    width = androidx.constraintlayout.compose.Dimension.fillToConstraints
                 }
                 .background(Color.Transparent)
         )

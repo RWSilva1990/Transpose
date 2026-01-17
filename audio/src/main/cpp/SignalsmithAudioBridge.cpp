@@ -22,13 +22,6 @@
 #include "mit_hrtf_lib.h"
 #include "FFTConvolver.h"
 
-// DaisySP Effects
-#include "Effects/phaser.h"
-#include "Effects/flanger.h"
-#include "Effects/tremolo.h"
-#include "Effects/autowah.h"
-#include "Effects/decimator.h"
-
 #define LOG_TAG "SignalsmithNative"
 #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
@@ -190,44 +183,6 @@ static fftconvolver::FFTConvolver hrtfConvolverR;
 static bool hrtfInitialized = false;
 static int hrtfCurrentAzimuth = 0;
 static std::vector<float> hrtfTempBufferL, hrtfTempBufferR;
-
-// DaisySP Effects instances (stereo = 2 instances each)
-static daisysp::Phaser phaserL, phaserR;
-static daisysp::Flanger flangerL, flangerR;
-static daisysp::Tremolo tremoloL, tremoloR;
-static daisysp::Autowah autowahL, autowahR;
-static daisysp::Decimator decimatorL, decimatorR;
-
-// Phaser parameters
-static std::atomic<bool> phaserEnabled(false);
-static std::atomic<float> phaserLfoFreq(0.5f);
-static std::atomic<float> phaserLfoDepth(0.5f);
-static std::atomic<float> phaserFeedback(0.7f);
-static std::atomic<int> phaserPoles(4);
-
-// Flanger parameters
-static std::atomic<bool> flangerEnabled(false);
-static std::atomic<float> flangerLfoFreq(0.2f);
-static std::atomic<float> flangerLfoDepth(0.5f);
-static std::atomic<float> flangerFeedback(0.5f);
-static std::atomic<float> flangerDelayMs(3.0f);
-
-// Tremolo parameters
-static std::atomic<bool> tremoloEnabled(false);
-static std::atomic<float> tremoloFreq(5.0f);
-static std::atomic<float> tremoloDepth(0.5f);
-static std::atomic<int> tremoloWaveform(0);
-
-// Autowah parameters
-static std::atomic<bool> autowahEnabled(false);
-static std::atomic<float> autowahWah(0.5f);
-static std::atomic<float> autowahMix(50.0f);
-static std::atomic<float> autowahLevel(0.5f);
-
-// Decimator (Bitcrusher) parameters
-static std::atomic<bool> decimatorEnabled(false);
-static std::atomic<float> decimatorBitcrush(0.5f);
-static std::atomic<float> decimatorDownsample(0.5f);
 
 using BiquadFilter = signalsmith::filters::BiquadStatic<float>;
 
@@ -507,78 +462,6 @@ static int processAudio(float* outputInterleaved, int outputFrames) {
             }
         }
 
-        if (phaserEnabled.load()) {
-            phaserL.SetLfoFreq(phaserLfoFreq.load());
-            phaserR.SetLfoFreq(phaserLfoFreq.load());
-            phaserL.SetLfoDepth(phaserLfoDepth.load());
-            phaserR.SetLfoDepth(phaserLfoDepth.load());
-            phaserL.SetFeedback(phaserFeedback.load());
-            phaserR.SetFeedback(phaserFeedback.load());
-            phaserL.SetPoles(phaserPoles.load());
-            phaserR.SetPoles(phaserPoles.load());
-            
-            for (int i = 0; i < outputFrames; i++) {
-                effectsBufferLeft[i] = phaserL.Process(effectsBufferLeft[i]);
-                effectsBufferRight[i] = phaserR.Process(effectsBufferRight[i]);
-            }
-        }
-
-        if (flangerEnabled.load()) {
-            flangerL.SetLfoFreq(flangerLfoFreq.load());
-            flangerR.SetLfoFreq(flangerLfoFreq.load());
-            flangerL.SetLfoDepth(flangerLfoDepth.load());
-            flangerR.SetLfoDepth(flangerLfoDepth.load());
-            flangerL.SetFeedback(flangerFeedback.load());
-            flangerR.SetFeedback(flangerFeedback.load());
-            flangerL.SetDelayMs(flangerDelayMs.load());
-            flangerR.SetDelayMs(flangerDelayMs.load());
-            
-            for (int i = 0; i < outputFrames; i++) {
-                effectsBufferLeft[i] = flangerL.Process(effectsBufferLeft[i]);
-                effectsBufferRight[i] = flangerR.Process(effectsBufferRight[i]);
-            }
-        }
-
-        if (tremoloEnabled.load()) {
-            tremoloL.SetFreq(tremoloFreq.load());
-            tremoloR.SetFreq(tremoloFreq.load());
-            tremoloL.SetDepth(tremoloDepth.load());
-            tremoloR.SetDepth(tremoloDepth.load());
-            tremoloL.SetWaveform(tremoloWaveform.load());
-            tremoloR.SetWaveform(tremoloWaveform.load());
-            
-            for (int i = 0; i < outputFrames; i++) {
-                effectsBufferLeft[i] = tremoloL.Process(effectsBufferLeft[i]);
-                effectsBufferRight[i] = tremoloR.Process(effectsBufferRight[i]);
-            }
-        }
-
-        if (autowahEnabled.load()) {
-            autowahL.SetWah(autowahWah.load());
-            autowahR.SetWah(autowahWah.load());
-            autowahL.SetDryWet(autowahMix.load());
-            autowahR.SetDryWet(autowahMix.load());
-            autowahL.SetLevel(autowahLevel.load());
-            autowahR.SetLevel(autowahLevel.load());
-            
-            for (int i = 0; i < outputFrames; i++) {
-                effectsBufferLeft[i] = autowahL.Process(effectsBufferLeft[i]);
-                effectsBufferRight[i] = autowahR.Process(effectsBufferRight[i]);
-            }
-        }
-
-        if (decimatorEnabled.load()) {
-            decimatorL.SetBitcrushFactor(decimatorBitcrush.load());
-            decimatorR.SetBitcrushFactor(decimatorBitcrush.load());
-            decimatorL.SetDownsampleFactor(decimatorDownsample.load());
-            decimatorR.SetDownsampleFactor(decimatorDownsample.load());
-            
-            for (int i = 0; i < outputFrames; i++) {
-                effectsBufferLeft[i] = decimatorL.Process(effectsBufferLeft[i]);
-                effectsBufferRight[i] = decimatorR.Process(effectsBufferRight[i]);
-            }
-        }
-
         interleave(effectsBufferLeft.data(), effectsBufferRight.data(), outputInterleaved, outputFrames);
         totalOutputFrames.fetch_add(outputFrames);
         totalInputFramesConsumed.fetch_add(framesRead);
@@ -681,23 +564,6 @@ Java_com_example_audio_SignalsmithAudioEngine_nativeInit(
 
     effectsBufferLeft.resize(PROCESS_BLOCK_FRAMES);
     effectsBufferRight.resize(PROCESS_BLOCK_FRAMES);
-
-    phaserL.Init(sampleRate);
-    phaserR.Init(sampleRate);
-    phaserL.SetPoles(4);
-    phaserR.SetPoles(4);
-    
-    flangerL.Init(sampleRate);
-    flangerR.Init(sampleRate);
-    
-    tremoloL.Init(sampleRate);
-    tremoloR.Init(sampleRate);
-    
-    autowahL.Init(sampleRate);
-    autowahR.Init(sampleRate);
-    
-    decimatorL.Init();
-    decimatorR.Init();
 
     isPlaying.store(false);
     currentPitchSemitones.store(0.0f);
@@ -1210,128 +1076,6 @@ Java_com_example_audio_SignalsmithAudioEngine_nativeSetHrtfParams(
     LOGD("nativeSetHrtfParams: intensity=%f, azimuth=%d", intensity, azimuth);
     hrtfIntensity.store(intensity);
     hrtfAzimuth.store(azimuth);
-}
-
-JNIEXPORT void JNICALL
-Java_com_example_audio_SignalsmithAudioEngine_nativeSetPhaserEnabled(
-        JNIEnv *env,
-        jobject /* this */,
-        jboolean enabled
-) {
-    LOGD("nativeSetPhaserEnabled: %d", enabled);
-    phaserEnabled.store(enabled);
-}
-
-JNIEXPORT void JNICALL
-Java_com_example_audio_SignalsmithAudioEngine_nativeSetPhaserParams(
-        JNIEnv *env,
-        jobject /* this */,
-        jfloat lfoFreq,
-        jfloat lfoDepth,
-        jfloat feedback,
-        jint poles
-) {
-    LOGD("nativeSetPhaserParams: freq=%f, depth=%f, feedback=%f, poles=%d", lfoFreq, lfoDepth, feedback, poles);
-    phaserLfoFreq.store(lfoFreq);
-    phaserLfoDepth.store(lfoDepth);
-    phaserFeedback.store(feedback);
-    phaserPoles.store(poles);
-}
-
-JNIEXPORT void JNICALL
-Java_com_example_audio_SignalsmithAudioEngine_nativeSetFlangerEnabled(
-        JNIEnv *env,
-        jobject /* this */,
-        jboolean enabled
-) {
-    LOGD("nativeSetFlangerEnabled: %d", enabled);
-    flangerEnabled.store(enabled);
-}
-
-JNIEXPORT void JNICALL
-Java_com_example_audio_SignalsmithAudioEngine_nativeSetFlangerParams(
-        JNIEnv *env,
-        jobject /* this */,
-        jfloat lfoFreq,
-        jfloat lfoDepth,
-        jfloat feedback,
-        jfloat delayMs
-) {
-    LOGD("nativeSetFlangerParams: freq=%f, depth=%f, feedback=%f, delay=%f", lfoFreq, lfoDepth, feedback, delayMs);
-    flangerLfoFreq.store(lfoFreq);
-    flangerLfoDepth.store(lfoDepth);
-    flangerFeedback.store(feedback);
-    flangerDelayMs.store(delayMs);
-}
-
-JNIEXPORT void JNICALL
-Java_com_example_audio_SignalsmithAudioEngine_nativeSetTremoloEnabled(
-        JNIEnv *env,
-        jobject /* this */,
-        jboolean enabled
-) {
-    LOGD("nativeSetTremoloEnabled: %d", enabled);
-    tremoloEnabled.store(enabled);
-}
-
-JNIEXPORT void JNICALL
-Java_com_example_audio_SignalsmithAudioEngine_nativeSetTremoloParams(
-        JNIEnv *env,
-        jobject /* this */,
-        jfloat freq,
-        jfloat depth,
-        jint waveform
-) {
-    LOGD("nativeSetTremoloParams: freq=%f, depth=%f, waveform=%d", freq, depth, waveform);
-    tremoloFreq.store(freq);
-    tremoloDepth.store(depth);
-    tremoloWaveform.store(waveform);
-}
-
-JNIEXPORT void JNICALL
-Java_com_example_audio_SignalsmithAudioEngine_nativeSetAutowahEnabled(
-        JNIEnv *env,
-        jobject /* this */,
-        jboolean enabled
-) {
-    LOGD("nativeSetAutowahEnabled: %d", enabled);
-    autowahEnabled.store(enabled);
-}
-
-JNIEXPORT void JNICALL
-Java_com_example_audio_SignalsmithAudioEngine_nativeSetAutowahParams(
-        JNIEnv *env,
-        jobject /* this */,
-        jfloat wah,
-        jfloat mix,
-        jfloat level
-) {
-    LOGD("nativeSetAutowahParams: wah=%f, mix=%f, level=%f", wah, mix, level);
-    autowahWah.store(wah);
-    autowahMix.store(mix);
-    autowahLevel.store(level);
-}
-
-JNIEXPORT void JNICALL
-Java_com_example_audio_SignalsmithAudioEngine_nativeSetDecimatorEnabled(
-        JNIEnv *env,
-        jobject /* this */,
-        jboolean enabled
-) {
-    LOGD("nativeSetDecimatorEnabled: %d", enabled);
-    decimatorEnabled.store(enabled);
-}
-
-JNIEXPORT void JNICALL
-Java_com_example_audio_SignalsmithAudioEngine_nativeSetDecimatorParams(
-        JNIEnv *env,
-        jobject /* this */,
-        jfloat bitcrush,
-        jfloat downsample
-) {
-    LOGD("nativeSetDecimatorParams: bitcrush=%f, downsample=%f", bitcrush, downsample);
-    decimatorBitcrush.store(bitcrush);
-    decimatorDownsample.store(downsample);
 }
 
 } // extern "C"

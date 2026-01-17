@@ -10,6 +10,13 @@ plugins {
 
 android {
     namespace = "com.example.transpose"
+
+    defaultConfig {
+        ndk {
+            abiFilters += listOf("arm64-v8a", "armeabi-v7a")
+        }
+    }
+
     buildTypes {
         getByName("release") {
             signingConfig = signingConfigs.getByName("debug")
