@@ -34,5 +34,8 @@
     <string name="update_dialog_later_button">나중에</string>
     <string name="update_dialog_features_title">새로운 기능</string>
 
+    <!-- 재생 오류 -->
+    <string name="playback_error">영상을 재생할 수 없습니다</string>
+    <string name="playback_error_skip_next">재생 오류 - 다음 영상으로 넘어갑니다</string>
 
 </resources>

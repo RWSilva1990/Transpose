@@ -31,9 +31,9 @@ fun VideoDetailPanel(
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
 
-
     LazyColumn(
-        modifier = modifier, state = listState
+        modifier = modifier,
+        state = listState
     ) {
         item(key = "header_${compositionTimestamp}") {
             VideoInfoHeader(mainViewModel, onNavigateToChannelScreen, bottomSheetState)
