@@ -3,15 +3,46 @@ package com.example.media.state_holder
 import com.example.domain.model.youtube.playlist.Playlist
 import com.example.domain.model.youtube.video.Video
 import com.example.domain.model.youtube.video_detail.VideoDetail
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import javax.inject.Inject
 import javax.inject.Singleton
+
+sealed class PlaybackError(
+    val videoId: String?,
+    val videoTitle: String?,
+    val errorCode: Int,
+    val errorMessage: String?,
+    val cause: Throwable?
+) {
+    class SingleVideoError(
+        videoId: String?,
+        videoTitle: String?,
+        errorCode: Int,
+        errorMessage: String?,
+        cause: Throwable?
+    ) : PlaybackError(videoId, videoTitle, errorCode, errorMessage, cause)
+
+    class PlaylistVideoError(
+        videoId: String?,
+        videoTitle: String?,
+        errorCode: Int,
+        errorMessage: String?,
+        cause: Throwable?,
+        val skippedToNext: Boolean
+    ) : PlaybackError(videoId, videoTitle, errorCode, errorMessage, cause)
+}
 
 @Singleton
 class
 NowPlayingStateHolder @Inject constructor() {
+
+    // One-time error events (Channel for single consumption)
+    private val _playbackErrorEvent = Channel<PlaybackError>(Channel.BUFFERED)
+    val playbackErrorEvent = _playbackErrorEvent.receiveAsFlow()
 
     private val _playbackType = MutableStateFlow(PlaybackType.SINGLE)
     val playbackType: StateFlow<PlaybackType> = _playbackType.asStateFlow()
@@ -132,5 +163,9 @@ NowPlayingStateHolder @Inject constructor() {
         return if (currentIndex > 0) {
             playlist[currentIndex - 1]
         } else null
+    }
+
+    suspend fun emitPlaybackError(error: PlaybackError) {
+        _playbackErrorEvent.send(error)
     }
 }

@@ -22,6 +22,7 @@ import com.example.main.components.bottomsheet.state.VideoDetailUiState
 import com.example.media.manager.AudioEffectsManager
 import com.example.media.manager.MediaPlaybackManager
 import com.example.media.state_holder.NowPlayingStateHolder
+import com.example.media.state_holder.PlaybackError
 import com.example.util.Logger
 import com.example.util.PermissionUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -66,6 +67,10 @@ class MainViewModel @Inject constructor(
     private val _videoDetailUiState =
         MutableStateFlow<VideoDetailUiState>(VideoDetailUiState.Loading)
     val videoDetailUiState = _videoDetailUiState.asStateFlow()
+
+    // Playback error state for UI display
+    private val _playbackErrorMessage = MutableStateFlow<String?>(null)
+    val playbackErrorMessage: StateFlow<String?> = _playbackErrorMessage.asStateFlow()
 
     private fun fetchCurrentVideoDetailData(video: Video) =
         viewModelScope.launch {
@@ -240,6 +245,8 @@ class MainViewModel @Inject constructor(
                 .distinctUntilChanged { old, new -> old?.id == new?.id }
                 .collectLatest { currentVideo ->
                     currentVideo?.let {
+                        // Clear previous error when new video starts
+                        _playbackErrorMessage.value = null
                         fetchCurrentVideoDetailData(it)
                     }
                 }
@@ -251,6 +258,24 @@ class MainViewModel @Inject constructor(
                         updateMediaItemWithFullInfo(state.videoDetail)
                     }
                 }
+            }
+        }
+        // Observe playback errors
+        viewModelScope.launch {
+            nowPlayingStateHolder.playbackErrorEvent.collect { error ->
+                val errorMessage = when (error) {
+                    is PlaybackError.PlaylistVideoError -> {
+                        if (error.skippedToNext) {
+                            context.getString(R.string.playback_error_skip_next)
+                        } else {
+                            context.getString(R.string.playback_error)
+                        }
+                    }
+                    is PlaybackError.SingleVideoError -> {
+                        context.getString(R.string.playback_error)
+                    }
+                }
+                _playbackErrorMessage.value = errorMessage
             }
         }
     }
@@ -416,5 +441,7 @@ class MainViewModel @Inject constructor(
         data class Visible(val updateInfo: UpdateInfo) : UpdateDialogState
     }
 
-
+    fun clearPlaybackError() {
+        _playbackErrorMessage.value = null
+    }
 }

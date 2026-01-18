@@ -17,12 +17,15 @@ import com.example.domain.model.preferences.RepeatMode
 import com.example.domain.model.preferences.VideoQuality
 import com.example.domain.model.youtube.video.Video
 import com.example.media.state_holder.NowPlayingStateHolder
+import com.example.media.state_holder.PlaybackError
 import com.example.media.state_holder.PlaybackType
+import com.example.util.CrashReporter
 import com.example.util.Logger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.launch
@@ -33,7 +36,8 @@ import javax.inject.Singleton
 @Singleton
 class MediaPlaybackManager @Inject constructor(
     private val controllerProvider: MediaControllerProvider,
-    private val nowPlayingStateHolder: NowPlayingStateHolder
+    private val nowPlayingStateHolder: NowPlayingStateHolder,
+    private val crashReporter: CrashReporter
 ) {
 
     private val defaultDispatcher = Dispatchers.Default
@@ -73,18 +77,60 @@ class MediaPlaybackManager @Inject constructor(
 
         @OptIn(UnstableApi::class)
         override fun onPlayerError(error: PlaybackException) {
+            val currentVideo = nowPlayingStateHolder.currentVideo.value
+            val isPlaylist = nowPlayingStateHolder.playbackType.value == PlaybackType.PLAYLIST
+            val hasNext = nowPlayingStateHolder.hasNext()
+
+            // Log to console
             Logger.e("🔴 Player Error:")
+            Logger.e("  - Video: ${currentVideo?.id} - ${currentVideo?.title}")
             Logger.e("  - Error code: ${error.errorCode}")
             Logger.e("  - Message: ${error.message}")
             Logger.e("  - Cause: ${error.cause}")
+
+            // Log to crash reporter
+            crashReporter.setCustomKey("error_video_id", currentVideo?.id ?: "unknown")
+            crashReporter.setCustomKey("error_video_title", currentVideo?.title ?: "unknown")
+            crashReporter.setCustomKey("error_code", error.errorCode)
+            crashReporter.setCustomKey("playback_type", if (isPlaylist) "playlist" else "single")
+            crashReporter.log("Playback error: videoId=${currentVideo?.id}, errorCode=${error.errorCode}, message=${error.message}")
+            crashReporter.recordException(error)
 
             error.cause?.let { cause ->
                 if (cause is BehindLiveWindowException) {
                     Logger.e("  - Behind live window")
                 } else if (cause is HttpDataSource.HttpDataSourceException) {
                     Logger.e("  - HTTP error: ${cause.type}")
+                }
+            }
+
+            // Emit error event and handle based on playback type
+            scope.launch {
+                if (isPlaylist && hasNext) {
+                    // Playlist: emit error and skip to next
+                    nowPlayingStateHolder.emitPlaybackError(
+                        PlaybackError.PlaylistVideoError(
+                            videoId = currentVideo?.id,
+                            videoTitle = currentVideo?.title,
+                            errorCode = error.errorCode,
+                            errorMessage = error.message,
+                            cause = error.cause,
+                            skippedToNext = true
+                        )
+                    )
+                    delay(500) // Brief delay before skipping
+                    mediaControllerFlow.value?.seekToNextMediaItem()
                 } else {
-                    Logger.e("  - HTTP error: ${cause.cause}")
+                    // Single video or last item in playlist
+                    nowPlayingStateHolder.emitPlaybackError(
+                        PlaybackError.SingleVideoError(
+                            videoId = currentVideo?.id,
+                            videoTitle = currentVideo?.title,
+                            errorCode = error.errorCode,
+                            errorMessage = error.message,
+                            cause = error.cause
+                        )
+                    )
                 }
             }
         }
@@ -189,6 +235,7 @@ class MediaPlaybackManager @Inject constructor(
     ) {
         val ctrl = mediaControllerFlow.value ?: return
         val currentPosition = ctrl.currentPosition
+        val shouldPlayWhenReady = ctrl.playWhenReady
 
         updateMediaItemJob?.cancel()
 
@@ -204,7 +251,7 @@ class MediaPlaybackManager @Inject constructor(
 
             Logger.d("MediaPlaybackManager: Switching to AUTO source (progressive video+audio)")
             Logger.d("streamUrl: $streamUrl")
-            
+
             updateMediaItemJob = scope.launch {
                 val currentIndex = ctrl.currentMediaItemIndex
 
@@ -223,6 +270,10 @@ class MediaPlaybackManager @Inject constructor(
                         .build()
 
                     ctrl.replaceMediaItem(currentIndex, updatedMediaItem)
+                    ctrl.prepare()
+                    if (shouldPlayWhenReady) {
+                        ctrl.play()
+                    }
                 }
             }
         } else {
@@ -250,6 +301,10 @@ class MediaPlaybackManager @Inject constructor(
                         .build()
 
                     ctrl.replaceMediaItem(currentIndex, updatedMediaItem)
+                    ctrl.prepare()
+                    if (shouldPlayWhenReady) {
+                        ctrl.play()
+                    }
                 }
             }
         }
