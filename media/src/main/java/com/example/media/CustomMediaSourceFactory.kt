@@ -9,6 +9,7 @@ import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.database.StandaloneDatabaseProvider
+import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor
@@ -87,8 +88,7 @@ class CustomMediaSourceFactory(
         // 30초 무음 파일인지 확인
         val uri = mediaItem.localConfiguration?.uri?.toString()
         if (uri?.contains("30-seconds-of-silence") == true || uri?.startsWith("asset:///") == true) {
-            // 기본 MediaSource 팩토리로 처리
-            return ProgressiveMediaSource.Factory(DefaultHttpDataSource.Factory())
+            return ProgressiveMediaSource.Factory(DefaultDataSource.Factory(context))
                 .createMediaSource(mediaItem)
         }
 
