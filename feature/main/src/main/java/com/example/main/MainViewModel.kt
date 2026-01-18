@@ -149,32 +149,44 @@ class MainViewModel @Inject constructor(
             return
         }
 
+        // DASH manifest 생성 시도, 실패하면 Progressive로 fallback
+        try {
+            Logger.d("Using DASH source: video=${videoStream.itag} ${videoStream.quality}, audio=${audioStream.itag}")
 
+            val videoManifestString = YoutubeProgressiveDashManifestCreator
+                .fromProgressiveStreamingUrl(
+                    videoStream.content,
+                    videoStream.itagItem!!,
+                    videoDetail.duration
+                )
+            val audioManifestString = YoutubeProgressiveDashManifestCreator
+                .fromProgressiveStreamingUrl(
+                    audioStream.content,
+                    audioStream.itagItem!!,
+                    videoDetail.duration
+                )
 
-        Logger.d("Using DASH source: video=${videoStream.itag} ${videoStream.quality}, audio=${audioStream.itag}")
-
-        val videoManifestString = YoutubeProgressiveDashManifestCreator
-            .fromProgressiveStreamingUrl(
-                videoStream.content,
-                videoStream.itagItem!!,
-                videoDetail.duration
+            mediaPlaybackManager.updateMediaItemWithFullInfo(
+                itemId = videoDetail.id,
+                videoQuality = currentVideoQuality,
+                videoDefaultStreamUrl = videoDetail.videoStreamContent!!,
+                videoOnlyStreamUrl = videoStream.content,
+                audioOnlyStreamUrl = audioStream.content,
+                videoManifestString = videoManifestString,
+                audioManifestsString = audioManifestString,
             )
-        val audioManifestString = YoutubeProgressiveDashManifestCreator
-            .fromProgressiveStreamingUrl(
-                audioStream.content,
-                audioStream.itagItem!!,
-                videoDetail.duration
+        } catch (e: Exception) {
+            Logger.e("DASH manifest creation failed, falling back to Progressive: ${e.message}")
+            mediaPlaybackManager.updateMediaItemWithFullInfo(
+                itemId = videoDetail.id,
+                videoQuality = currentVideoQuality,
+                videoDefaultStreamUrl = videoDetail.videoStreamContent!!,
+                videoOnlyStreamUrl = null,
+                audioOnlyStreamUrl = null,
+                videoManifestString = null,
+                audioManifestsString = null,
             )
-
-        mediaPlaybackManager.updateMediaItemWithFullInfo(
-            itemId = videoDetail.id,
-            videoQuality = currentVideoQuality,
-            videoDefaultStreamUrl = videoDetail.videoStreamContent!!,
-            videoOnlyStreamUrl = videoStream.content,
-            audioOnlyStreamUrl = audioStream.content,
-            videoManifestString = videoManifestString,
-            audioManifestsString = audioManifestString,
-        )
+        }
     }
 
     @OptIn(FlowPreview::class)
