@@ -4,10 +4,11 @@ import android.app.RecoverableSecurityException
 import android.os.Build
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.domain.repository.LocalFileRepository
 import com.example.domain.model.local_file.LocalFileData
+import com.example.domain.model.playable.PlayableItem
+import com.example.domain.repository.LocalFileRepository
+import com.example.media.manager.MediaPlaybackManager
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -15,7 +16,8 @@ import javax.inject.Inject
 
 @HiltViewModel
 class LibraryMyLocalItemViewModel @Inject constructor(
-    private val localFileRepository: LocalFileRepository
+    private val localFileRepository: LocalFileRepository,
+    private val mediaPlaybackManager: MediaPlaybackManager
 ) : ViewModel() {
 
     private val _audioFiles = MutableStateFlow<List<LocalFileData>>(emptyList())
@@ -93,15 +95,12 @@ class LibraryMyLocalItemViewModel @Inject constructor(
         deleteFile(file)
     }
 
-    /**
-     * 사용자가 거부했거나, 이벤트를 클리어해야 하는 경우
-     */
     fun clearRecoverableDeleteEvent() {
         _recoverableDeleteEvent.value = null
     }
 
-//    fun onMediaItemClick(item: LocalFileData) {
-//        mediaPlaybackManager.onMediaItemClick(item)
-//    }
-
+    fun playLocalFiles(files: List<LocalFileData>, startIndex: Int) {
+        val playableItems = files.map { PlayableItem.Local(it) }
+        mediaPlaybackManager.playPlaylistItems(playableItems, startIndex)
+    }
 }

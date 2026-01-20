@@ -6,6 +6,8 @@ import com.example.data.local.database.dao.VideoDao
 import com.example.data.local.database.entity.PlaylistEntity
 import com.example.data.local.mapper.MyPlaylistMapper
 import com.example.domain.model.library.MyPlaylist
+import com.example.domain.model.local_file.LocalFileData
+import com.example.domain.model.playable.PlayableItem
 import com.example.domain.model.youtube.video.Video
 import com.example.domain.model.youtube.video_detail.VideoDetail
 import com.example.domain.repository.MyPlaylistDBRepository
@@ -53,12 +55,13 @@ class MyPlaylistDBRepositoryImpl @Inject constructor(
 
     override fun getVideosForPlaylist(playlistId: Long): Flow<List<Video>> =
         videoDao.getVideosForPlaylist(playlistId)
-            .map {
-                MyPlaylistMapper.toVideos(it)
-            }
-            .catch {
-                emit(emptyList())
-            }
+            .map { MyPlaylistMapper.toVideos(it) }
+            .catch { emit(emptyList()) }
+
+    override fun getPlayableItemsForPlaylist(playlistId: Long): Flow<List<PlayableItem>> =
+        videoDao.getVideosForPlaylist(playlistId)
+            .map { MyPlaylistMapper.toPlayableItems(it) }
+            .catch { emit(emptyList()) }
 
     override suspend fun createPlaylist(name: String) {
         playlistDao.insertPlaylist(PlaylistEntity(name = name))
@@ -68,7 +71,7 @@ class MyPlaylistDBRepositoryImpl @Inject constructor(
         try {
             playlistDao.deletePlaylist(playlistId)
         } catch (e: Exception) {
-            Logger.d("deleteVideosForPlaylist failed: ${e.message}")
+            Logger.d("deletePlaylist failed: ${e.message}")
         }
     }
 
@@ -92,6 +95,25 @@ class MyPlaylistDBRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun addLocalFileToPlaylist(localFile: LocalFileData, playlistId: Long) {
+        repositoryScope.launch {
+            try {
+                videoDao.insertVideo(MyPlaylistMapper.toVideoEntity(localFile, playlistId))
+            } catch (e: Exception) {
+                Logger.d("addLocalFileToPlaylist failed: ${e.message}")
+            }
+        }
+    }
+
+    override suspend fun addPlayableItemToPlaylist(item: PlayableItem, playlistId: Long) {
+        repositoryScope.launch {
+            try {
+                videoDao.insertVideo(MyPlaylistMapper.toVideoEntity(item, playlistId))
+            } catch (e: Exception) {
+                Logger.d("addPlayableItemToPlaylist failed: ${e.message}")
+            }
+        }
+    }
 
     override suspend fun deleteVideoFromPlaylist(playlistId: Long, video: Video) {
         repositoryScope.launch {
@@ -103,6 +125,15 @@ class MyPlaylistDBRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun deletePlayableItemFromPlaylist(playlistId: Long, itemId: String) {
+        repositoryScope.launch {
+            try {
+                playlistDao.deleteVideoFromPlaylist(playlistId, itemId)
+            } catch (e: Exception) {
+                Logger.d("deletePlayableItemFromPlaylist failed: ${e.message}")
+            }
+        }
+    }
 }
 
 

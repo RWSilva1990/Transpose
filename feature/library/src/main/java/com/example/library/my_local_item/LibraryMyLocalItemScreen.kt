@@ -79,12 +79,13 @@ fun LibraryMyLocalItemScreen(
                     items(audioFiles.size) { index ->
                         val item = audioFiles[index]
                         LocalFileData(item = item, onClick = {
-//                            mediaViewModel.onMediaItemClick(item)
-//                            mainViewModel.expandBottomSheet()
+                            libraryMyLocalItemViewModel.playLocalFiles(audioFiles, index)
+                            coroutineScope.launch {
+                                bottomSheetState.expand()
+                            }
                         }, {
                             libraryMyLocalItemViewModel.deleteFile(item)
                         })
-
                     }
                 }
             }
@@ -94,12 +95,13 @@ fun LibraryMyLocalItemScreen(
                     items(videoFiles.size) { index ->
                         val item = videoFiles[index]
                         LocalFileData(item = item, onClick = {
-//                            mediaViewModel.onMediaItemClick(item)
-//                            mainViewModel.expandBottomSheet()
+                            libraryMyLocalItemViewModel.playLocalFiles(videoFiles, index)
+                            coroutineScope.launch {
+                                bottomSheetState.expand()
+                            }
                         }, {
                             libraryMyLocalItemViewModel.deleteFile(item)
                         })
-
                     }
                 }
             }
