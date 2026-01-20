@@ -179,6 +179,7 @@ fun DefaultAppBar(
     TopAppBar(
         colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
             containerColor = AppColors.BlueBackground,
+            scrolledContainerColor = AppColors.BlueBackground,
             titleContentColor = Color.White
         ),
         title = {
