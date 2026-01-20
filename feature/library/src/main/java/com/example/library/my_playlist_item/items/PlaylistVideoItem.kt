@@ -28,22 +28,33 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.ColorPainter
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import com.example.domain.model.youtube.video.Video
+import com.example.domain.model.playable.PlayableItem
+import com.example.library.R
 import com.example.ui.components.dropdown_menu.DropDownMenu
 
 @Composable
-fun PlaylistVideoItem(
-    item: Video,
-    onClick: (Video) -> Unit,
+fun PlaylistItem(
+    item: PlayableItem,
+    onClick: (PlayableItem) -> Unit,
     dropDownMenuClick: () -> Unit
-){
-    var isExpanded by remember {
-        mutableStateOf(false)
+) {
+    var isExpanded by remember { mutableStateOf(false) }
+
+    val title = item.title
+    val subtitle = when (item) {
+        is PlayableItem.Remote -> item.video.uploaderName ?: ""
+        is PlayableItem.Local -> item.artist ?: stringResource(R.string.unknown_artist)
     }
+    val description = when (item) {
+        is PlayableItem.Remote -> item.video.description
+        is PlayableItem.Local -> item.album ?: ""
+    }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -52,7 +63,7 @@ fun PlaylistVideoItem(
             .padding(vertical = 10.dp, horizontal = 10.dp)
     ) {
         AsyncImage(
-            model = item.thumbnailUrl,
+            model = item.thumbnailUri,
             contentDescription = "Thumbnail",
             modifier = Modifier
                 .width(150.dp)
@@ -61,7 +72,6 @@ fun PlaylistVideoItem(
             contentScale = ContentScale.Crop,
             placeholder = ColorPainter(Color.LightGray),
             error = ColorPainter(Color.LightGray)
-
         )
         Column(
             modifier = Modifier
@@ -69,38 +79,40 @@ fun PlaylistVideoItem(
                 .padding(start = 20.dp)
         ) {
             Text(
-                text = item.title,
+                text = title,
                 fontSize = 13.sp,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
             Spacer(modifier = Modifier.height(10.dp))
             Text(
-                text = item.title,
+                text = subtitle,
                 fontSize = 10.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1
             )
             Spacer(modifier = Modifier.height(5.dp))
             Text(
-                text = item.description,
+                text = description,
                 fontSize = 10.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1
             )
-
         }
-        Box{
-            IconButton(onClick = {isExpanded = true}) {
+        Box {
+            IconButton(onClick = { isExpanded = true }) {
                 Icon(
                     imageVector = Icons.Default.MoreVert,
                     contentDescription = "More options"
                 )
             }
-            DropDownMenu(text = "delete",isExpanded = isExpanded, onDismissRequest = {isExpanded = false}, onClick = { dropDownMenuClick()})
+            DropDownMenu(
+                text = stringResource(R.string.delete),
+                isExpanded = isExpanded,
+                onDismissRequest = { isExpanded = false },
+                onClick = { dropDownMenuClick() }
+            )
         }
-
-
     }
     HorizontalDivider(color = Color.LightGray, thickness = 0.5.dp)
 }

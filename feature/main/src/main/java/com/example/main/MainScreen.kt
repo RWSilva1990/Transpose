@@ -6,6 +6,8 @@ import android.content.Intent
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -52,6 +54,7 @@ import com.example.main.components.bottom_navigation.BottomNavigationBar
 import com.example.main.components.bottom_navigation.MainTab
 import com.example.main.components.bottomsheet.PlayerBottomSheetScaffold
 import com.example.util.Logger
+import com.example.util.ToastUtil
 import com.example.util.constants.AppColors
 import com.google.accompanist.systemuicontroller.rememberSystemUiController
 import kotlinx.coroutines.launch
@@ -83,6 +86,13 @@ fun MainScreen(
         }
     }
 
+    // Toast event observer
+    LaunchedEffect(Unit) {
+        mainViewModel.toastEvent.collect { message ->
+            ToastUtil.showShort(context, message)
+        }
+    }
+
     val systemUiController = rememberSystemUiController()
 
     val sheetState = rememberStandardBottomSheetState(
@@ -90,7 +100,13 @@ fun MainScreen(
         skipHiddenState = false
     )
 
-    val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior(rememberTopAppBarState())
+    val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior(
+        state = rememberTopAppBarState(),
+        snapAnimationSpec = spring(
+            dampingRatio = Spring.DampingRatioNoBouncy,
+            stiffness = Spring.StiffnessMedium
+        )
+    )
 
     val homeNavController = rememberNavController()
     val libraryNavController = rememberNavController()

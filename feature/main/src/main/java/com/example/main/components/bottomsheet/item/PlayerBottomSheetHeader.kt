@@ -43,11 +43,9 @@ fun PlayerBottomSheetHeader(
     val coroutineScope = rememberCoroutineScope()
 
     val isPlaying by mainViewModel.isPlaying.collectAsState()
-    val currentVideo by mainViewModel.currentVideo.collectAsState()
-    val playbackErrorMessage by mainViewModel.playbackErrorMessage.collectAsState()
+    val currentItem by mainViewModel.currentItem.collectAsState()
 
-    // Show error message if exists, otherwise show video title
-    val displayTitle = playbackErrorMessage ?: currentVideo?.title ?: ""
+    val displayTitle = currentItem?.title ?: ""
 
     trace("PlayerBottomSheetHeader") {
         Row(
@@ -66,7 +64,7 @@ fun PlayerBottomSheetHeader(
                 text = displayTitle,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                color = if (playbackErrorMessage != null) Color.Red else Color.White,
+                color = Color.White,
                 modifier = Modifier
                     .weight(1f)
                     .padding(start = 8.dp, end = 12.dp)

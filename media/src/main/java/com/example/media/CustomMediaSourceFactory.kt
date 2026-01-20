@@ -85,8 +85,14 @@ class CustomMediaSourceFactory(
     }
 
     override fun createMediaSource(mediaItem: MediaItem): MediaSource {
-        // 30초 무음 파일인지 확인
         val uri = mediaItem.localConfiguration?.uri?.toString()
+
+        if (uri?.startsWith("content://") == true || uri?.startsWith("file://") == true) {
+            Logger.d("CustomMediaSourceFactory: Using local file source for URI: $uri")
+            return ProgressiveMediaSource.Factory(DefaultDataSource.Factory(context))
+                .createMediaSource(mediaItem)
+        }
+
         if (uri?.contains("30-seconds-of-silence") == true || uri?.startsWith("asset:///") == true) {
             return ProgressiveMediaSource.Factory(DefaultDataSource.Factory(context))
                 .createMediaSource(mediaItem)

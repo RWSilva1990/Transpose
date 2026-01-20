@@ -1,8 +1,11 @@
 package com.example.media.state_holder
 
+import com.example.domain.model.local_file.LocalFileData
+import com.example.domain.model.playable.PlayableItem
 import com.example.domain.model.youtube.playlist.Playlist
 import com.example.domain.model.youtube.video.Video
 import com.example.domain.model.youtube.video_detail.VideoDetail
+import com.example.util.Logger
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -12,35 +15,33 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 sealed class PlaybackError(
-    val videoId: String?,
-    val videoTitle: String?,
+    val itemId: String?,
+    val itemTitle: String?,
     val errorCode: Int,
     val errorMessage: String?,
     val cause: Throwable?
 ) {
-    class SingleVideoError(
-        videoId: String?,
-        videoTitle: String?,
+    class SingleItemError(
+        itemId: String?,
+        itemTitle: String?,
         errorCode: Int,
         errorMessage: String?,
         cause: Throwable?
-    ) : PlaybackError(videoId, videoTitle, errorCode, errorMessage, cause)
+    ) : PlaybackError(itemId, itemTitle, errorCode, errorMessage, cause)
 
-    class PlaylistVideoError(
-        videoId: String?,
-        videoTitle: String?,
+    class PlaylistItemError(
+        itemId: String?,
+        itemTitle: String?,
         errorCode: Int,
         errorMessage: String?,
         cause: Throwable?,
         val skippedToNext: Boolean
-    ) : PlaybackError(videoId, videoTitle, errorCode, errorMessage, cause)
+    ) : PlaybackError(itemId, itemTitle, errorCode, errorMessage, cause)
 }
 
 @Singleton
-class
-NowPlayingStateHolder @Inject constructor() {
+class NowPlayingStateHolder @Inject constructor() {
 
-    // One-time error events (Channel for single consumption)
     private val _playbackErrorEvent = Channel<PlaybackError>(Channel.BUFFERED)
     val playbackErrorEvent = _playbackErrorEvent.receiveAsFlow()
 
@@ -59,14 +60,20 @@ NowPlayingStateHolder @Inject constructor() {
     private val _currentPlaylistInfo = MutableStateFlow<Playlist?>(null)
     val currentPlaylistInfo = _currentPlaylistInfo.asStateFlow()
 
+    private val _currentItem = MutableStateFlow<PlayableItem?>(null)
+    val currentItem: StateFlow<PlayableItem?> = _currentItem.asStateFlow()
+
     private val _currentVideo = MutableStateFlow<Video?>(null)
     val currentVideo: StateFlow<Video?> = _currentVideo.asStateFlow()
+
+    private val _currentLocalFile = MutableStateFlow<LocalFileData?>(null)
+    val currentLocalFile: StateFlow<LocalFileData?> = _currentLocalFile.asStateFlow()
 
     private val _currentVideoDetail = MutableStateFlow<VideoDetail?>(null)
     val currentVideoDetail: StateFlow<VideoDetail?> = _currentVideoDetail.asStateFlow()
 
-    private val _currentPlaylistItems = MutableStateFlow<List<Video>>(emptyList())
-    val currentPlaylist: StateFlow<List<Video>> = _currentPlaylistItems.asStateFlow()
+    private val _currentPlaylistItems = MutableStateFlow<List<PlayableItem>>(emptyList())
+    val currentPlaylist: StateFlow<List<PlayableItem>> = _currentPlaylistItems.asStateFlow()
 
     private val _currentPlaylistIndex = MutableStateFlow(-1)
     val currentPlaylistIndex: StateFlow<Int> = _currentPlaylistIndex.asStateFlow()
@@ -91,11 +98,45 @@ NowPlayingStateHolder @Inject constructor() {
         _currentPlaylistInfo.value = playlist
     }
 
-    fun setCurrentVideoData(video: Video?) {
-        _currentVideo.value = video
+    fun setCurrentItem(item: PlayableItem?) {
+        Logger.d("NowPlayingStateHolder.setCurrentItem - item: ${item?.id}, isLocal: ${item?.isLocal}")
+        _currentItem.value = item
+        when (item) {
+            is PlayableItem.Remote -> {
+                Logger.d("NowPlayingStateHolder.setCurrentItem - setting currentVideo: ${item.video.id}")
+                _currentVideo.value = item.video
+                _currentLocalFile.value = null
+            }
+            is PlayableItem.Local -> {
+                Logger.d("NowPlayingStateHolder.setCurrentItem - setting currentLocalFile: ${item.localFile.id}")
+                _currentVideo.value = null
+                _currentLocalFile.value = item.localFile
+            }
+            null -> {
+                Logger.d("NowPlayingStateHolder.setCurrentItem - clearing all")
+                _currentVideo.value = null
+                _currentLocalFile.value = null
+            }
+        }
     }
 
-    fun setCurrentPlaylist(playlist: List<Video>) {
+    fun setCurrentVideoData(video: Video?) {
+        _currentVideo.value = video
+        if (video != null) {
+            _currentItem.value = PlayableItem.Remote(video)
+            _currentLocalFile.value = null
+        }
+    }
+
+    fun setCurrentLocalFileData(localFile: LocalFileData?) {
+        _currentLocalFile.value = localFile
+        if (localFile != null) {
+            _currentItem.value = PlayableItem.Local(localFile)
+            _currentVideo.value = null
+        }
+    }
+
+    fun setCurrentPlaylist(playlist: List<PlayableItem>) {
         _currentPlaylistItems.value = playlist
     }
 
@@ -108,13 +149,17 @@ NowPlayingStateHolder @Inject constructor() {
     }
 
     fun clearAll() {
+        Logger.d("NowPlayingStateHolder.clearAll - clearing all state")
         _isPlaying.value = false
         _currentVideoDetail.value = null
         _currentPosition.value = 0L
         _duration.value = 0L
+        _currentItem.value = null
         _currentVideo.value = null
+        _currentLocalFile.value = null
         _currentPlaylistItems.value = emptyList()
         _currentPlaylistIndex.value = -1
+        Logger.d("NowPlayingStateHolder.clearAll - done")
     }
 
     fun updatePlaybackState(
@@ -129,16 +174,18 @@ NowPlayingStateHolder @Inject constructor() {
         _currentPlaylistIndex.value = playlistIndex
     }
 
-    fun updatePlaylistTrack(video: Video?, playlist: List<Video>, index: Int) {
-        _currentVideo.value = video
+    fun updatePlaylistTrack(item: PlayableItem?, playlist: List<PlayableItem>, index: Int) {
+        setCurrentItem(item)
         _currentPlaylistItems.value = playlist
         _currentPlaylistIndex.value = index
     }
 
-    fun updateSingleTrack(video: Video?) {
-        _currentVideo.value = video
+    fun updateSingleTrack(item: PlayableItem?) {
+        Logger.d("NowPlayingStateHolder.updateSingleTrack - item: ${item?.id}")
+        setCurrentItem(item)
         _currentPlaylistItems.value = emptyList()
         _currentPlaylistIndex.value = 0
+        Logger.d("NowPlayingStateHolder.updateSingleTrack - done")
     }
 
     fun hasNext(): Boolean {
@@ -149,7 +196,7 @@ NowPlayingStateHolder @Inject constructor() {
         return _currentPlaylistIndex.value > 0
     }
 
-    fun getNextVideo(): Video? {
+    fun getNextItem(): PlayableItem? {
         val currentIndex = _currentPlaylistIndex.value
         val playlist = _currentPlaylistItems.value
         return if (currentIndex < playlist.size - 1) {
@@ -157,7 +204,7 @@ NowPlayingStateHolder @Inject constructor() {
         } else null
     }
 
-    fun getPreviousVideo(): Video? {
+    fun getPreviousItem(): PlayableItem? {
         val currentIndex = _currentPlaylistIndex.value
         val playlist = _currentPlaylistItems.value
         return if (currentIndex > 0) {

@@ -5,6 +5,8 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.session.MediaController
+import com.example.domain.model.local_file.LocalFileData
+import com.example.domain.model.playable.PlayableItem
 import com.example.domain.model.preferences.AudioQuality
 import com.example.domain.model.preferences.RepeatMode
 import com.example.domain.model.preferences.VideoQuality
@@ -23,12 +25,15 @@ import com.example.media.manager.AudioEffectsManager
 import com.example.media.manager.MediaPlaybackManager
 import com.example.media.state_holder.NowPlayingStateHolder
 import com.example.media.state_holder.PlaybackError
+import com.example.util.CrashReporter
 import com.example.util.Logger
 import com.example.util.PermissionUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -38,6 +43,7 @@ import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import org.schabi.newpipe.extractor.services.youtube.dashmanifestcreators.YoutubeProgressiveDashManifestCreator
@@ -58,6 +64,7 @@ class MainViewModel @Inject constructor(
     private val nowPlayingStateHolder: NowPlayingStateHolder,
     private val playbackPreferencesRepository: PlaybackPreferencesRepository,
     private val updateRepository: UpdateRepository,
+    private val crashReporter: CrashReporter,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
@@ -68,12 +75,26 @@ class MainViewModel @Inject constructor(
         MutableStateFlow<VideoDetailUiState>(VideoDetailUiState.Loading)
     val videoDetailUiState = _videoDetailUiState.asStateFlow()
 
-    // Playback error state for UI display
     private val _playbackErrorMessage = MutableStateFlow<String?>(null)
     val playbackErrorMessage: StateFlow<String?> = _playbackErrorMessage.asStateFlow()
 
+    private val _toastEvent = Channel<String>(Channel.BUFFERED)
+    val toastEvent = _toastEvent.receiveAsFlow()
+
+    private val videoDetailCache = mutableMapOf<String, VideoDetail>()
+
     private fun fetchCurrentVideoDetailData(video: Video) =
         viewModelScope.launch {
+            videoDetailCache[video.id]?.let { cachedDetail ->
+                Logger.d("VideoDetail cache hit: ${video.id}")
+                _videoDetailUiState.value = VideoDetailUiState.Success(cachedDetail)
+                delay(50)
+                if (nowPlayingStateHolder.currentVideo.value?.id == video.id) {
+                    updateMediaItemWithFullInfo(cachedDetail)
+                }
+                return@launch
+            }
+
             _videoDetailUiState.value = VideoDetailUiState.Loading
             val result = videoRepository.fetchVideoDetail(video)
             if (result.isSuccess) {
@@ -84,14 +105,21 @@ class MainViewModel @Inject constructor(
                     return@launch
                 }
 
-                _videoDetailUiState.value = VideoDetailUiState.Success(result.getOrNull())
-
-                updateMediaItemWithFullInfo(result.getOrNull())
+                videoDetailCache[video.id] = videoDetail
+                _videoDetailUiState.value = VideoDetailUiState.Success(videoDetail)
+                updateMediaItemWithFullInfo(videoDetail)
 
             } else {
-                _videoDetailUiState.value = VideoDetailUiState.Error(
-                    message = result.exceptionOrNull()?.message ?: "Unknown error"
-                )
+                val error = result.exceptionOrNull()
+                val errorMessage = error?.message ?: "Unknown error"
+
+                crashReporter.setCustomKey("video_id", video.id)
+                crashReporter.setCustomKey("video_title", video.title)
+                crashReporter.log("Video detail fetch failed: $errorMessage")
+                error?.let { crashReporter.recordException(it) }
+
+                _videoDetailUiState.value = VideoDetailUiState.Error(message = errorMessage)
+                _toastEvent.send(errorMessage)
             }
         }
 
@@ -224,6 +252,8 @@ class MainViewModel @Inject constructor(
 
     val isPlaying = nowPlayingStateHolder.isPlaying
     val currentVideo = nowPlayingStateHolder.currentVideo
+    val currentItem = nowPlayingStateHolder.currentItem
+    val currentLocalFile = nowPlayingStateHolder.currentLocalFile
     val currentPlaylist = nowPlayingStateHolder.currentPlaylist
     val currentPlaylistIndex = nowPlayingStateHolder.currentPlaylistIndex
     val currentPlaylistInfo = nowPlayingStateHolder.currentPlaylistInfo
@@ -238,17 +268,24 @@ class MainViewModel @Inject constructor(
 
 
     init {
+        Logger.d("MainViewModel init START")
         checkPermissions()
         checkForUpdate()
         viewModelScope.launch {
+            Logger.d("MainViewModel - currentVideo observer started")
             nowPlayingStateHolder.currentVideo
-                .distinctUntilChanged { old, new -> old?.id == new?.id }
+                .distinctUntilChanged { old, new ->
+                    val same = old?.id == new?.id
+                    Logger.d("MainViewModel - distinctUntilChanged: old=${old?.id}, new=${new?.id}, same=$same")
+                    same
+                }
                 .collectLatest { currentVideo ->
+                    Logger.d("MainViewModel - collectLatest received: ${currentVideo?.id}, title: ${currentVideo?.title}")
                     currentVideo?.let {
-                        // Clear previous error when new video starts
+                        Logger.d("MainViewModel - calling fetchCurrentVideoDetailData")
                         _playbackErrorMessage.value = null
                         fetchCurrentVideoDetailData(it)
-                    }
+                    } ?: Logger.d("MainViewModel - currentVideo is null, skipping fetch")
                 }
         }
         viewModelScope.launch {
@@ -260,18 +297,17 @@ class MainViewModel @Inject constructor(
                 }
             }
         }
-        // Observe playback errors
         viewModelScope.launch {
             nowPlayingStateHolder.playbackErrorEvent.collect { error ->
                 val errorMessage = when (error) {
-                    is PlaybackError.PlaylistVideoError -> {
+                    is PlaybackError.PlaylistItemError -> {
                         if (error.skippedToNext) {
                             context.getString(R.string.playback_error_skip_next)
                         } else {
                             context.getString(R.string.playback_error)
                         }
                     }
-                    is PlaybackError.SingleVideoError -> {
+                    is PlaybackError.SingleItemError -> {
                         context.getString(R.string.playback_error)
                     }
                 }
@@ -336,6 +372,16 @@ class MainViewModel @Inject constructor(
             myPlaylistDBRepository.addVideoToPlaylist(video, playlistId)
         }
 
+    fun addLocalFileToPlaylist(localFile: LocalFileData, playlistId: Long) =
+        viewModelScope.launch {
+            myPlaylistDBRepository.addLocalFileToPlaylist(localFile, playlistId)
+        }
+
+    fun addItemToPlaylist(item: PlayableItem, playlistId: Long) =
+        viewModelScope.launch {
+            myPlaylistDBRepository.addPlayableItemToPlaylist(item, playlistId)
+        }
+
 
     fun playPause() {
         mediaPlaybackManager.playPause()
@@ -343,6 +389,7 @@ class MainViewModel @Inject constructor(
 
     fun stopPlayback() {
         mediaPlaybackManager.clearCurrentPlayback()
+        videoDetailCache.clear()
     }
 
     fun playPlaylist(
@@ -355,10 +402,21 @@ class MainViewModel @Inject constructor(
         )
     }
 
-    fun playVideo(
-        video: Video,
-    ) {
+    fun playVideo(video: Video) {
+        Logger.d("MainViewModel.playVideo - videoId: ${video.id}, title: ${video.title}")
         mediaPlaybackManager.playSingleVideo(video)
+    }
+
+    fun playLocalFile(localFile: LocalFileData) {
+        mediaPlaybackManager.playLocalFile(localFile)
+    }
+
+    fun playItem(item: PlayableItem) {
+        mediaPlaybackManager.playSingleItem(item)
+    }
+
+    fun playPlaylistItems(playlist: List<PlayableItem>, startIndex: Int = 0) {
+        mediaPlaybackManager.playPlaylistItems(playlist, startIndex)
     }
 
     val pitchValue = audioEffectsManager.pitchValue

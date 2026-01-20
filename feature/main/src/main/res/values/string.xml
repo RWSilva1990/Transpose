@@ -57,4 +57,7 @@
     <string name="playback_error">Unable to play video</string>
     <string name="playback_error_skip_next">Playback error - skipping to next</string>
 
+    <!-- Local File -->
+    <string name="unknown_artist">Unknown Artist</string>
+
 </resources>

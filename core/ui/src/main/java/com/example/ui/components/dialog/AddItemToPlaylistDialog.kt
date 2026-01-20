@@ -11,7 +11,7 @@ import com.example.transpose.core.ui.R
 import com.example.ui.components.items.MyPlaylistItem
 
 @Composable
-fun AddVideoToPlaylistDialog(
+fun AddItemToPlaylistDialog(
     playlists: List<MyPlaylist>,
     onDismiss: () -> Unit,
     onPlaylistSelected: (Long) -> Unit
