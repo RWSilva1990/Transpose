@@ -1,14 +1,21 @@
 package com.example.main.components.appbar
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
@@ -55,22 +62,24 @@ fun MainAppBar(
     searchBarState: SearchBarState,
     updateSearchBarState: (SearchBarState) -> Unit,
     scrollBehavior: TopAppBarScrollBehavior,
+    isOnLocalFilesScreen: Boolean = false,
 ) {
 
     val focusRequester = remember { FocusRequester() }
-
+    val isLocalSearchActive by mainViewModel.isLocalSearchActive.collectAsStateWithLifecycle()
+    val localSearchQuery by mainViewModel.localSearchQuery.collectAsStateWithLifecycle()
 
     Box {
-        when (searchBarState) {
-            SearchBarState.CLOSED -> {
-                DefaultAppBar(
-                    onSettingClicked = { onSettingClicked() },
-                    onSearchClicked = { updateSearchBarState(SearchBarState.OPENED) },
-                    scrollBehavior = scrollBehavior
+        when {
+            isLocalSearchActive && isOnLocalFilesScreen -> {
+                LocalSearchAppBar(
+                    query = localSearchQuery,
+                    onQueryChange = mainViewModel::updateLocalSearchQuery,
+                    onClose = { mainViewModel.setLocalSearchActive(false) },
+                    focusRequester = focusRequester
                 )
             }
-
-            SearchBarState.OPENED -> {
+            searchBarState == SearchBarState.OPENED -> {
                 CustomSearchAppBar(
                     mainViewModel = mainViewModel,
                     updateSearchBarState = updateSearchBarState,
@@ -78,10 +87,115 @@ fun MainAppBar(
                     focusRequester = focusRequester,
                 )
             }
+            else -> {
+                DefaultAppBar(
+                    onSettingClicked = { onSettingClicked() },
+                    onSearchClicked = { updateSearchBarState(SearchBarState.OPENED) },
+                    onLocalSearchClicked = { mainViewModel.setLocalSearchActive(true) },
+                    scrollBehavior = scrollBehavior,
+                    showLocalSearchIcon = isOnLocalFilesScreen
+                )
+            }
         }
     }
 
 
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun LocalSearchAppBar(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    onClose: () -> Unit,
+    focusRequester: FocusRequester
+) {
+    SideEffect {
+        focusRequester.requestFocus()
+    }
+
+    // SearchBar와 유사한 스타일의 검색바
+    // - 파일 목록이 아래에 보여야 하므로 fullscreen SearchBar 대신 커스텀 구현
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color.White)
+    ) {
+        // 검색 입력 영역
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(64.dp)
+                .padding(horizontal = 8.dp),
+            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+        ) {
+            // 뒤로가기 버튼
+            IconButton(onClick = onClose) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Back",
+                    tint = Color.DarkGray
+                )
+            }
+
+            // 검색 입력 필드
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(40.dp)
+                    .background(
+                        color = Color(0xFFF5F5F5),
+                        shape = RoundedCornerShape(20.dp)
+                    )
+                    .padding(horizontal = 16.dp),
+                contentAlignment = androidx.compose.ui.Alignment.CenterStart
+            ) {
+                BasicTextField(
+                    value = query,
+                    onValueChange = onQueryChange,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .focusRequester(focusRequester),
+                    singleLine = true,
+                    textStyle = androidx.compose.ui.text.TextStyle(
+                        fontSize = 16.sp,
+                        color = Color.Black
+                    ),
+                    decorationBox = { innerTextField ->
+                        Box {
+                            if (query.isEmpty()) {
+                                Text(
+                                    text = stringResource(id = R.string.local_search_hint),
+                                    color = Color.Gray,
+                                    fontSize = 16.sp
+                                )
+                            }
+                            innerTextField()
+                        }
+                    }
+                )
+            }
+
+            // Clear 버튼
+            if (query.isNotEmpty()) {
+                IconButton(onClick = { onQueryChange("") }) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Clear",
+                        tint = Color.DarkGray
+                    )
+                }
+            } else {
+                Spacer(modifier = Modifier.size(48.dp))
+            }
+        }
+
+        // 하단 구분선
+        HorizontalDivider(
+            color = Color.LightGray,
+            thickness = 1.dp
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -154,6 +268,7 @@ fun CustomSearchAppBar(
                         suggestionText = suggestionKeyword,
                         onClick = {
                             onSearchClicked(suggestionKeyword)
+                            mainViewModel.clearSearchQuery()
                         },
                     )
                 }
@@ -172,10 +287,11 @@ fun CustomSearchAppBar(
 fun DefaultAppBar(
     onSettingClicked: () -> Unit,
     onSearchClicked: () -> Unit,
-    scrollBehavior: TopAppBarScrollBehavior
+    onLocalSearchClicked: () -> Unit = {},
+    scrollBehavior: TopAppBarScrollBehavior,
+    showLocalSearchIcon: Boolean = false
 ) {
 
-    val context = LocalContext.current
     TopAppBar(
         colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
             containerColor = AppColors.BlueBackground,
@@ -204,13 +320,21 @@ fun DefaultAppBar(
 
         },
         actions = {
+            if (showLocalSearchIcon) {
+                IconButton(onClick = { onLocalSearchClicked() }) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_search_list),
+                        contentDescription = "Local Search",
+                        tint = Color.White
+                    )
+                }
+            }
             IconButton(onClick = { onSearchClicked() }) {
                 Icon(
                     imageVector = Icons.Outlined.Search,
                     contentDescription = "Search",
                     tint = Color.White
                 )
-
             }
             IconButton(onClick = { onSettingClicked() }) {
                 Icon(
@@ -218,7 +342,6 @@ fun DefaultAppBar(
                     contentDescription = "Setting",
                     tint = Color.White
                 )
-
             }
         },
         scrollBehavior = scrollBehavior,

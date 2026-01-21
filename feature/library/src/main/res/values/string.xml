@@ -13,6 +13,8 @@
     <string name="playlist_item_empty_text">Empty</string>
 
     <string name="delete_video_from_device_pop_up_menu_text">Delete from device</string>
+    <string name="video_pop_up_menu_add_playlist_text">Add to playlist</string>
+    <string name="notify_item_added_to_playlist">The item has been added to the playlist</string>
     <string name="add_playlist_text">New playlist</string>
     <string name="my_audio_file_searchView_hint">My Audio File Search</string>
     <string name="my_playlist_pop_up_menu_delete_playlist_text">Delete playlist</string>

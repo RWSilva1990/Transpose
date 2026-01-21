@@ -5,7 +5,7 @@ enum class VideoQuality(
     val itag: Int?,
     val height: Int?
 ) {
-    AUTO("자동", null, null),
+    AUTO("Auto", null, null),
     P1080("1080p", 137, 1080),
     P720("720p", 136, 720),
     P480("480p", 135, 480),
