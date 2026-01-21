@@ -9,6 +9,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.painter.ColorPainter
 import androidx.compose.ui.layout.ContentScale
 import coil.compose.AsyncImage
+import com.example.domain.model.playable.PlayableItem
 import com.example.main.MainViewModel
 import com.example.main.components.bottomsheet.state.VideoDetailUiState
 import com.example.util.constants.AppColors
@@ -19,13 +20,15 @@ fun PlayerThumbnailView(
     modifier: Modifier = Modifier
 ) {
     val videoDetailUiState by mainViewModel.videoDetailUiState.collectAsState()
-    val currentVideo by mainViewModel.currentVideo.collectAsState()
+    val currentItem by mainViewModel.currentItem.collectAsState()
+
+    if (currentItem is PlayableItem.Local) return
 
     when (val state = videoDetailUiState) {
         is VideoDetailUiState.Loading -> {
             Box(modifier = modifier.background(AppColors.LightGray)) {
                 AsyncImage(
-                    model = currentVideo?.thumbnailUrl,
+                    model = (currentItem as? PlayableItem.Remote)?.video?.thumbnailUrl,
                     contentDescription = "Video Thumbnail",
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.matchParentSize(),
@@ -36,8 +39,6 @@ fun PlayerThumbnailView(
         }
         else -> {}
     }
-
-
 }
 
 

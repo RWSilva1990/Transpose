@@ -29,6 +29,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.main.MainViewModel
 import com.example.main.R
+import com.example.ui.theme.blendColors
+import com.example.util.constants.AppColors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -43,6 +45,9 @@ fun PlaylistFloatingButton(
     val currentPlaylistInfo by mainViewModel.currentPlaylistInfo.collectAsState()
 
     if (currentPlaylist.isNotEmpty() && bottomSheetState.currentValue == SheetValue.Expanded) {
+        val offset = bottomSheetOffset().coerceIn(0f, 1f)
+        val backgroundColor = blendColors(AppColors.StatusBarBackground, AppColors.CharcoalGray, offset)
+
         Surface(
             modifier = modifier
                 .shadow(elevation = 6.dp, shape = RoundedCornerShape(16.dp))
@@ -51,7 +56,7 @@ fun PlaylistFloatingButton(
                     alpha = if (bottomSheetOffset() >= 0.95f) 1f else 0f
                 },
             shape = RoundedCornerShape(16.dp),
-            color = Color.White
+            color = backgroundColor
         ) {
             Row(
                 modifier = Modifier
@@ -61,7 +66,7 @@ fun PlaylistFloatingButton(
                 Icon(
                     imageVector = Icons.Default.PlayArrow,
                     contentDescription = "Playlist",
-                    tint = Color.Black,
+                    tint = Color.White,
                     modifier = Modifier.size(24.dp)
                 )
 
@@ -70,24 +75,24 @@ fun PlaylistFloatingButton(
                         ?: stringResource(id = R.string.main_playlist_title),
                     modifier = Modifier.padding(horizontal = 8.dp),
                     fontWeight = FontWeight.Medium,
-                    fontSize = 14.sp
+                    fontSize = 14.sp,
+                    color = Color.White
                 )
 
                 Text(
                     text = "${currentPlaylist.size}",
                     modifier = Modifier.padding(end = 4.dp),
-                    color = Color.Gray,
+                    color = Color.White.copy(alpha = 0.7f),
                     fontSize = 14.sp
                 )
 
                 Icon(
                     imageVector = Icons.Default.KeyboardArrowUp,
                     contentDescription = "Show",
-                    tint = Color.Gray,
+                    tint = Color.White.copy(alpha = 0.7f),
                     modifier = Modifier.size(16.dp)
                 )
             }
         }
     }
-
 }

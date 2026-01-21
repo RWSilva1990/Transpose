@@ -6,6 +6,8 @@ import android.content.Intent
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -20,6 +22,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -33,12 +36,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.convert.navigation.ConvertNavHost
 import com.example.convert.navigation.ConvertRoutes
@@ -52,9 +57,12 @@ import com.example.main.components.bottom_navigation.BottomNavigationBar
 import com.example.main.components.bottom_navigation.MainTab
 import com.example.main.components.bottomsheet.PlayerBottomSheetScaffold
 import com.example.util.Logger
+import com.example.util.ToastUtil
+import com.example.ui.theme.blendColors
 import com.example.util.constants.AppColors
 import com.google.accompanist.systemuicontroller.rememberSystemUiController
 import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -65,6 +73,8 @@ fun MainScreen(
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
     val updateDialogState by mainViewModel.updateDialogState.collectAsState()
+    val localSearchQuery by mainViewModel.localSearchQuery.collectAsState()
+    val isLocalSearchActive by mainViewModel.isLocalSearchActive.collectAsState()
 
     val permissionGranted by mainViewModel.permissionGranted.collectAsState()
 
@@ -83,6 +93,13 @@ fun MainScreen(
         }
     }
 
+    // Toast event observer
+    LaunchedEffect(Unit) {
+        mainViewModel.toastEvent.collect { message ->
+            ToastUtil.showShort(context, message)
+        }
+    }
+
     val systemUiController = rememberSystemUiController()
 
     val sheetState = rememberStandardBottomSheetState(
@@ -90,7 +107,13 @@ fun MainScreen(
         skipHiddenState = false
     )
 
-    val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior(rememberTopAppBarState())
+    val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior(
+        state = rememberTopAppBarState(),
+        snapAnimationSpec = spring(
+            dampingRatio = Spring.DampingRatioNoBouncy,
+            stiffness = Spring.StiffnessMedium
+        )
+    )
 
     val homeNavController = rememberNavController()
     val libraryNavController = rememberNavController()
@@ -104,6 +127,19 @@ fun MainScreen(
         MainTab.Convert -> convertNavController
     }
 
+    val libraryCurrentBackStackEntry by libraryNavController.currentBackStackEntryAsState()
+    val isOnLocalFilesScreen by remember {
+        derivedStateOf {
+            libraryCurrentBackStackEntry?.destination?.route?.startsWith("library_my_local_file_item") == true
+                    && selectedTab == MainTab.Library
+        }
+    }
+
+    LaunchedEffect(isOnLocalFilesScreen) {
+        if (!isOnLocalFilesScreen) {
+            mainViewModel.setLocalSearchActive(false)
+        }
+    }
 
     var bottomSheetOffset by remember {
         mutableFloatStateOf(-1f)
@@ -117,12 +153,22 @@ fun MainScreen(
         mutableFloatStateOf(0f)
     }
 
-    val nestedScrollConnection = remember {
+    val nestedScrollConnection = remember(scrollBehavior) {
         object : NestedScrollConnection {
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                val behaviorConsumed =
-                    scrollBehavior.nestedScrollConnection.onPreScroll(available, source)
-                return behaviorConsumed
+                return scrollBehavior.nestedScrollConnection.onPreScroll(available, source)
+            }
+
+            override fun onPostScroll(
+                consumed: Offset,
+                available: Offset,
+                source: NestedScrollSource
+            ): Offset {
+                return scrollBehavior.nestedScrollConnection.onPostScroll(consumed, available, source)
+            }
+
+            override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
+                return scrollBehavior.nestedScrollConnection.onPostFling(consumed, available)
             }
         }
     }
@@ -133,7 +179,7 @@ fun MainScreen(
 
     val density = LocalDensity.current
 
-    LaunchedEffect(sheetState, searchBarState, parentScaffoldHeightPx) {
+    LaunchedEffect(sheetState, searchBarState, isLocalSearchActive, parentScaffoldHeightPx) {
         if (!isSheetLayoutComplete) return@LaunchedEffect
 
         snapshotFlow { sheetState.requireOffset() }
@@ -141,16 +187,15 @@ fun MainScreen(
                 try {
                     // parentScaffoldHeightPx의 값은 keyboardInfo.height 값이 계산되어 적용되어 계산됨. 까먹지 말자!!
                     // 부모 scaffold의 높이를 기준으로 pratiallyExpandedOffset 기준값을 설정!!
-                    val partiallyExpandedOffset = when (searchBarState) {
-                        SearchBarState.CLOSED ->
-                            parentScaffoldHeightPx - with(density) {
-                                (scaffoldInnerPaddingBottomPadding + 56.dp).toPx()
-                            }
-
-                        SearchBarState.OPENED -> {
-                            parentScaffoldHeightPx - with(density) {
-                                scaffoldInnerPaddingBottomPadding.toPx()
-                            }
+                    // isLocalSearchActive가 true일 때도 SearchBarState.OPENED처럼 처리
+                    val isSearchActive = searchBarState == SearchBarState.OPENED || isLocalSearchActive
+                    val partiallyExpandedOffset = if (!isSearchActive) {
+                        parentScaffoldHeightPx - with(density) {
+                            (scaffoldInnerPaddingBottomPadding + 56.dp).toPx()
+                        }
+                    } else {
+                        parentScaffoldHeightPx - with(density) {
+                            scaffoldInnerPaddingBottomPadding.toPx()
                         }
                     }
 
@@ -171,14 +216,13 @@ fun MainScreen(
             }
     }
 
-    SideEffect {
-        systemUiController.setStatusBarColor(
-            color = AppColors.StatusBarBackground,
-        )
+    val blendRatio = bottomSheetOffset.coerceIn(0f, 1f)
+    val statusBarColor = blendColors(AppColors.StatusBarBackground, AppColors.CharcoalGray, blendRatio)
+    val navigationBarColor = blendColors(AppColors.BlueBackground, AppColors.CharcoalGray, blendRatio)
 
-        systemUiController.setNavigationBarColor(
-            color = AppColors.BlueBackground,
-        )
+    SideEffect {
+        systemUiController.setStatusBarColor(color = statusBarColor)
+        systemUiController.setNavigationBarColor(color = navigationBarColor)
     }
 
     when (val state = updateDialogState) {
@@ -217,6 +261,20 @@ fun MainScreen(
                 bottomSheetOffset = { bottomSheetOffset },
                 selectedTab = selectedTab,
                 onTabSelected = { tab -> selectedTab = tab },
+                onTabReselected = { tab ->
+                    val navController = when (tab) {
+                        MainTab.Home -> homeNavController
+                        MainTab.Library -> libraryNavController
+                        MainTab.Convert -> convertNavController
+                    }
+                    val startRoute = when (tab) {
+                        MainTab.Home -> HomeRoutes.Playlist.route
+                        MainTab.Library -> LibraryRoutes.MyPlaylist.route
+                        MainTab.Convert -> ConvertRoutes.AudioEdit.route
+                    }
+                    navController.popBackStack(startRoute, inclusive = false)
+                },
+                isLocalSearchActive = isLocalSearchActive,
             )
         }
     ) { innerPadding ->
@@ -239,6 +297,7 @@ fun MainScreen(
                         searchBarState = it
                     },
                     scrollBehavior = scrollBehavior,
+                    isOnLocalFilesScreen = isOnLocalFilesScreen,
                 )
             },
             mainViewModel = mainViewModel,
@@ -248,8 +307,9 @@ fun MainScreen(
             bottomSheetState = sheetState,
             onNavigateToChannelScreen = { channelId ->
                 activeNavController.navigate(channelRouteFor(selectedTab, channelId))
-            }
-        ) { playerBottomSheetScaffoldPadding ->
+            },
+            isLocalSearchActive = isLocalSearchActive,
+            ) { playerBottomSheetScaffoldPadding ->
             val miniPlayerHeightPx = with(density) { GraphicsLayerConstants.PEEK_HEIGHT.roundToPx() }
             val bottomNavHeightPx = with(density) { 56.dp.roundToPx() }
 
@@ -264,7 +324,8 @@ fun MainScreen(
                             .dynamicBottomPadding(
                                 miniPlayerHeightPx = miniPlayerHeightPx,
                                 bottomNavHeightPx = bottomNavHeightPx,
-                                bottomSheetOffset = { bottomSheetOffset }
+                                bottomSheetOffset = { bottomSheetOffset },
+                                isBottomNavHidden = isLocalSearchActive
                             ),
                         onUpdateCheckClick = {},
                         onContactClick = {},
@@ -282,12 +343,16 @@ fun MainScreen(
                             .dynamicBottomPadding(
                                 miniPlayerHeightPx = miniPlayerHeightPx,
                                 bottomNavHeightPx = bottomNavHeightPx,
-                                bottomSheetOffset = { bottomSheetOffset }
+                                bottomSheetOffset = { bottomSheetOffset },
+                                isBottomNavHidden = isLocalSearchActive
                             ),
                         bottomSheetState = sheetState,
                         navigateToHomeTab = { selectedTab = MainTab.Home },
                         onUpdateCheckClick = {},
                         onContactClick = {},
+                        localSearchQuery = localSearchQuery,
+                        isLocalSearchActive = isLocalSearchActive,
+                        onCloseLocalSearch = { mainViewModel.setLocalSearchActive(false) }
                     )
                 }
 
@@ -301,7 +366,8 @@ fun MainScreen(
                             .dynamicBottomPadding(
                                 miniPlayerHeightPx = miniPlayerHeightPx,
                                 bottomNavHeightPx = bottomNavHeightPx,
-                                bottomSheetOffset = { bottomSheetOffset }
+                                bottomSheetOffset = { bottomSheetOffset },
+                                isBottomNavHidden = isLocalSearchActive
                             ),
                         bottomSheetState = sheetState,
                         navigateToHomeTab = { selectedTab = MainTab.Home },
@@ -319,12 +385,20 @@ fun MainScreen(
 
 
     BackHandler {
+        // 1순위: BottomSheet가 확장된 경우 먼저 축소
         if (sheetState.currentValue == SheetValue.Expanded) {
             coroutineScope.launch {
                 sheetState.partialExpand()
             }
             return@BackHandler
         }
+
+        // 2순위: Local Search가 활성화된 경우 닫기
+        if (isLocalSearchActive) {
+            mainViewModel.setLocalSearchActive(false)
+            return@BackHandler
+        }
+
         // 홈 탭 처리
         if (selectedTab == MainTab.Home) {
             if (homeNavController.previousBackStackEntry != null) {
@@ -427,11 +501,14 @@ private fun channelRouteFor(tab: MainTab, channelId: String) = when (tab) {
  * - offset <= 0: BottomNav가 완전히 보임 → 전체 높이 패딩
  * - offset >= 1: BottomNav가 숨겨짐 → 0 패딩
  * - 0 < offset < 1: 선형 보간
+ *
+ * isBottomNavHidden: Local Search 등으로 BottomNav가 숨겨진 경우 true
  */
 private fun Modifier.dynamicBottomPadding(
     miniPlayerHeightPx: Int,
     bottomNavHeightPx: Int,
-    bottomSheetOffset: () -> Float
+    bottomSheetOffset: () -> Float,
+    isBottomNavHidden: Boolean = false
 ): Modifier = this.layout { measurable, constraints ->
     val offset = bottomSheetOffset()
 
@@ -445,10 +522,12 @@ private fun Modifier.dynamicBottomPadding(
     }
 
     // BottomNav 패딩 계산
+    // - isBottomNavHidden: Local Search 등으로 BottomNav가 숨겨진 경우 BottomNav 패딩 제외
     // - offset >= 0: Mini player가 BottomNav를 덮으므로 BottomNav 패딩 불필요
     // - offset < 0: Mini player가 사라지면서 BottomNav가 노출됨
     val additionalPadding = when {
         offset >= 0f -> miniPlayerPadding  // Mini player가 BottomNav를 덮음
+        isBottomNavHidden -> miniPlayerPadding  // BottomNav가 숨겨져 있으므로 mini player 패딩만
         else -> {
             // Mini player가 사라지면서 BottomNav가 드러남
             // 둘 중 큰 값을 사용하여 컨텐츠가 가려지지 않도록 함
@@ -470,6 +549,3 @@ private fun Modifier.dynamicBottomPadding(
         placeable.placeRelative(0, 0)  // 컨텐츠는 상단에 고정
     }
 }
-
-
-

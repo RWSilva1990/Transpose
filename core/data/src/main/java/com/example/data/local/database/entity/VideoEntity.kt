@@ -32,5 +32,10 @@ data class VideoEntity(
     val viewCount: Long,
     val textualUploadDate: String?,
     val streamType: String?,
-    val shortFormContent: Boolean
+    val shortFormContent: Boolean,
+    val isLocal: Boolean = false,
+    val localUri: String? = null,
+    val localFilePath: String? = null,
+    val artist: String? = null,
+    val album: String? = null
 )

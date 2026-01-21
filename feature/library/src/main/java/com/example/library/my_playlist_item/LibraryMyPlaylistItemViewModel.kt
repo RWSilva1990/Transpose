@@ -3,7 +3,7 @@ package com.example.library.my_playlist_item
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.domain.model.youtube.video.Video
+import com.example.domain.model.playable.PlayableItem
 import com.example.domain.repository.MyPlaylistDBRepository
 import com.example.media.manager.MediaPlaybackManager
 import com.example.ui.common.UiState
@@ -26,10 +26,10 @@ class LibraryMyPlaylistItemViewModel @Inject constructor(
 
     private val playlistId = savedStateHandle.get<Long>("playlistId") ?: 0L
 
-    val uiState: StateFlow<UiState<List<Video>>> =
-        myPlaylistDBRepository.getVideosForPlaylist(playlistId)
-            .map<List<Video>, UiState<List<Video>>> { videos ->
-                UiState.Success(videos)
+    val uiState: StateFlow<UiState<List<PlayableItem>>> =
+        myPlaylistDBRepository.getPlayableItemsForPlaylist(playlistId)
+            .map<List<PlayableItem>, UiState<List<PlayableItem>>> { items ->
+                UiState.Success(items)
             }
             .catch { exception ->
                 emit(UiState.Error(exception.message ?: "Unknown error"))
@@ -40,15 +40,15 @@ class LibraryMyPlaylistItemViewModel @Inject constructor(
                 initialValue = UiState.Loading
             )
 
-    fun deleteVideo(video: Video) = viewModelScope.launch {
+    fun deleteItem(item: PlayableItem) = viewModelScope.launch {
         try {
-            myPlaylistDBRepository.deleteVideoFromPlaylist(playlistId, video)
+            myPlaylistDBRepository.deletePlayableItemFromPlaylist(playlistId, item.id)
         } catch (e: Exception) {
-            Logger.d("deleteVideo")
+            Logger.d("deleteItem failed: ${e.message}")
         }
     }
 
-    fun playPlaylist(myPlaylistItems: List<Video>, clickedIndex: Int) {
-        mediaPlaybackManager.playPlaylist(playlistItems = myPlaylistItems, clickedIndex)
+    fun playPlaylist(items: List<PlayableItem>, clickedIndex: Int) {
+        mediaPlaybackManager.playPlaylistItems(playlistItems = items, clickedIndex)
     }
 }
