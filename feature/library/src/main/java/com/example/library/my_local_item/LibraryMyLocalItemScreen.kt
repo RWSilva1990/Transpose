@@ -14,9 +14,16 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-
-import com.example.library.my_local_item.item.LocalFileData
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
+import com.example.domain.model.local_file.LocalFileData
+import com.example.library.R
+import com.example.library.my_local_item.item.LocalFileData as LocalFileDataItem
+import com.example.ui.components.dialog.AddItemToPlaylistDialog
+import com.example.util.ToastUtil
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -25,10 +32,19 @@ fun LibraryMyLocalItemScreen(
     bottomSheetState: SheetState,
     libraryMyLocalItemViewModel: LibraryMyLocalItemViewModel,
     type: String?,
-    navigateToBack: () -> Unit
+    navigateToBack: () -> Unit,
+    localSearchQuery: String = "",
+    isLocalSearchActive: Boolean = false,
+    onCloseLocalSearch: () -> Unit = {}
 ) {
     val recoverableDeleteException by libraryMyLocalItemViewModel.recoverableDeleteEvent.collectAsState()
     val coroutineScope = rememberCoroutineScope()
+    val context = LocalContext.current
+
+    var isShowingPlaylistDialog by remember { mutableStateOf(false) }
+    var selectedLocalFile by remember { mutableStateOf<LocalFileData?>(null) }
+    val myPlaylists by libraryMyLocalItemViewModel.myPlaylists.collectAsState()
+
     // "권한 다이얼로그"를 띄우는 런처
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartIntentSenderForResult()
@@ -56,12 +72,28 @@ fun LibraryMyLocalItemScreen(
     val audioFiles by libraryMyLocalItemViewModel.audioFiles.collectAsState()
     val videoFiles by libraryMyLocalItemViewModel.videoFiles.collectAsState()
 
+    val filteredAudioFiles = remember(audioFiles, localSearchQuery) {
+        if (localSearchQuery.isBlank()) audioFiles
+        else audioFiles.filter { it.title.contains(localSearchQuery, ignoreCase = true) }
+    }
+    val filteredVideoFiles = remember(videoFiles, localSearchQuery) {
+        if (localSearchQuery.isBlank()) videoFiles
+        else videoFiles.filter { it.title.contains(localSearchQuery, ignoreCase = true) }
+    }
+
     BackHandler(
         enabled = bottomSheetState.currentValue == SheetValue.Expanded
     ) {
         coroutineScope.launch {
             bottomSheetState.partialExpand()
         }
+    }
+
+    // Local Search가 활성화된 경우 뒤로가기로 닫기
+    BackHandler(
+        enabled = isLocalSearchActive && bottomSheetState.currentValue != SheetValue.Expanded
+    ) {
+        onCloseLocalSearch()
     }
 
     LaunchedEffect(key1 = true) {
@@ -76,37 +108,72 @@ fun LibraryMyLocalItemScreen(
         when (type) {
             "audio" -> {
                 LazyColumn {
-                    items(audioFiles.size) { index ->
-                        val item = audioFiles[index]
-                        LocalFileData(item = item, onClick = {
-                            libraryMyLocalItemViewModel.playLocalFiles(audioFiles, index)
-                            coroutineScope.launch {
-                                bottomSheetState.expand()
-                            }
-                        }, {
-                            libraryMyLocalItemViewModel.deleteFile(item)
-                        })
+                    items(filteredAudioFiles.size) { index ->
+                        val item = filteredAudioFiles[index]
+                        LocalFileDataItem(
+                            item = item,
+                            onClick = {
+                                libraryMyLocalItemViewModel.playLocalFiles(filteredAudioFiles, index)
+                                coroutineScope.launch {
+                                    bottomSheetState.expand()
+                                }
+                            },
+                            onDeleteClick = {
+                                libraryMyLocalItemViewModel.deleteFile(item)
+                            },
+                            onAddToPlaylistClick = {
+                                selectedLocalFile = item
+                                isShowingPlaylistDialog = true
+                            },
+                            searchQuery = localSearchQuery
+                        )
                     }
                 }
             }
 
             "video" -> {
                 LazyColumn {
-                    items(videoFiles.size) { index ->
-                        val item = videoFiles[index]
-                        LocalFileData(item = item, onClick = {
-                            libraryMyLocalItemViewModel.playLocalFiles(videoFiles, index)
-                            coroutineScope.launch {
-                                bottomSheetState.expand()
-                            }
-                        }, {
-                            libraryMyLocalItemViewModel.deleteFile(item)
-                        })
+                    items(filteredVideoFiles.size) { index ->
+                        val item = filteredVideoFiles[index]
+                        LocalFileDataItem(
+                            item = item,
+                            onClick = {
+                                libraryMyLocalItemViewModel.playLocalFiles(filteredVideoFiles, index)
+                                coroutineScope.launch {
+                                    bottomSheetState.expand()
+                                }
+                            },
+                            onDeleteClick = {
+                                libraryMyLocalItemViewModel.deleteFile(item)
+                            },
+                            onAddToPlaylistClick = {
+                                selectedLocalFile = item
+                                isShowingPlaylistDialog = true
+                            },
+                            searchQuery = localSearchQuery
+                        )
                     }
                 }
             }
         }
     }
 
-
+    if (isShowingPlaylistDialog) {
+        AddItemToPlaylistDialog(
+            playlists = myPlaylists,
+            onDismiss = { isShowingPlaylistDialog = false },
+            onPlaylistSelected = { playlistId ->
+                selectedLocalFile?.let { localFile ->
+                    libraryMyLocalItemViewModel.addLocalFileToPlaylist(
+                        localFile = localFile,
+                        playlistId = playlistId
+                    )
+                    ToastUtil.showShort(
+                        context = context,
+                        message = context.getString(R.string.notify_item_added_to_playlist)
+                    )
+                }
+            }
+        )
+    }
 }

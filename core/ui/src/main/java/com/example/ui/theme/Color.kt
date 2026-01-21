@@ -19,3 +19,12 @@ val LightBackground = Color(0xFFFFFBFE)
 val LightSurface = Color(0xFFFFFBFE)
 val LightOnSurface = Color(0xFF1C1B1F)
 val LightOnSurfaceVariant = Color(0xFF49454F)
+
+fun blendColors(startColor: Color, endColor: Color, ratio: Float): Color {
+    val inverseRatio = 1f - ratio
+    val r = (startColor.red * inverseRatio + endColor.red * ratio)
+    val g = (startColor.green * inverseRatio + endColor.green * ratio)
+    val b = (startColor.blue * inverseRatio + endColor.blue * ratio)
+    val a = (startColor.alpha * inverseRatio + endColor.alpha * ratio)
+    return Color(r, g, b, a)
+}

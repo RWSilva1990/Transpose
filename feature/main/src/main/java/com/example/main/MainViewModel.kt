@@ -131,6 +131,12 @@ class MainViewModel @Inject constructor(
     private fun updateMediaItemWithFullInfo(videoDetail: VideoDetail?) {
         videoDetail ?: return
 
+        val videoDefaultStreamUrl = videoDetail.videoStreamContent
+        if (videoDefaultStreamUrl == null) {
+            Logger.e("videoStreamContent is null for video: ${videoDetail.id}")
+            return
+        }
+
         val currentVideoQuality = videoQuality.value
         val currentAudioQuality = audioQuality.value
 
@@ -158,7 +164,7 @@ class MainViewModel @Inject constructor(
             mediaPlaybackManager.updateMediaItemWithFullInfo(
                 itemId = videoDetail.id,
                 videoQuality = currentVideoQuality,
-                videoDefaultStreamUrl = videoDetail.videoStreamContent!!,
+                videoDefaultStreamUrl = videoDefaultStreamUrl,
                 videoOnlyStreamUrl = videoStream?.content,
                 audioOnlyStreamUrl = audioStream?.content,
                 videoManifestString = null,
@@ -173,7 +179,7 @@ class MainViewModel @Inject constructor(
             mediaPlaybackManager.updateMediaItemWithFullInfo(
                 itemId = videoDetail.id,
                 videoQuality = currentVideoQuality,
-                videoDefaultStreamUrl = videoDetail.videoStreamContent!!,
+                videoDefaultStreamUrl = videoDefaultStreamUrl,
                 videoOnlyStreamUrl = null,
                 audioOnlyStreamUrl = null,
                 videoManifestString = null,
@@ -202,7 +208,7 @@ class MainViewModel @Inject constructor(
             mediaPlaybackManager.updateMediaItemWithFullInfo(
                 itemId = videoDetail.id,
                 videoQuality = currentVideoQuality,
-                videoDefaultStreamUrl = videoDetail.videoStreamContent!!,
+                videoDefaultStreamUrl = videoDefaultStreamUrl,
                 videoOnlyStreamUrl = videoStream.content,
                 audioOnlyStreamUrl = audioStream.content,
                 videoManifestString = videoManifestString,
@@ -213,7 +219,7 @@ class MainViewModel @Inject constructor(
             mediaPlaybackManager.updateMediaItemWithFullInfo(
                 itemId = videoDetail.id,
                 videoQuality = currentVideoQuality,
-                videoDefaultStreamUrl = videoDetail.videoStreamContent!!,
+                videoDefaultStreamUrl = videoDefaultStreamUrl,
                 videoOnlyStreamUrl = null,
                 audioOnlyStreamUrl = null,
                 videoManifestString = null,
@@ -245,6 +251,27 @@ class MainViewModel @Inject constructor(
 
     fun clearSearchQuery() {
         _searchQuery.value = ""
+    }
+
+    private val _localSearchQuery = MutableStateFlow("")
+    val localSearchQuery: StateFlow<String> = _localSearchQuery.asStateFlow()
+
+    private val _isLocalSearchActive = MutableStateFlow(false)
+    val isLocalSearchActive: StateFlow<Boolean> = _isLocalSearchActive.asStateFlow()
+
+    fun updateLocalSearchQuery(query: String) {
+        _localSearchQuery.value = query
+    }
+
+    fun setLocalSearchActive(active: Boolean) {
+        _isLocalSearchActive.value = active
+        if (!active) {
+            _localSearchQuery.value = ""
+        }
+    }
+
+    fun clearLocalSearchQuery() {
+        _localSearchQuery.value = ""
     }
 
     private val _permissionGranted = MutableStateFlow(false)

@@ -59,5 +59,6 @@
 
     <!-- Local File -->
     <string name="unknown_artist">Unknown Artist</string>
+    <string name="local_search_hint">Search local files</string>
 
 </resources>
