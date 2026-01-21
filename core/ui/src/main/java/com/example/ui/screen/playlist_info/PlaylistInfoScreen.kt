@@ -18,7 +18,7 @@ import com.example.domain.model.youtube.playlist.PlaylistItem
 import com.example.domain.model.youtube.video.Video
 import com.example.ui.components.scrollbar.EndlessLazyColumn
 import com.example.ui.common.PaginatedState
-import com.example.ui.components.dialog.AddVideoToPlaylistDialog
+import com.example.ui.components.dialog.AddItemToPlaylistDialog
 import com.example.ui.components.items.CommonVideoItem
 import com.example.ui.components.items.LoadingIndicator
 import com.example.util.Logger
@@ -112,7 +112,7 @@ fun PlaylistInfoScreen(
         }
     }
     if (isShowingPlaylistDialog) {
-        AddVideoToPlaylistDialog(
+        AddItemToPlaylistDialog(
             playlists = myPlaylists,
             onDismiss = { isShowingPlaylistDialog = false },
             onPlaylistSelected = { selectedPlaylistId ->

@@ -10,6 +10,13 @@ plugins {
 
 android {
     namespace = "com.example.transpose"
+
+    defaultConfig {
+        ndk {
+            abiFilters += listOf("arm64-v8a", "armeabi-v7a")
+        }
+    }
+
     buildTypes {
         getByName("release") {
             signingConfig = signingConfigs.getByName("debug")
@@ -44,6 +51,7 @@ dependencies {
     implementation(project(":core:data"))
     implementation(project(":core:domain"))
     implementation(project(":media"))
+    implementation(project(":audio-effect"))
     implementation(project(":core:ui"))
     implementation(project(":core:utils"))
     implementation(project(":feature:main"))

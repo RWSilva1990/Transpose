@@ -15,9 +15,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.domain.model.youtube.video.Video
 import com.example.library.R
-import com.example.library.my_playlist_item.items.PlaylistVideoItem
+import com.example.library.my_playlist_item.items.PlaylistItem
 import com.example.ui.common.UiState
 import kotlinx.coroutines.launch
 
@@ -39,38 +38,38 @@ fun LibraryMyPlaylistItemScreen(
             bottomSheetState.partialExpand()
         }
     }
-    when (val state = uiState){
+    when (val state = uiState) {
         is UiState.Initial -> {}
         is UiState.Loading -> {}
         is UiState.Success -> {
-            val videos = state.data
-            if (videos.isEmpty()){
+            val items = state.data
+            if (items.isEmpty()) {
                 Box(
                     modifier = Modifier.fillMaxSize()
                 ) {
                     Text(
                         text = stringResource(id = R.string.playlist_item_empty_text),
-                        modifier = Modifier.align(
-                            Alignment.Center
-                        )
+                        modifier = Modifier.align(Alignment.Center)
                     )
                 }
-            }
-            else{
+            } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize()
                 ) {
-                    items(videos.size) { index ->
-                        val item = videos[index]
-                        PlaylistVideoItem(item = item, onClick = {
-                            libraryMyPlaylistItemViewModel.playPlaylist(videos, index)
-                            coroutineScope.launch {
-                                bottomSheetState.expand()
+                    items(items.size) { index ->
+                        val item = items[index]
+                        PlaylistItem(
+                            item = item,
+                            onClick = {
+                                libraryMyPlaylistItemViewModel.playPlaylist(items, index)
+                                coroutineScope.launch {
+                                    bottomSheetState.expand()
+                                }
+                            },
+                            dropDownMenuClick = {
+                                libraryMyPlaylistItemViewModel.deleteItem(item)
                             }
-
-                        }, dropDownMenuClick = {
-                            libraryMyPlaylistItemViewModel.deleteVideo(item)
-                        })
+                        )
                     }
                 }
             }

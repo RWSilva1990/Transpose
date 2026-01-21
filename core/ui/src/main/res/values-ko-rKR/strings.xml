@@ -148,4 +148,100 @@
     <string name="request_permission_button">권한 요청</string>
     <string name="settings_permission_message">설정에서 저장소 접근 권한을 허용해주세요.</string>
     <string name="go_to_settings_button">설정으로 이동</string>
+
+    <!-- Video Quality -->
+    <string name="video_quality_auto">자동</string>
+    <string name="video_quality_1080p">1080p</string>
+    <string name="video_quality_720p">720p</string>
+    <string name="video_quality_480p">480p</string>
+    <string name="video_quality_360p">360p</string>
+    <string name="video_quality_240p">240p</string>
+    <string name="video_quality_144p">144p</string>
+    <string name="video_quality_title">화질</string>
+    <string name="video_quality_selected">선택됨</string>
+    <string name="video_quality_dialog_title">기본 해상도 설정</string>
+
+    <!-- Audio Quality -->
+    <string name="audio_quality_low">낮음 (48kbps)</string>
+    <string name="audio_quality_medium">보통 (128kbps)</string>
+    <string name="audio_quality_high">높음 (160kbps)</string>
+
+    <!-- Settings -->
+    <string name="settings_playback">재생 설정</string>
+    <string name="settings_default_resolution">기본 해상도</string>
+    <string name="settings_app">앱 설정</string>
+    <string name="settings_app_design">앱 디자인</string>
+    <string name="settings_light_dark_mode">라이트/다크 모드</string>
+    <string name="settings_info">정보</string>
+    <string name="settings_check_update">업데이트 확인</string>
+    <string name="settings_contact">문의하기</string>
+
+    <!-- Signalsmith / DSP effect labels -->
+    <string name="chorus_text">코러스 · 몽환 레이어</string>
+    <string name="chorus_mix">레이어 혼합 (Mix)</string>
+    <string name="chorus_depth">흔들림 깊이 (Depth)</string>
+    <string name="chorus_detune">디튠 양 (Detune)</string>
+    <string name="chorus_stereo">스테레오 확장 (Stereo Width)</string>
+
+    <string name="limiter_text">리미터 · 피크 제어</string>
+    <string name="limiter_input_gain">프리 부스트 (Input Gain)</string>
+    <string name="limiter_limit">천장 레벨 (Limit)</string>
+    <string name="limiter_attack">포착 속도 (Attack)</string>
+    <string name="limiter_release">복구 시간 (Release)</string>
+
+    <string name="stereo_widener_text">스테레오 확장 · 공간감 조절</string>
+    <string name="stereo_widener_width">스테레오 폭</string>
+
+    <string name="signalsmith_reverb_text">리버브 Pro · 공간 설계</string>
+    <string name="reverb_dry">원음 비율 (Dry)</string>
+    <string name="reverb_wet">잔향 양 (Wet)</string>
+    <string name="reverb_room_size">공간 크기 (Room Size)</string>
+    <string name="reverb_decay">잔향 길이 (Decay)</string>
+
+    <string name="eq_title">5밴드 EQ · 톤 조각</string>
+    <string name="eq_band_60hz">60 Hz · 저음 강조 (Low Shelf)</string>
+    <string name="eq_band_250hz">250 Hz · 따뜻함</string>
+    <string name="eq_band_1khz">1 kHz · 보컬 존재감</string>
+    <string name="eq_band_4khz">4 kHz · 선명도</string>
+    <string name="eq_band_12khz">12 kHz · 에어 (High Shelf)</string>
+
+    <string name="compressor_title">컴프레서 · 레벨 유지</string>
+    <string name="comp_threshold">작동 레벨 (Threshold)</string>
+    <string name="comp_ratio">압축 강도 (Ratio)</string>
+    <string name="comp_attack">반응 속도 (Attack)</string>
+    <string name="comp_release">복귀 시간 (Release)</string>
+    <string name="comp_makeup_gain">출력 게인 (Makeup Gain)</string>
+
+    <string name="hrtf_virtualizer_title">3D 서라운드</string>
+    <string name="hrtf_intensity">3D 효과 강도</string>
+    <string name="hrtf_azimuth">소리 방향</string>
+    <string name="hrtf_direction_left">왼쪽</string>
+    <string name="hrtf_direction_front">정면</string>
+    <string name="hrtf_direction_right">오른쪽</string>
+
+    <string name="phaser_title">페이저 · 소용돌이 스윕</string>
+    <string name="phaser_lfo_freq">스윕 속도 (LFO Rate)</string>
+    <string name="phaser_lfo_depth">스윕 폭 (LFO Depth)</string>
+    <string name="phaser_feedback">레조넌스 (Feedback)</string>
+    <string name="phaser_poles">스테이지 수 (Poles)</string>
+
+    <string name="flanger_title">플랜저 · 제트 스윕</string>
+    <string name="flanger_lfo_freq">스윕 속도 (LFO Rate)</string>
+    <string name="flanger_lfo_depth">스윕 폭 (LFO Depth)</string>
+    <string name="flanger_feedback">레조넌스 (Feedback)</string>
+    <string name="flanger_delay">지연 오프셋 (Delay)</string>
+
+    <string name="tremolo_title">트레몰로 · 펄스 그루브</string>
+    <string name="tremolo_freq">펄스 속도 (Rate)</string>
+    <string name="tremolo_depth">펄스 깊이 (Depth)</string>
+    <string name="tremolo_waveform">파형 (Waveform)</string>
+
+    <string name="autowah_title">오토와 · 토킹 필터</string>
+    <string name="autowah_wah">필터 위치 (Wah)</string>
+    <string name="autowah_mix">블렌드 (Mix)</string>
+    <string name="autowah_level">출력 레벨 (Level)</string>
+
+    <string name="decimator_title">비트크러셔 · 레트로 디지털</string>
+    <string name="decimator_bitcrush">비트 깊이 (Bit Crush)</string>
+    <string name="decimator_downsample">샘플 레이트 (Downsample)</string>
 </resources>

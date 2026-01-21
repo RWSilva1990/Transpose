@@ -8,7 +8,7 @@ import com.example.data.local.database.dao.VideoDao
 import com.example.data.local.database.entity.PlaylistEntity
 import com.example.data.local.database.entity.VideoEntity
 
-@Database(entities = [PlaylistEntity::class, VideoEntity::class], version = 2)
+@Database(entities = [PlaylistEntity::class, VideoEntity::class], version = 3)
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun playlistDao(): PlaylistDao

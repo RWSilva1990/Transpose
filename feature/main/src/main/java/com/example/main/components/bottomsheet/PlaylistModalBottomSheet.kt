@@ -183,7 +183,7 @@ fun PlaylistModalBottomSheet(
                         PlaylistBottomSheetItem(
                             item = item,
                             onClick = {
-                                mainViewModel.playPlaylist(
+                                mainViewModel.playPlaylistItems(
                                     playlist = currentPlaylist,
                                     startIndex = index
                                 )

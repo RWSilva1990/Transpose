@@ -14,7 +14,12 @@ fun LibraryNavHost(
     navController: NavHostController,
     modifier: Modifier,
     bottomSheetState: SheetState,
-    navigateToHomeTab: () -> Unit
+    onUpdateCheckClick: () -> Unit,
+    onContactClick: () -> Unit,
+    navigateToHomeTab: () -> Unit,
+    localSearchQuery: String = "",
+    isLocalSearchActive: Boolean = false,
+    onCloseLocalSearch: () -> Unit = {}
 ) {
     val libraryNavigationHelper = remember {
         LibraryNavigationHelper(navController)
@@ -27,7 +32,12 @@ fun LibraryNavHost(
         libraryNavGraph(
             bottomSheetState = bottomSheetState,
             libraryNavigationHelper = libraryNavigationHelper,
-            navigateToHomeTab = navigateToHomeTab
+            navigateToHomeTab = navigateToHomeTab,
+            onContactClick = onContactClick,
+            onUpdateCheckClick = onUpdateCheckClick,
+            localSearchQuery = localSearchQuery,
+            isLocalSearchActive = isLocalSearchActive,
+            onCloseLocalSearch = onCloseLocalSearch
         )
     }
 }

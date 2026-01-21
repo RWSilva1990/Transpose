@@ -1,23 +1,33 @@
 package com.example.media.manager
 
 import android.net.Uri
+import androidx.annotation.OptIn
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
+import androidx.media3.common.Timeline
 import androidx.media3.common.Tracks
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.datasource.HttpDataSource
+import androidx.media3.exoplayer.source.BehindLiveWindowException
 import androidx.media3.session.MediaController
+import com.example.domain.model.local_file.LocalFileData
+import com.example.domain.model.playable.PlayableItem
 import com.example.domain.model.preferences.RepeatMode
+import com.example.domain.model.preferences.VideoQuality
 import com.example.domain.model.youtube.video.Video
-import com.example.domain.model.youtube.video_detail.VideoDetail
 import com.example.media.state_holder.NowPlayingStateHolder
+import com.example.media.state_holder.PlaybackError
 import com.example.media.state_holder.PlaybackType
-import kotlinx.coroutines.CoroutineDispatcher
+import com.example.util.CrashReporter
+import com.example.util.Logger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.launch
@@ -28,7 +38,8 @@ import javax.inject.Singleton
 @Singleton
 class MediaPlaybackManager @Inject constructor(
     private val controllerProvider: MediaControllerProvider,
-    private val nowPlayingStateHolder: NowPlayingStateHolder
+    private val nowPlayingStateHolder: NowPlayingStateHolder,
+    private val crashReporter: CrashReporter
 ) {
 
     private val defaultDispatcher = Dispatchers.Default
@@ -41,7 +52,7 @@ class MediaPlaybackManager @Inject constructor(
     private var lastStateUpdateTime = 0L
     private val stateUpdateThrottleMs = 100L
 
-    private val mediaItemCache = mutableMapOf<String, Video>()
+    private val mediaItemCache = mutableMapOf<String, PlayableItem>()
 
     val mediaControllerFlow: StateFlow<MediaController?> = controllerProvider.mediaController
 
@@ -66,14 +77,77 @@ class MediaPlaybackManager @Inject constructor(
             }
         }
 
+        @OptIn(UnstableApi::class)
         override fun onPlayerError(error: PlaybackException) {
+            val currentItem = nowPlayingStateHolder.currentItem.value
+            val isPlaylist = nowPlayingStateHolder.playbackType.value == PlaybackType.PLAYLIST
+            val hasNext = nowPlayingStateHolder.hasNext()
+
+            Logger.e("🔴 Player Error:")
+            Logger.e("  - Item: ${currentItem?.id} - ${currentItem?.title}")
+            Logger.e("  - Error code: ${error.errorCode}")
+            Logger.e("  - Message: ${error.message}")
+            Logger.e("  - Cause: ${error.cause}")
+
+            crashReporter.setCustomKey("error_item_id", currentItem?.id ?: "unknown")
+            crashReporter.setCustomKey("error_item_title", currentItem?.title ?: "unknown")
+            crashReporter.setCustomKey("error_code", error.errorCode)
+            crashReporter.setCustomKey("playback_type", if (isPlaylist) "playlist" else "single")
+            crashReporter.setCustomKey("is_local", currentItem?.isLocal?.toString() ?: "unknown")
+            crashReporter.log("Playback error: itemId=${currentItem?.id}, errorCode=${error.errorCode}, message=${error.message}")
+            crashReporter.recordException(error)
+
+            error.cause?.let { cause ->
+                if (cause is BehindLiveWindowException) {
+                    Logger.e("  - Behind live window")
+                } else if (cause is HttpDataSource.HttpDataSourceException) {
+                    Logger.e("  - HTTP error: ${cause.type}")
+                }
+            }
+
+            scope.launch {
+                if (isPlaylist && hasNext) {
+                    nowPlayingStateHolder.emitPlaybackError(
+                        PlaybackError.PlaylistItemError(
+                            itemId = currentItem?.id,
+                            itemTitle = currentItem?.title,
+                            errorCode = error.errorCode,
+                            errorMessage = error.message,
+                            cause = error.cause,
+                            skippedToNext = true
+                        )
+                    )
+                    delay(500)
+                    mediaControllerFlow.value?.seekToNextMediaItem()
+                } else {
+                    nowPlayingStateHolder.emitPlaybackError(
+                        PlaybackError.SingleItemError(
+                            itemId = currentItem?.id,
+                            itemTitle = currentItem?.title,
+                            errorCode = error.errorCode,
+                            errorMessage = error.message,
+                            cause = error.cause
+                        )
+                    )
+                }
+            }
         }
 
         override fun onIsPlayingChanged(isPlaying: Boolean) {
+            Logger.d("🎵 isPlaying: $isPlaying")
             nowPlayingStateHolder.setIsPlaying(isPlaying)
         }
 
         override fun onPlaybackStateChanged(playbackState: Int) {
+            val stateName = when (playbackState) {
+                Player.STATE_IDLE -> "IDLE"
+                Player.STATE_BUFFERING -> "BUFFERING"
+                Player.STATE_READY -> "READY"
+                Player.STATE_ENDED -> "ENDED"
+                else -> "UNKNOWN($playbackState)"
+            }
+            Logger.d("🎵 PlaybackState: $stateName")
+            
             val ctrl = mediaControllerFlow.value ?: return
             throttledUpdatePlaybackState(ctrl)
 
@@ -107,7 +181,7 @@ class MediaPlaybackManager @Inject constructor(
         val mediaId = mediaItem?.mediaId ?: return
 
         mediaItemCache[mediaId]?.let {
-            updateUiForPlayingMediaItem(it)
+            updateUiForPlayingItem(it)
             return
         }
 
@@ -117,56 +191,138 @@ class MediaPlaybackManager @Inject constructor(
             val matchingItem = playlist.find { it.id == mediaId }
             if (matchingItem != null) {
                 mediaItemCache[mediaId] = matchingItem
-
                 withContext(mainDispatcher) {
-                    updateUiForPlayingMediaItem(matchingItem)
+                    updateUiForPlayingItem(matchingItem)
                 }
                 return@withContext
             }
 
-            val data = mediaItem.localConfiguration?.tag as? Video
+            val tag = mediaItem.localConfiguration?.tag
+            val playableItem: PlayableItem? = when (tag) {
+                is Video -> PlayableItem.Remote(tag)
+                is LocalFileData -> PlayableItem.Local(tag)
+                is PlayableItem -> tag
+                else -> null
+            }
 
             withContext(mainDispatcher) {
-                updateUiForPlayingMediaItem(data)
+                updateUiForPlayingItem(playableItem)
             }
         }
     }
 
-    private fun updateUiForPlayingMediaItem(metadata: Video?) {
-        if (metadata != null) {
-            val ctrl = mediaControllerFlow.value ?: return
+    private fun updateUiForPlayingItem(item: PlayableItem?) {
+        if (item == null) return
+        val ctrl = mediaControllerFlow.value ?: return
 
-            when (nowPlayingStateHolder.playbackType.value) {
-                PlaybackType.SINGLE -> nowPlayingStateHolder.setCurrentVideoData(metadata)
-                PlaybackType.PLAYLIST -> {
-                    nowPlayingStateHolder.setCurrentVideoData(metadata)
-                    nowPlayingStateHolder.setCurrentPlaylistIndex(ctrl.currentMediaItemIndex)
-                }
-
-                PlaybackType.LOCAL -> {}
+        when (nowPlayingStateHolder.playbackType.value) {
+            PlaybackType.SINGLE, PlaybackType.LOCAL -> {
+                nowPlayingStateHolder.setCurrentItem(item)
+            }
+            PlaybackType.PLAYLIST -> {
+                nowPlayingStateHolder.setCurrentItem(item)
+                nowPlayingStateHolder.setCurrentPlaylistIndex(ctrl.currentMediaItemIndex)
             }
         }
     }
 
-    fun updateMediaItemWithFullInfo(itemId: String, videoDetail: VideoDetail?) {
-        videoDetail ?: return
+    fun updateMediaItemWithFullInfo(
+        itemId: String,
+        videoDefaultStreamUrl: String,
+        videoOnlyStreamUrl: String?,
+        audioOnlyStreamUrl: String?,
+        videoQuality: VideoQuality,
+        videoManifestString: String?,
+        audioManifestsString: String?,
+    ) {
+        val ctrl = mediaControllerFlow.value ?: return
+        val currentPosition = ctrl.currentPosition
+        val shouldPlayWhenReady = ctrl.playWhenReady
 
         updateMediaItemJob?.cancel()
 
-        val selectedVideoStream = videoDetail.videoStreamContent ?: return
+        ctrl.addListener(object : Player.Listener {
+            override fun onTimelineChanged(timeline: Timeline, reason: Int) {
+                if (currentPosition > 5000) {
+                    ctrl.seekTo(currentPosition)
+                }
+                ctrl.removeListener(this)
+            }
+        })
 
-        updateMediaItemJob = scope.launch {
-            val ctrl = mediaControllerFlow.value ?: return@launch
-            val currentIndex = ctrl.currentMediaItemIndex
+        if (videoQuality.isAuto) {
+            val streamUrl = videoDefaultStreamUrl
 
-            if (currentIndex < 0 || currentIndex >= ctrl.mediaItemCount) return@launch
+            Logger.d("MediaPlaybackManager: Switching to AUTO source (progressive video+audio)")
+            Logger.d("streamUrl: $streamUrl")
 
-            val currentItem = ctrl.getMediaItemAt(currentIndex)
-            if (currentItem.mediaId == itemId) {
-                val updatedMediaItem = currentItem.buildUpon()
-                    .setUri(selectedVideoStream)
-                    .build()
-                ctrl.replaceMediaItem(currentIndex, updatedMediaItem)
+            updateMediaItemJob = scope.launch {
+                val currentIndex = ctrl.currentMediaItemIndex
+
+                if (currentIndex < 0 || currentIndex >= ctrl.mediaItemCount) return@launch
+
+                val currentItem = ctrl.getMediaItemAt(currentIndex)
+                if (currentItem.mediaId == itemId) {
+                    val currentUri = currentItem.localConfiguration?.uri?.toString()
+                    if (currentUri == streamUrl) {
+                        Logger.d("MediaItem already has correct URL, skipping update")
+                        return@launch
+                    }
+
+                    val updatedMetadata = currentItem.mediaMetadata.buildUpon()
+                        .setExtras(android.os.Bundle().apply {
+                            putString("videoQuality", videoQuality.name)
+                        })
+                        .build()
+                    val updatedMediaItem = currentItem.buildUpon()
+                        .setUri(streamUrl)
+                        .setMediaMetadata(updatedMetadata)
+                        .build()
+
+                    ctrl.replaceMediaItem(currentIndex, updatedMediaItem)
+                    ctrl.prepare()
+                    if (shouldPlayWhenReady) {
+                        ctrl.play()
+                    }
+                }
+            }
+        } else {
+            Logger.d("MediaPlaybackManager: Switching to ${videoQuality.displayName} (DASH) source")
+            updateMediaItemJob = scope.launch {
+                val currentIndex = ctrl.currentMediaItemIndex
+
+                if (currentIndex < 0 || currentIndex >= ctrl.mediaItemCount) return@launch
+
+                val currentItem = ctrl.getMediaItemAt(currentIndex)
+                if (currentItem.mediaId == itemId) {
+                    val currentUri = currentItem.localConfiguration?.uri?.toString()
+                    val currentQuality = currentItem.mediaMetadata.extras?.getString("videoQuality")
+                    if (currentUri == videoOnlyStreamUrl && currentQuality == videoQuality.name) {
+                        Logger.d("MediaItem already has correct URL and quality, skipping update")
+                        return@launch
+                    }
+
+                    val updatedMetadata = currentItem.mediaMetadata.buildUpon()
+                        .setExtras(android.os.Bundle().apply {
+                            putString("videoQuality", videoQuality.name)
+                            putString("videoManifestString", videoManifestString)
+                            putString("audioManifestString", audioManifestsString)
+                            putString("videoUrl", videoOnlyStreamUrl)
+                            putString("audioUrl", audioOnlyStreamUrl)
+                        })
+                        .build()
+
+                    val updatedMediaItem = currentItem.buildUpon()
+                        .setUri(videoOnlyStreamUrl)
+                        .setMediaMetadata(updatedMetadata)
+                        .build()
+
+                    ctrl.replaceMediaItem(currentIndex, updatedMediaItem)
+                    ctrl.prepare()
+                    if (shouldPlayWhenReady) {
+                        ctrl.play()
+                    }
+                }
             }
         }
     }
@@ -198,6 +354,11 @@ class MediaPlaybackManager @Inject constructor(
         ctrl.shuffleModeEnabled = enabled
     }
 
+    fun setPlaybackSpeed(rate: Float) {
+        val ctrl = mediaControllerFlow.value ?: return
+        ctrl.playbackParameters = PlaybackParameters(rate)
+    }
+
     fun getCurrentShuffleMode(): Boolean {
         val ctrl = mediaControllerFlow.value ?: return false
         return ctrl.shuffleModeEnabled
@@ -215,57 +376,99 @@ class MediaPlaybackManager @Inject constructor(
     }
 
 
-    fun playSingleVideo(
-        video: Video,
-    ) {
-        nowPlayingStateHolder.setPlaybackType(PlaybackType.SINGLE)
+    fun playSingleVideo(video: Video) {
+        Logger.d("MediaPlaybackManager.playSingleVideo - videoId: ${video.id}")
+        playSingleItem(PlayableItem.Remote(video))
+    }
 
-        val ctrl = mediaControllerFlow.value ?: return
-        val isSameItem = (ctrl.currentMediaItem?.mediaId == video.id)
+    fun playSingleItem(item: PlayableItem) {
+        Logger.d("MediaPlaybackManager.playSingleItem - itemId: ${item.id}, isLocal: ${item.isLocal}")
+        val playbackType = if (item.isLocal) PlaybackType.LOCAL else PlaybackType.SINGLE
+        nowPlayingStateHolder.setPlaybackType(playbackType)
+        Logger.d("MediaPlaybackManager.playSingleItem - playbackType set to: $playbackType")
+
+        val ctrl = mediaControllerFlow.value
+        if (ctrl == null) {
+            Logger.e("MediaPlaybackManager.playSingleItem - mediaController is NULL!")
+            return
+        }
+        val isSameItem = (ctrl.currentMediaItem?.mediaId == item.id)
+        Logger.d("MediaPlaybackManager.playSingleItem - isSameItem: $isSameItem, currentMediaId: ${ctrl.currentMediaItem?.mediaId}")
 
         if (isSameItem) {
+            Logger.d("MediaPlaybackManager.playSingleItem - same item, toggling play/pause")
             if (ctrl.isPlaying) ctrl.pause() else ctrl.play()
             return
         }
 
-        prepareAndPlay(video, emptyList(), 0)
+        Logger.d("MediaPlaybackManager.playSingleItem - calling prepareAndPlayItems")
+        prepareAndPlayItems(item, emptyList(), 0)
     }
 
-    fun playPlaylist(
-        playlistItems: List<Video>,
-        startIndex: Int = 0
-    ) {
+    fun playPlaylist(playlistItems: List<Video>, startIndex: Int = 0) {
+        val items = playlistItems.map { PlayableItem.Remote(it) }
+        playPlaylistItems(items, startIndex)
+    }
+
+    fun playPlaylistItems(playlistItems: List<PlayableItem>, startIndex: Int = 0) {
         nowPlayingStateHolder.setPlaybackType(PlaybackType.PLAYLIST)
 
         val ctrl = mediaControllerFlow.value ?: return
-        val isSameItem = (ctrl.currentMediaItem?.mediaId == playlistItems[startIndex].id)
+        val targetItemId = playlistItems[startIndex].id
+        val isSameItem = (ctrl.currentMediaItem?.mediaId == targetItemId)
 
         if (isSameItem) {
             if (ctrl.isPlaying) ctrl.pause() else ctrl.play()
             return
         }
 
-        prepareAndPlay(null, playlistItems, startIndex)
+        val existingItemAtIndex = if (startIndex < ctrl.mediaItemCount) {
+            ctrl.getMediaItemAt(startIndex)
+        } else null
 
+        if (existingItemAtIndex?.mediaId == targetItemId) {
+            Logger.d("Item already in player at index $startIndex, using seekTo")
+            ctrl.seekTo(startIndex, 0L)
+            ctrl.play()
+            return
+        }
+
+        prepareAndPlayItems(null, playlistItems, startIndex)
     }
 
-    private fun prepareAndPlay(video: Video?, playlistItems: List<Video>, startIndex: Int = 0) {
-        val ctrl = mediaControllerFlow.value ?: return
+    fun playLocalFile(localFile: LocalFileData) {
+        playSingleItem(PlayableItem.Local(localFile))
+    }
 
+    private fun prepareAndPlayItems(
+        singleItem: PlayableItem?,
+        playlistItems: List<PlayableItem>,
+        startIndex: Int = 0
+    ) {
+        Logger.d("prepareAndPlayItems START - singleItem: ${singleItem?.id}, playlistSize: ${playlistItems.size}")
+        val ctrl = mediaControllerFlow.value
+        if (ctrl == null) {
+            Logger.e("prepareAndPlayItems - mediaController is NULL!")
+            return
+        }
+
+        Logger.d("prepareAndPlayItems - calling clearCurrentPlayback")
         clearCurrentPlayback()
         scope.launch {
-            when (nowPlayingStateHolder.playbackType.value) {
-                PlaybackType.SINGLE -> {
-                    val singleItem = withContext(defaultDispatcher) {
-                        video!!.let {
-                            mediaItemCache[video.id] = video
-                            createMediaItem(video)
+            val playbackType = nowPlayingStateHolder.playbackType.value
+            Logger.d("prepareAndPlayItems - playbackType: $playbackType")
+            when (playbackType) {
+                PlaybackType.SINGLE, PlaybackType.LOCAL -> {
+                    val mediaItem = withContext(defaultDispatcher) {
+                        singleItem!!.let {
+                            mediaItemCache[it.id] = it
+                            createMediaItemFromPlayable(it)
                         }
                     }
 
                     withContext(mainDispatcher) {
-                        ctrl.setMediaItem(singleItem)
-                        nowPlayingStateHolder.updateSingleTrack(video)
+                        ctrl.setMediaItem(mediaItem)
+                        nowPlayingStateHolder.updateSingleTrack(singleItem)
                         ctrl.prepare()
                         ctrl.play()
                     }
@@ -273,26 +476,22 @@ class MediaPlaybackManager @Inject constructor(
 
                 PlaybackType.PLAYLIST -> {
                     val mediaItems = withContext(defaultDispatcher) {
-                        playlistItems.forEach { video ->
-                            mediaItemCache[video.id] = video
+                        playlistItems.forEach { item ->
+                            mediaItemCache[item.id] = item
                         }
-                        createMediaItems(playlistItems)
+                        createMediaItemsFromPlayable(playlistItems)
                     }
 
                     withContext(mainDispatcher) {
                         ctrl.setMediaItems(mediaItems, startIndex, 0L)
-
                         nowPlayingStateHolder.updatePlaylistTrack(
-                            video = playlistItems[startIndex],
+                            item = playlistItems[startIndex],
                             playlist = playlistItems,
                             index = startIndex
                         )
                         ctrl.prepare()
                         ctrl.play()
                     }
-                }
-
-                PlaybackType.LOCAL -> {
                 }
             }
         }
@@ -330,6 +529,32 @@ class MediaPlaybackManager @Inject constructor(
                 )
                 .build()
         }
+    }
+
+    private fun createMediaItemFromPlayable(item: PlayableItem): MediaItem {
+        return when (item) {
+            is PlayableItem.Remote -> createMediaItem(item.video)
+            is PlayableItem.Local -> createLocalMediaItem(item.localFile)
+        }
+    }
+
+    private fun createMediaItemsFromPlayable(items: List<PlayableItem>): List<MediaItem> {
+        return items.map { createMediaItemFromPlayable(it) }
+    }
+
+    private fun createLocalMediaItem(localFile: LocalFileData): MediaItem {
+        return MediaItem.Builder()
+            .setMediaId("local_${localFile.id}")
+            .setUri(localFile.uri)
+            .setTag(localFile)
+            .setMediaMetadata(
+                MediaMetadata.Builder()
+                    .setTitle(localFile.title)
+                    .setArtist(localFile.artist ?: "Unknown Artist")
+                    .setAlbumTitle(localFile.album)
+                    .build()
+            )
+            .build()
     }
 
     fun clearCurrentPlayback() {

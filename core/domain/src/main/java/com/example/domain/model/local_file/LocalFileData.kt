@@ -6,6 +6,7 @@ data class LocalFileData(
     val id: Long,
     val title: String,
     val uri: Uri,
+    val filePath: String?, // 실제 파일 시스템 경로 (Superpowered용)
     val mimeType: String,
     val size: Long,
     val duration: Long,

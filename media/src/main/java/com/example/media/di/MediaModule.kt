@@ -9,11 +9,10 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
-import com.example.media.manager.AudioEffectsManager
+import com.example.media.CustomHttpDataSource
 import com.example.media.CustomMediaSourceFactory
-import com.example.media.manager.MediaControllerProvider
-import com.example.media.manager.MediaPlaybackManager
-import com.example.media.audio_effect.AudioEffectHandlerImpl
+import com.example.media.audio.SignalsmithAudioProcessor
+import com.example.media.audio.ProcessorRenderersFactory
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -35,9 +34,15 @@ class MediaModule {
     @OptIn(UnstableApi::class)
     @Provides
     @Singleton
-    fun provideCustomMediaSourceFactory(@ApplicationContext context: Context): CustomMediaSourceFactory =
-        CustomMediaSourceFactory(context)
+    fun provideCustomMediaSourceFactory(@ApplicationContext context: Context): CustomMediaSourceFactory {
+        val custom = CustomHttpDataSource.Factory()
+            .setRangeParameterEnabled(true)
+            .setRnParameterEnabled(true)
+            .setKeepPostFor302Redirects(true)
+            .setAllowCrossProtocolRedirects(true)
 
+        return CustomMediaSourceFactory(context, custom)
+    }
 
     @OptIn(UnstableApi::class)
     @Provides
@@ -45,20 +50,27 @@ class MediaModule {
     fun provideExoPlayer(
         @ApplicationContext context: Context,
         audioAttributes: AudioAttributes,
-        customMediaSourceFactory: CustomMediaSourceFactory
-    ): ExoPlayer = ExoPlayer.Builder(context)
+        customMediaSourceFactory: CustomMediaSourceFactory,
+        processorRenderersFactory: ProcessorRenderersFactory
+    ): ExoPlayer = ExoPlayer.Builder(context, processorRenderersFactory)
+        .setSeekBackIncrementMs(10_000)
+        .setSeekForwardIncrementMs(10_000)
         .setAudioAttributes(audioAttributes, true)
         .setHandleAudioBecomingNoisy(true)
-        .setLoadControl(DefaultLoadControl.Builder()
-            .setBufferDurationsMs(
-                DefaultLoadControl.DEFAULT_MIN_BUFFER_MS,
-                DefaultLoadControl.DEFAULT_MAX_BUFFER_MS,
-                DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_MS,
-                DefaultLoadControl.DEFAULT_BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS
-            )
-            .setTargetBufferBytes(C.LENGTH_UNSET)
-            .setPrioritizeTimeOverSizeThresholds(true)
-            .build())
+        .setLoadControl(
+            DefaultLoadControl.Builder()
+                .setBufferDurationsMs(
+                    5_000,
+                    30_000,
+                    1_000,
+                    2_000
+                )
+                .setTargetBufferBytes(5 * 1024 * 1024)
+                .setPrioritizeTimeOverSizeThresholds(false)
+                .setBackBuffer(10_000, true)
+                .build()
+        )
+        .setMediaSourceFactory(customMediaSourceFactory)
         .setTrackSelector(DefaultTrackSelector(context))
         .build()
 
@@ -66,10 +78,19 @@ class MediaModule {
     @Singleton
     fun providePlayer(exoPlayer: ExoPlayer): Player = exoPlayer
 
-
     @Provides
     @Singleton
-    fun provideAudioEffectHandler(player: Player): AudioEffectHandlerImpl =
-        AudioEffectHandlerImpl(player as ExoPlayer)
+    fun provideSignalsmithAudioProcessor(): SignalsmithAudioProcessor {
+        return SignalsmithAudioProcessor()
+    }
 
+    @OptIn(UnstableApi::class)
+    @Provides
+    @Singleton
+    fun provideProcessorRenderersFactory(
+        @ApplicationContext context: Context,
+        signalsmithProcessor: SignalsmithAudioProcessor
+    ): ProcessorRenderersFactory {
+        return ProcessorRenderersFactory(context, signalsmithProcessor)
+    }
 }

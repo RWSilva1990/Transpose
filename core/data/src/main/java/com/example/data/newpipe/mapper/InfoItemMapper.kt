@@ -9,6 +9,7 @@ import com.example.domain.model.youtube.channel.ChannelTabResult
 import com.example.domain.model.youtube.playlist.Playlist
 import com.example.domain.model.youtube.playlist.PlaylistItem
 import com.example.domain.model.youtube.search.SearchResult
+import com.example.domain.model.youtube.video.Video
 import com.example.domain.model.youtube.video_detail.VideoDetail
 import org.schabi.newpipe.extractor.channel.ChannelExtractor
 import org.schabi.newpipe.extractor.channel.ChannelInfoItem
@@ -34,8 +35,8 @@ object InfoItemMapper {
         return PlaylistMapper.playlistInfoItemToSearchResultPlaylist(item, id)
     }
 
-    fun streamExtractorToVideoDetail(extractor: StreamExtractor, uploaderId: String): VideoDetail {
-        return VideoMapper.streamExtractorToVideoDetail(extractor, uploaderId)
+    fun streamExtractorToVideoDetail(extractor: StreamExtractor, uploaderId: String, video: Video): VideoDetail {
+        return VideoMapper.streamExtractorToVideoDetail(extractor, uploaderId, video)
     }
 
     fun playlistInfoItemToPlaylistData(item: PlaylistInfoItem, id: String): Playlist {

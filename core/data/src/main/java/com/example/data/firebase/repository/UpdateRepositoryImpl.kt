@@ -30,7 +30,7 @@ class UpdateRepositoryImpl @Inject constructor(
         setDefaultsAsync(
             mapOf(
                 "latest_version" to getCurrentVersion(),
-                "update_url" to "https://github.com/yourusername/yourrepo/releases/latest"
+                "update_url" to "https://github.com/joh9911/Transpose/releases/latest"
             )
         )
     }

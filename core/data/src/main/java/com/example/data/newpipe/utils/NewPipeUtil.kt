@@ -28,9 +28,6 @@ object NewPipeUtils {
     fun getHighestResolutionThumbnail(thumbnailUrl: String?): String? {
         if (thumbnailUrl == null) return null
         val videoId = extractVideoId(thumbnailUrl)
-        val resolutions = listOf("maxresdefault", "sddefault", "hqdefault", "mqdefault", "default")
-
-
         return "https://i.ytimg.com/vi/$videoId/maxresdefault.jpg"
     }
 

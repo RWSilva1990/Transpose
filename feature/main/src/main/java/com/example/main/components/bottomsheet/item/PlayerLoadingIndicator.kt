@@ -5,6 +5,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import com.example.domain.model.playable.PlayableItem
 import com.example.main.MainViewModel
 import com.example.main.components.bottomsheet.state.VideoDetailUiState
 import com.example.util.constants.AppColors
@@ -14,6 +15,9 @@ fun PlayerLoadingIndicator(
     mainViewModel: MainViewModel, modifier: Modifier = Modifier
 ) {
     val videoDetailUiState by mainViewModel.videoDetailUiState.collectAsState()
+    val currentItem by mainViewModel.currentItem.collectAsState()
+
+    if (currentItem is PlayableItem.Local) return
 
     when (val state = videoDetailUiState){
         is VideoDetailUiState.Loading -> {

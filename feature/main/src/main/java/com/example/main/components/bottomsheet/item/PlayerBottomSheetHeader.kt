@@ -43,7 +43,9 @@ fun PlayerBottomSheetHeader(
     val coroutineScope = rememberCoroutineScope()
 
     val isPlaying by mainViewModel.isPlaying.collectAsState()
-    val currentVideo by mainViewModel.currentVideo.collectAsState()
+    val currentItem by mainViewModel.currentItem.collectAsState()
+
+    val displayTitle = currentItem?.title ?: ""
 
     trace("PlayerBottomSheetHeader") {
         Row(
@@ -59,7 +61,7 @@ fun PlayerBottomSheetHeader(
             )
 
             Text(
-                text = currentVideo?.title ?: "",
+                text = displayTitle,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 color = Color.White,
