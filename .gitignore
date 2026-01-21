@@ -1,4 +1,5 @@
 /build
+**/build/
 **/build/generated/hilt/
 
 # Gradle files
@@ -87,6 +88,7 @@ lint/tmp/
 kapt_*
 
 # Build intermediate files
+**/build/
 feature/*/build/
 app/*/build/
 
@@ -126,3 +128,19 @@ thumbs.db
 # Generated Java source files (e.g. from annotation processors)
 **/generated/source/
 **/generated/ap_generated_sources/
+
+# Superpowered SDK (cloned for development)
+superpowered-sdk/
+
+# Claude Code / AI assistant files
+.sisyphus/
+.claude/
+*.claude
+CLAUDE.md
+
+# Planning and report MD files (keep README*.md and library docs)
+AUDIOPROCESSOR_MIGRATION_REPORT_KO.md
+CHROME_EXTENSION_TRANSPOSE_PROMPT_KO.md
+SIGNALSMITH_INTEGRATION.md
+TODO_AUDIOPROCESSOR_MIGRATION.md
+*_PLAN.md

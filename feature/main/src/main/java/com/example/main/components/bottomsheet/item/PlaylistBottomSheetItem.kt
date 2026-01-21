@@ -21,28 +21,39 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.ColorPainter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringArrayResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import com.example.domain.model.youtube.video.Video
+import com.example.domain.model.playable.PlayableItem
 import com.example.main.R
 import com.example.util.TextFormatUtil
 
 @Composable
 fun PlaylistBottomSheetItem(
-    item: Video,
+    item: PlayableItem,
     onClick: () -> Unit,
     isCurrentlyPlaying: Boolean,
 ) {
-
     val myStringArray = stringArrayResource(id = R.array.view_count_formats)
-    val formattedTexts = remember(item.viewCount, item.textualUploadDate) {
-        val viewCount = TextFormatUtil.viewCountCalculator(
-            myStringArray,
-            item.viewCount.toString()
-        )
-        "$viewCount • ${item.textualUploadDate}"
+
+    val subtitle = when (item) {
+        is PlayableItem.Remote -> item.video.uploaderName ?: ""
+        is PlayableItem.Local -> item.artist ?: stringResource(R.string.unknown_artist)
+    }
+
+    val detailText = remember(item) {
+        when (item) {
+            is PlayableItem.Remote -> {
+                val viewCount = TextFormatUtil.viewCountCalculator(
+                    myStringArray,
+                    item.video.viewCount.toString()
+                )
+                "$viewCount • ${item.video.textualUploadDate}"
+            }
+            is PlayableItem.Local -> item.album ?: ""
+        }
     }
 
     Row(
@@ -54,7 +65,7 @@ fun PlaylistBottomSheetItem(
             .padding(vertical = 10.dp, horizontal = 10.dp)
     ) {
         AsyncImage(
-            model = item.thumbnailUrl,
+            model = item.thumbnailUri,
             contentDescription = "Thumbnail",
             modifier = Modifier
                 .width(150.dp)
@@ -78,13 +89,13 @@ fun PlaylistBottomSheetItem(
                 overflow = TextOverflow.Ellipsis
             )
             Text(
-                text = item.uploaderName ?: "",
+                text = subtitle,
                 fontSize = 10.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
             Text(
-                text = formattedTexts,
+                text = detailText,
                 fontSize = 10.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1
@@ -92,6 +103,4 @@ fun PlaylistBottomSheetItem(
         }
     }
     HorizontalDivider(color = Color.LightGray, thickness = 0.5.dp)
-
-
 }

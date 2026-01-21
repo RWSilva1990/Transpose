@@ -17,7 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import com.example.domain.model.youtube.search.SearchResult
 import com.example.transpose.core.ui.R
-import com.example.ui.components.dialog.AddVideoToPlaylistDialog
+import com.example.ui.components.dialog.AddItemToPlaylistDialog
 import com.example.ui.components.items.ChannelItem
 import com.example.ui.components.items.CommonVideoItem
 import com.example.ui.components.items.LoadingIndicator
@@ -102,11 +102,6 @@ fun SearchResultScreen(
                         }
 
                         is SearchResult.ChannelResult -> {
-                            ChannelItem(
-                                channel = item,
-                                onClick = {
-                                }
-                            )
                         }
 
                         is SearchResult.PlaylistResult -> {
@@ -126,7 +121,7 @@ fun SearchResultScreen(
         }
     }
     if (isShowingPlaylistDialog) {
-        AddVideoToPlaylistDialog(
+        AddItemToPlaylistDialog(
             playlists = myPlaylists,
             onDismiss = { isShowingPlaylistDialog = false },
             onPlaylistSelected = { playlistId ->

@@ -28,7 +28,7 @@ sealed class MainTab(
         label = "Library",
         filledIcon = R.drawable.baseline_library_music_24_blue,
         outlinedIcon = R.drawable.outline_library_music_24
-    )
+)
 
     companion object {
         val ALL_TABS: List<MainTab> by lazy { listOf(Home, Convert, Library) }

@@ -14,6 +14,8 @@ fun ConvertNavHost(
     navController: NavHostController,
     modifier: Modifier,
     bottomSheetState: SheetState,
+    onUpdateCheckClick: () -> Unit,
+    onContactClick: () -> Unit,
     navigateToHomeTab: () -> Unit
 ) {
     val convertNavigationHelper = remember {
@@ -27,7 +29,9 @@ fun ConvertNavHost(
         convertNavGraph(
             bottomSheetState = bottomSheetState,
             convertNavigationHelper = convertNavigationHelper,
-            navigateToHomeTab = navigateToHomeTab
+            navigateToHomeTab = navigateToHomeTab,
+            onUpdateCheckClick = onUpdateCheckClick,
+            onContactClick = onContactClick
         )
     }
 }

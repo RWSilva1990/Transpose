@@ -2,40 +2,57 @@ package com.example.data.newpipe.mapper.video
 
 import com.example.data.newpipe.mapper.base.BaseMapper
 import com.example.domain.model.youtube.channel.ChannelTabResult
-import com.example.domain.model.youtube.video.Video
 import com.example.domain.model.youtube.search.SearchResult
+import com.example.domain.model.youtube.video.Video
 import com.example.domain.model.youtube.video_detail.VideoDetail
-import org.schabi.newpipe.extractor.InfoItem
+import com.example.util.Logger
+import org.schabi.newpipe.extractor.ServiceList
 import org.schabi.newpipe.extractor.stream.StreamExtractor
 import org.schabi.newpipe.extractor.stream.StreamInfoItem
 
 object VideoMapper {
 
-    fun streamInfoItemToSearchResultVideo(item: StreamInfoItem, videoId: String, uploaderId: String): SearchResult.VideoResult {
+    fun streamInfoItemToSearchResultVideo(
+        item: StreamInfoItem,
+        videoId: String,
+        uploaderId: String
+    ): SearchResult.VideoResult {
         return SearchResult.VideoResult(
             video = streamInfoItemToBasicVideoData(item, videoId, uploaderId)
         )
     }
 
-    fun streamInfoItemToChannelTabResultVideo(item: StreamInfoItem, videoId: String, uploaderId: String): ChannelTabResult.VideoResult {
+    fun streamInfoItemToChannelTabResultVideo(
+        item: StreamInfoItem,
+        videoId: String,
+        uploaderId: String
+    ): ChannelTabResult.VideoResult {
         return ChannelTabResult.VideoResult(
             video = streamInfoItemToBasicVideoData(item, videoId, uploaderId)
         )
     }
 
-    fun streamInfoItemToChannelTabResultShorts(item: StreamInfoItem, videoId: String, uploaderId: String): ChannelTabResult.ShortsResult {
+    fun streamInfoItemToChannelTabResultShorts(
+        item: StreamInfoItem,
+        videoId: String,
+        uploaderId: String
+    ): ChannelTabResult.ShortsResult {
         return ChannelTabResult.ShortsResult(
             video = streamInfoItemToBasicVideoData(item, videoId, uploaderId)
         )
     }
 
 
-    fun streamInfoItemToBasicVideoData(item: StreamInfoItem, videoId: String, uploaderId: String): Video {
+    fun streamInfoItemToBasicVideoData(
+        item: StreamInfoItem,
+        videoId: String,
+        uploaderId: String
+    ): Video {
         return Video(
             id = videoId,
             title = item.name,
             description = item.shortDescription ?: "",
-            publishTimestamp = item.uploadDate?.date()?.time?.time,
+            publishTimestamp = item.uploadDate?.offsetDateTime()?.toInstant()?.toEpochMilli(),
             thumbnailUrl = BaseMapper.getHighestResThumbnail(item.thumbnails.firstOrNull()?.url),
             infoType = "Stream",
             uploaderName = item.uploaderName,
@@ -50,10 +67,15 @@ object VideoMapper {
         )
     }
 
-    fun streamExtractorToVideoDetail(extractor: StreamExtractor, uploaderId: String): VideoDetail {
+    fun streamExtractorToVideoDetail(
+        extractor: StreamExtractor,
+        uploaderId: String,
+        video: Video
+    ): VideoDetail {
         val videoStreams = extractor.videoStreams
-        val videoOnlyUrls = extractor.videoOnlyStreams.map { it.content }
-        val audioOnlyUrls = extractor.audioStreams.map { it.content }
+        val videoOnlyUrls = extractor.videoOnlyStreams.toList()
+        val audioOnlyUrls = extractor.audioStreams.toList()
+        Logger.d("VideoMapper HLS URL: ${extractor.hlsUrl}")
 
         return VideoDetail(
             id = extractor.id,
@@ -61,35 +83,47 @@ object VideoMapper {
             videoStreamContent = videoStreams.firstOrNull()?.content,
             videoOnlyStreams = videoOnlyUrls,
             audioOnlyStreams = audioOnlyUrls,
+            duration = video.duration,
             description = extractor.description.content,
             thumbnailUrl = BaseMapper.getHighestResThumbnail(extractor.thumbnails.firstOrNull()?.url),
             uploaderName = extractor.uploaderName,
             uploaderId = uploaderId,
             uploaderAvatarUrl = extractor.uploaderAvatars.first().url,
             uploaderSubscriberCount = extractor.uploaderSubscriberCount,
-            publishTimestamp = extractor.uploadDate?.date()?.time?.time,
+            publishTimestamp = extractor.uploadDate?.offsetDateTime()?.toInstant()?.toEpochMilli(),
             publishedTimeText = extractor.textualUploadDate,
             viewCount = extractor.viewCount,
             likeCount = extractor.likeCount,
             dislikeCount = extractor.dislikeCount,
-            relatedVideos = extractor.relatedItems?.items?.map {
-                val relatedVideo = it as? StreamInfoItem
+            relatedVideos = extractor.relatedItems?.items?.mapNotNull {
+                val relatedVideo = it as? StreamInfoItem ?: return@mapNotNull null
+                val videoId = try {
+                    ServiceList.YouTube.streamLHFactory.getId(relatedVideo.url)
+                } catch (e: Exception) {
+                    Logger.e("VideoMapper", "Failed to extract video ID from URL: ${relatedVideo.url}")
+                    return@mapNotNull null
+                }
+                val uploaderId = try {
+                    ServiceList.YouTube.channelLHFactory.getId(relatedVideo.uploaderUrl).replace("channel/", "")
+                } catch (e: Exception) {
+                    ""
+                }
                 Video(
-                    id = relatedVideo?.url ?: "",
-                    title = relatedVideo?.name ?: "",
-                    description = relatedVideo?.shortDescription ?: "",
-                    publishTimestamp = relatedVideo?.uploadDate?.date()?.time?.time,
-                    thumbnailUrl = BaseMapper.getHighestResThumbnail(relatedVideo?.thumbnails?.firstOrNull()?.url),
+                    id = videoId,
+                    title = relatedVideo.name,
+                    description = relatedVideo.shortDescription ?: "",
+                    publishTimestamp = relatedVideo.uploadDate?.offsetDateTime()?.toInstant()?.toEpochMilli(),
+                    thumbnailUrl = BaseMapper.getHighestResThumbnail(relatedVideo.thumbnails.firstOrNull()?.url),
                     infoType = "Stream",
-                    uploaderName = relatedVideo?.uploaderName,
-                    uploaderUrl = relatedVideo?.uploaderUrl,
-                    uploaderAvatarUrl = relatedVideo?.uploaderAvatars?.first()?.url,
-                    uploaderVerified = relatedVideo?.isUploaderVerified,
-                    duration = relatedVideo?.duration ?: 0,
-                    viewCount = relatedVideo?.viewCount ?: 0,
-                    textualUploadDate = relatedVideo?.textualUploadDate ?: "",
-                    streamType = relatedVideo?.streamType?.name,
-                    shortFormContent = relatedVideo?.isShortFormContent ?: false
+                    uploaderName = relatedVideo.uploaderName,
+                    uploaderUrl = uploaderId,
+                    uploaderAvatarUrl = relatedVideo.uploaderAvatars.firstOrNull()?.url,
+                    uploaderVerified = relatedVideo.isUploaderVerified,
+                    duration = relatedVideo.duration,
+                    viewCount = relatedVideo.viewCount,
+                    textualUploadDate = relatedVideo.textualUploadDate ?: "",
+                    streamType = relatedVideo.streamType?.name,
+                    shortFormContent = relatedVideo.isShortFormContent
                 )
             } ?: emptyList()
         )

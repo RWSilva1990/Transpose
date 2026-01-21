@@ -36,12 +36,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
-import com.example.domain.model.youtube.video.Video
+import com.example.domain.model.playable.PlayableItem
 import com.example.domain.model.youtube.video_detail.VideoDetail
 import com.example.main.MainViewModel
 import com.example.main.R
 import com.example.main.components.bottomsheet.state.VideoDetailUiState
-import com.example.ui.components.dialog.AddVideoToPlaylistDialog
+import com.example.ui.components.dialog.AddItemToPlaylistDialog
 import com.example.util.TextFormatUtil
 import com.example.util.ToastUtil
 import com.example.util.constants.AppColors
@@ -56,53 +56,56 @@ fun ChannelSection(
     bottomSheetState: SheetState,
     onNavigateToChannelScreen: (String) -> Unit
 ) {
-    var isShowingPlaylistDialog by remember {
-        mutableStateOf(false)
-    }
-    var selectedVideo by remember {
-        mutableStateOf(null as Video?)
-    }
+    var isShowingPlaylistDialog by remember { mutableStateOf(false) }
     val myPlaylists by mainViewModel.myPlaylists.collectAsState()
-
     val context = LocalContext.current
     val videoDetailUiState by mainViewModel.videoDetailUiState.collectAsState()
+    val currentItem by mainViewModel.currentItem.collectAsState()
 
-    when (val state = videoDetailUiState) {
-        is VideoDetailUiState.Loading -> {
-            ChannelSectionShimmer()
-        }
-        is VideoDetailUiState.Success -> {
-            ChannelSectionContent(
-                videoDetail = state.videoDetail!!,
-                mainViewModel = mainViewModel,
-                onAddButtonClicked = { basicVideoData ->
-                    selectedVideo = basicVideoData
-                    isShowingPlaylistDialog = true
-                },
-                onNavigateToChannelScreen = onNavigateToChannelScreen,
-                bottomSheetState = bottomSheetState
+    when (currentItem) {
+        is PlayableItem.Local -> {
+            LocalFileSectionContent(
+                localItem = currentItem as PlayableItem.Local,
+                onAddButtonClicked = { isShowingPlaylistDialog = true }
             )
         }
-        is VideoDetailUiState.Error -> {
+        is PlayableItem.Remote -> {
+            when (val state = videoDetailUiState) {
+                is VideoDetailUiState.Loading -> {
+                    ChannelSectionShimmer()
+                }
+                is VideoDetailUiState.Success -> {
+                    ChannelSectionContent(
+                        videoDetail = state.videoDetail!!,
+                        mainViewModel = mainViewModel,
+                        onAddButtonClicked = { isShowingPlaylistDialog = true },
+                        onNavigateToChannelScreen = onNavigateToChannelScreen,
+                        bottomSheetState = bottomSheetState
+                    )
+                }
+                is VideoDetailUiState.Error -> {}
+            }
+        }
+        null -> {
+            ChannelSectionShimmer()
         }
     }
 
     if (isShowingPlaylistDialog) {
-        AddVideoToPlaylistDialog(
+        AddItemToPlaylistDialog(
             playlists = myPlaylists,
             onDismiss = { isShowingPlaylistDialog = false },
             onPlaylistSelected = { playlistId ->
-                selectedVideo?.let {
-                    mainViewModel.addVideoToPlaylist(it, playlistId)
+                currentItem?.let {
+                    mainViewModel.addItemToPlaylist(it, playlistId)
                     ToastUtil.showShort(
                         context = context,
                         message = context.getString(R.string.notify_video_added_to_playlist)
                     )
                 }
-            })
+            }
+        )
     }
-
-
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -110,11 +113,10 @@ fun ChannelSection(
 fun ChannelSectionContent(
     videoDetail: VideoDetail,
     mainViewModel: MainViewModel,
-    onAddButtonClicked: (Video) -> Unit,
+    onAddButtonClicked: () -> Unit,
     bottomSheetState: SheetState,
     onNavigateToChannelScreen: (String) -> Unit
 ) {
-    val video by mainViewModel.currentVideo.collectAsState()
     val subscriberCountFormats = rememberStringArrayResource(R.array.subscriber_count_formats)
     val coroutineScope = rememberCoroutineScope()
     val formattedSubscriberCount = remember(videoDetail.uploaderSubscriberCount) {
@@ -163,9 +165,62 @@ fun ChannelSectionContent(
         )
         Spacer(modifier = Modifier.weight(1f))
         Button(
-            onClick = {
-                video?.let(onAddButtonClicked)
-            },
+            onClick = onAddButtonClicked,
+            colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
+            elevation = ButtonDefaults.buttonElevation(0.dp),
+            shape = RoundedCornerShape(10.dp),
+            border = BorderStroke(1.dp, Color.Gray),
+            contentPadding = PaddingValues(0.dp),
+            modifier = Modifier
+                .padding(end = 15.dp)
+                .width(60.dp)
+                .height(30.dp)
+        ) {
+            Text(
+                text = stringResource(id = R.string.add_button_text),
+                fontWeight = FontWeight.Bold,
+                color = Color.Black
+            )
+        }
+    }
+}
+
+@Composable
+fun LocalFileSectionContent(
+    localItem: PlayableItem.Local,
+    onAddButtonClicked: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 5.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .width(60.dp)
+                .height(60.dp)
+                .padding(10.dp)
+                .background(AppColors.GrayBackground, RoundedCornerShape(4.dp))
+        )
+        Text(
+            text = localItem.artist ?: "",
+            modifier = Modifier
+                .widthIn(max = 150.dp),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            color = Color.Black
+        )
+        Text(
+            text = localItem.album ?: "",
+            modifier = Modifier
+                .padding(start = 10.dp, end = 20.dp),
+            maxLines = 1,
+            color = AppColors.DescriptionColor
+        )
+        Spacer(modifier = Modifier.weight(1f))
+        Button(
+            onClick = onAddButtonClicked,
             colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
             elevation = ButtonDefaults.buttonElevation(0.dp),
             shape = RoundedCornerShape(10.dp),

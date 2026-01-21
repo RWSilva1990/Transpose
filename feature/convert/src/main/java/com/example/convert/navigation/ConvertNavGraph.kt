@@ -13,10 +13,13 @@ import com.example.convert.audio_edit.ConvertAudioEditScreen
 import com.example.ui.screen.channel.ChannelScreen
 import com.example.ui.screen.playlist_info.PlaylistInfoScreen
 import com.example.ui.screen.search_result.SearchResultScreen
+import com.example.ui.screen.settings.SettingsScreen
 
 @OptIn(ExperimentalMaterial3Api::class)
 fun NavGraphBuilder.convertNavGraph(
     bottomSheetState: SheetState,
+    onUpdateCheckClick: () -> Unit,
+    onContactClick: () -> Unit,
     convertNavigationHelper: ConvertNavigationHelper,
     navigateToHomeTab: () -> Unit
 ) {
@@ -88,6 +91,19 @@ fun NavGraphBuilder.convertNavGraph(
             onNavigateToPlaylistInfoScreen = { playlistId ->
                 convertNavigationHelper.navigateToPlaylistInfo(playlistId)
             }
+        )
+    }
+
+    composable(
+        route = ConvertRoutes.SettingsScreen.route,
+        enterTransition = { EnterTransition.None },
+        exitTransition = { ExitTransition.None },
+        popEnterTransition = { EnterTransition.None },
+        popExitTransition = { ExitTransition.None },
+    ) {
+        SettingsScreen(
+            onUpdateCheckClick = onUpdateCheckClick,
+            onContactClick = onContactClick
         )
     }
 }

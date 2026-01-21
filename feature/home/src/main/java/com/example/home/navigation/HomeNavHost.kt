@@ -13,6 +13,8 @@ import androidx.navigation.compose.NavHost
 fun HomeNavHost(
     navController: NavHostController,
     modifier: Modifier,
+    onUpdateCheckClick: () -> Unit,
+    onContactClick: () -> Unit,
     bottomSheetState: SheetState,
 ) {
 
@@ -27,7 +29,9 @@ fun HomeNavHost(
     ) {
         homeNavGraph(
             bottomSheetState = bottomSheetState,
-            homeNavigationHelper = homeNavigationHelper
+            homeNavigationHelper = homeNavigationHelper,
+            onUpdateCheckClick = onUpdateCheckClick,
+            onContactClick = onContactClick
         )
     }
 }

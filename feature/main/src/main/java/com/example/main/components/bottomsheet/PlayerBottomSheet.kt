@@ -1,5 +1,6 @@
 package com.example.main.components.bottomsheet
 
+import android.widget.ImageButton
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -8,9 +9,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.SheetState
 import androidx.compose.material3.SheetValue
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -22,18 +26,23 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.lerp
 import androidx.compose.ui.util.trace
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
+import com.example.ui.util.getDisplayStringResId
 import com.example.main.MainViewModel
 import com.example.main.components.bottomsheet.GraphicsLayerConstants.PEEK_HEIGHT
 import com.example.main.components.bottomsheet.item.PlayerBottomSheetHeader
@@ -68,9 +77,9 @@ fun PlayerBottomSheet(
 
     val coroutineScope = rememberCoroutineScope()
     var showPlaylistModal by remember { mutableStateOf(false) }
-
+    var showQualityModal by remember { mutableStateOf(false) }
+    var isControllerVisible by remember { mutableStateOf(false) }
     val mediaController by mainViewModel.mediaControllerFlow.collectAsState()
-
 
 //    val bottomSheetAlpha = remember(bottomSheetOffset) {
 //        if (bottomSheetOffset < 0) 1f else {
@@ -101,6 +110,13 @@ fun PlayerBottomSheet(
                 playerViewHeight = playerViewHeight
             )
         }
+    }
+
+    if (showQualityModal) {
+        VideoQualityBottomSheet(
+            mainViewModel = mainViewModel,
+            onDismiss = { showQualityModal = false }
+        )
     }
 
 
@@ -156,6 +172,20 @@ fun PlayerBottomSheet(
                             PlayerView(ctx).apply {
                                 resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FILL
                                 keepScreenOn = true
+                                setControllerVisibilityListener(
+                                    PlayerView.ControllerVisibilityListener { visibility ->
+                                        isControllerVisible = visibility == android.view.View.VISIBLE
+                                    }
+                                )
+
+                                post {
+                                    val settingButtons = findViewById<ImageButton>(
+                                        androidx.media3.ui.R.id.exo_settings
+                                    )
+                                    settingButtons.setOnClickListener {
+                                        showQualityModal = true
+                                    }
+                                }
                             }
                         }, update = { view ->
                             mediaController?.let { controller ->
@@ -180,6 +210,15 @@ fun PlayerBottomSheet(
                 trace("PlayerLoadingIndicator") {
                     PlayerLoadingIndicator(
                         mainViewModel = mainViewModel, modifier = Modifier.align(Alignment.Center)
+                    )
+                }
+                if (isControllerVisible && bottomSheetState.currentValue == SheetValue.Expanded) {
+                    QualityIndicatorButton(
+                        mainViewModel = mainViewModel,
+                        onClick = { showQualityModal = true },
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(end = 12.dp, top = 12.dp)
                     )
                 }
             }
@@ -230,5 +269,28 @@ private fun calculateScaleFactorY(bottomSheetOffset: Float): Float {
     return when {
         bottomSheetOffset <= GraphicsLayerConstants.FULLY_EXPANDED -> minScale
         else -> lerp(start = minScale, stop = 1f, fraction = bottomSheetOffset)
+    }
+}
+
+@Composable
+private fun QualityIndicatorButton(
+    mainViewModel: MainViewModel,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val currentQuality by mainViewModel.videoQuality.collectAsState()
+
+    Surface(
+        modifier = modifier.clickable(onClick = onClick),
+        shape = RoundedCornerShape(4.dp),
+        color = Color.Black.copy(alpha = 0.6f)
+    ) {
+        Text(
+            text = stringResource(currentQuality.getDisplayStringResId()),
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+            color = Color.White,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Medium
+        )
     }
 }
