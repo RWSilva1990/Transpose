@@ -23,7 +23,10 @@ fun NavGraphBuilder.libraryNavGraph(
     libraryNavigationHelper: LibraryNavigationHelper,
     onUpdateCheckClick: () -> Unit,
     onContactClick: () -> Unit,
-    navigateToHomeTab: () -> Unit
+    navigateToHomeTab: () -> Unit,
+    localSearchQuery: String = "",
+    isLocalSearchActive: Boolean = false,
+    onCloseLocalSearch: () -> Unit = {}
 ) {
     composable(route = LibraryRoutes.MyPlaylist.route,
         enterTransition = { EnterTransition.None },
@@ -110,7 +113,10 @@ fun NavGraphBuilder.libraryNavGraph(
             type = type,
             navigateToBack = {
                 libraryNavigationHelper.navigateBack()
-            }
+            },
+            localSearchQuery = localSearchQuery,
+            isLocalSearchActive = isLocalSearchActive,
+            onCloseLocalSearch = onCloseLocalSearch
         )
     }
 

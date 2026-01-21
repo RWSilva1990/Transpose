@@ -26,7 +26,7 @@ object DatabaseModule {
             context,
             AppDatabase::class.java,
             "app_database"
-        ).addMigrations(MIGRATION_1_2)
+        ).addMigrations(MIGRATION_1_2, MIGRATION_2_3)
             .setQueryCallback({ sqlQuery, bindArgs ->
                 Logger.d("실행된 SQL: $sqlQuery, args: $bindArgs")
             }, Executors.newSingleThreadExecutor())
@@ -92,10 +92,17 @@ object DatabaseModule {
             // 4. 새 테이블의 이름을 기존 테이블 이름으로 변경
             db.execSQL("ALTER TABLE videos_new RENAME TO videos")
 
-            // 5. 최종 테이블에 인덱스를 생성합니다.
             db.execSQL("CREATE INDEX IF NOT EXISTS index_videos_playlistId ON videos(playlistId)")
         }
     }
 
-
+    val MIGRATION_2_3 = object : Migration(2, 3) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE videos ADD COLUMN isLocal INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("ALTER TABLE videos ADD COLUMN localUri TEXT")
+            db.execSQL("ALTER TABLE videos ADD COLUMN localFilePath TEXT")
+            db.execSQL("ALTER TABLE videos ADD COLUMN artist TEXT")
+            db.execSQL("ALTER TABLE videos ADD COLUMN album TEXT")
+        }
+    }
 }

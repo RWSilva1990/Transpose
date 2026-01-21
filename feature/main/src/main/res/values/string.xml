@@ -53,4 +53,12 @@
     <string name="update_dialog_later_button">Later</string>
     <string name="update_dialog_features_title">What\'s New</string>
 
+    <!-- Playback Errors -->
+    <string name="playback_error">Unable to play video</string>
+    <string name="playback_error_skip_next">Playback error - skipping to next</string>
+
+    <!-- Local File -->
+    <string name="unknown_artist">Unknown Artist</string>
+    <string name="local_search_hint">Search local files</string>
+
 </resources>

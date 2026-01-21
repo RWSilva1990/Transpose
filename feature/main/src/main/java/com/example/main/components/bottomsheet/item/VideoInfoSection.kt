@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -19,7 +20,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.domain.model.youtube.video.Video
+import com.example.domain.model.playable.PlayableItem
 import com.example.main.MainViewModel
 import com.example.main.R
 import com.example.util.TextFormatUtil
@@ -27,8 +28,7 @@ import com.valentinilk.shimmer.shimmer
 
 @Composable
 fun VideoInfoSection(mainViewModel: MainViewModel) {
-
-    val currentVideo by mainViewModel.currentVideo.collectAsState()
+    val currentItem by mainViewModel.currentItem.collectAsState()
     val viewCountFormats = rememberStringArrayResource(R.array.view_count_formats)
 
     Column(
@@ -36,11 +36,11 @@ fun VideoInfoSection(mainViewModel: MainViewModel) {
             .padding(top = 10.dp)
             .fillMaxWidth()
     ) {
-        if (currentVideo == null) {
+        if (currentItem == null) {
             FullShimmerEffect()
         } else {
             VideoInfoContent(
-                video = currentVideo!!,
+                item = currentItem!!,
                 viewCountFormats = viewCountFormats
             )
         }
@@ -49,33 +49,40 @@ fun VideoInfoSection(mainViewModel: MainViewModel) {
 
 @Composable
 private fun VideoInfoContent(
-    video: Video,
+    item: PlayableItem,
     viewCountFormats: Array<String>
 ) {
-    val formattedViewInfo = remember(video.viewCount, video.textualUploadDate) {
-        "${
-            TextFormatUtil.viewCountCalculator(
-                viewCountStringArray = viewCountFormats,
-                viewCountString = video.viewCount.toString()
-            )
-        } • ${video.textualUploadDate}"
+    val formattedViewInfo = remember(item) {
+        when (item) {
+            is PlayableItem.Remote -> {
+                val viewCount = TextFormatUtil.viewCountCalculator(
+                    viewCountStringArray = viewCountFormats,
+                    viewCountString = item.video.viewCount.toString()
+                )
+                "$viewCount • ${item.video.textualUploadDate ?: ""}"
+            }
+            is PlayableItem.Local -> {
+                item.artist ?: ""
+            }
+        }
     }
 
     Text(
-        text = video.title,
+        text = item.title,
         modifier = Modifier
             .fillMaxWidth()
             .padding(start = 10.dp),
         fontSize = 20.sp,
         fontWeight = FontWeight.Bold,
-        color = Color.Black,
+        color = MaterialTheme.colorScheme.onSurface,
         maxLines = 2,
         overflow = TextOverflow.Ellipsis
     )
 
     Text(
         text = formattedViewInfo,
-        modifier = Modifier.padding(top = 5.dp, start = 10.dp)
+        modifier = Modifier.padding(top = 5.dp, start = 10.dp),
+        color = MaterialTheme.colorScheme.onSurfaceVariant
     )
 }
 

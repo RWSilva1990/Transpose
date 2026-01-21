@@ -18,6 +18,5 @@ dependencies{
     implementation(project(":feature:convert"))
     implementation(project(":media"))
     implementation(libs.androidx.monitor)
-
 }
 

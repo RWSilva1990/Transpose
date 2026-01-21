@@ -27,6 +27,8 @@ fun BottomNavigationBar(
     bottomSheetOffset: () -> Float,
     selectedTab: MainTab,
     onTabSelected: (MainTab) -> Unit,
+    onTabReselected: (MainTab) -> Unit,
+    isLocalSearchActive: Boolean = false,
 ) {
 
 //    val totalOffset = remember(bottomSheetOffset(), searchBarState) {
@@ -57,7 +59,7 @@ fun BottomNavigationBar(
                     else -> (bottomSheetOffset() * 56).dp
                 }
 
-                val searchBarOffset = if (searchBarState == SearchBarState.OPENED) 56.dp else 0.dp
+                val searchBarOffset = if (searchBarState == SearchBarState.OPENED || isLocalSearchActive) 56.dp else 0.dp
                 val totalOffset = normalizedBottomSheetOffset + searchBarOffset
 
                 IntOffset(0, totalOffset.roundToPx())
@@ -71,7 +73,13 @@ fun BottomNavigationBar(
 
             BottomNavigationItem(
                 selected = isSelected,
-                onClick = { onTabSelected(tab) },
+                onClick = {
+                    if (isSelected) {
+                        onTabReselected(tab)
+                    } else {
+                        onTabSelected(tab)
+                    }
+                },
                 icon = {
                     Icon(
                         painter = painterResource(

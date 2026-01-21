@@ -53,6 +53,8 @@ class MediaModule {
         customMediaSourceFactory: CustomMediaSourceFactory,
         processorRenderersFactory: ProcessorRenderersFactory
     ): ExoPlayer = ExoPlayer.Builder(context, processorRenderersFactory)
+        .setSeekBackIncrementMs(10_000)
+        .setSeekForwardIncrementMs(10_000)
         .setAudioAttributes(audioAttributes, true)
         .setHandleAudioBecomingNoisy(true)
         .setLoadControl(
