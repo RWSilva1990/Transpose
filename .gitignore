@@ -2,19 +2,9 @@
 **/build/
 **/build/generated/hilt/
 
-# Gradle files
+# Gradle cache files (NOT gradle/libs.versions.toml or gradle/wrapper/)
 .gradle/
-.gradle
-gradle/
-/.gradle/
-/gradle/
-
-# Ignore all files in .gradle directory
 **/.gradle/**
-
-# Specific Gradle cache directories
-.gradle/8.7/fileHashes/
-.gradle/8.7/executionHistory/
 
 # Local configuration file (sdk path, etc)
 local.properties
@@ -144,3 +134,8 @@ CHROME_EXTENSION_TRANSPOSE_PROMPT_KO.md
 SIGNALSMITH_INTEGRATION.md
 TODO_AUDIOPROCESSOR_MIGRATION.md
 *_PLAN.md
+# Analysis/Plan documents
+AUDIOPROCESSOR_MIGRATION_REPORT_KO.md
+CHROME_EXTENSION_TRANSPOSE_PROMPT_KO.md
+SIGNALSMITH_INTEGRATION.md
+TODO_AUDIOPROCESSOR_MIGRATION.md

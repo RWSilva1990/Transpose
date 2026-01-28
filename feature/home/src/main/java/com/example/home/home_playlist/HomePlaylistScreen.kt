@@ -65,7 +65,8 @@ fun HomePlaylistScreen(
         item {
             PlaylistSection(
                 title = stringResource(id = R.string.Global_popular_Top100_playlist_text),
-                playlistState = nationalPlaylistState
+                playlistState = nationalPlaylistState,
+                onRetry = { homePlaylistViewModel.retryNationalPlaylists() }
             ) { playlist ->
                 NationalPlaylistItem(
                     playlistData = playlist,
@@ -79,7 +80,8 @@ fun HomePlaylistScreen(
         item {
             PlaylistSection(
                 title = stringResource(id = R.string.Recommended_playlist_text),
-                playlistState = recommendedPlaylistState
+                playlistState = recommendedPlaylistState,
+                onRetry = { homePlaylistViewModel.retryRecommendedPlaylists() }
             ) { playlist ->
                 RegularPlaylistItem(
                     playlistData = playlist,
@@ -93,7 +95,8 @@ fun HomePlaylistScreen(
         item {
             PlaylistSection(
                 title = stringResource(id = R.string.Type_based_playlist_text),
-                playlistState = typedPlaylistState
+                playlistState = typedPlaylistState,
+                onRetry = { homePlaylistViewModel.retryTypedPlaylists() }
             ) { playlist ->
                 RegularPlaylistItem(
                     playlistData = playlist,
@@ -111,6 +114,7 @@ fun HomePlaylistScreen(
 fun PlaylistSection(
     title: String,
     playlistState: UiState<List<Playlist>>,
+    onRetry: () -> Unit,
     itemContent: @Composable (Playlist) -> Unit
 ) {
     Column {
@@ -135,15 +139,15 @@ fun PlaylistSection(
             is UiState.Error -> {
                 ErrorMessage(
                     isVisible = true,
-                    message = (playlistState).message,
-                    onRefresh = {}
+                    message = playlistState.message,
+                    onRefresh = onRetry
                 )
             }
 
             is UiState.Success -> {
                 if (playlistState.data.isEmpty()) {
                     Text(
-                        text = "No playlists available",
+                        text = stringResource(R.string.no_playlists_available),
                         modifier = Modifier.padding(16.dp)
                     )
                 } else {
@@ -163,7 +167,7 @@ fun PlaylistSection(
 
             is UiState.Initial -> {
                 Text(
-                    text = "Ready to load playlists",
+                    text = stringResource(R.string.ready_to_load),
                     modifier = Modifier.padding(16.dp)
                 )
             }
@@ -193,7 +197,7 @@ fun ErrorMessage(
             )
             Spacer(modifier = Modifier.height(16.dp))
             Button(onClick = onRefresh) {
-                Text(text = "다시로딩")
+                Text(text = stringResource(R.string.retry_button))
             }
         }
     }

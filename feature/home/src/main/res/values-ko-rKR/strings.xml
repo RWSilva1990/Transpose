@@ -5,4 +5,7 @@
     <string name="Recommended_playlist_text">추천</string>
     <string name="Type_based_playlist_text">종류별</string>
     <string name="notify_video_added_to_playlist">"해당 영상이 플레이리스트에 추가되었습니다."</string>
+    <string name="retry_button">다시 시도</string>
+    <string name="no_playlists_available">플레이리스트가 없습니다</string>
+    <string name="ready_to_load">플레이리스트 로드 준비됨</string>
 </resources>

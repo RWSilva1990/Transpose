@@ -8,5 +8,7 @@ data class UpdateInfo(
     val currentVersion: String,
     val latestVersion: String,
     val isUpdateAvailable: Boolean,
-    val updateUrl: String = "https://github.com/yourusername/yourrepo/releases/latest"
+    val updateUrl: String = "https://github.com/joh9911/Transpose/releases/latest",
+    val releaseNotesEn: String = "",
+    val releaseNotesKo: String = ""
 )

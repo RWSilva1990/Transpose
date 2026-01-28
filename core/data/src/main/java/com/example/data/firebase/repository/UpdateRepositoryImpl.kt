@@ -30,7 +30,9 @@ class UpdateRepositoryImpl @Inject constructor(
         setDefaultsAsync(
             mapOf(
                 "latest_version" to getCurrentVersion(),
-                "update_url" to "https://github.com/joh9911/Transpose/releases/latest"
+                "update_url" to "https://github.com/joh9911/Transpose/releases/latest",
+                "release_notes_en" to "",
+                "release_notes_ko" to ""
             )
         )
     }
@@ -57,12 +59,16 @@ class UpdateRepositoryImpl @Inject constructor(
 
             val currentVersion = getCurrentVersion()
             val updateUrl = remoteConfig.getString("update_url")
+            val releaseNotesEn = remoteConfig.getString("release_notes_en")
+            val releaseNotesKo = remoteConfig.getString("release_notes_ko")
 
             UpdateInfo(
                 currentVersion = currentVersion,
                 latestVersion = latestVersion,
                 isUpdateAvailable = isVersionLower(currentVersion, latestVersion),
-                updateUrl = updateUrl
+                updateUrl = updateUrl,
+                releaseNotesEn = releaseNotesEn,
+                releaseNotesKo = releaseNotesKo
             )
         } catch (e: Exception) {
             Logger.e("UpdateRepository: Error", e)
