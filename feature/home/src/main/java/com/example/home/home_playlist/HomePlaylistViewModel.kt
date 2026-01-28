@@ -44,6 +44,23 @@ class HomePlaylistViewModel @Inject constructor(
         nowPlayingStateHolder.setCurrentPlaylistInfo(playlist)
     }
 
+    fun retryNationalPlaylists() {
+        fetchNationalPlaylists()
+    }
+
+    fun retryRecommendedPlaylists() {
+        fetchRecommendedPlaylists()
+    }
+
+    fun retryTypedPlaylists() {
+        fetchTypedPlaylists()
+    }
+
+    fun retryAllPlaylists() {
+        fetchNationalPlaylists()
+        fetchRecommendedPlaylists()
+        fetchTypedPlaylists()
+    }
 
     private fun fetchNationalPlaylists() = viewModelScope.launch {
         _nationalPlaylistDataState.value = UiState.Loading
