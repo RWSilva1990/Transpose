@@ -1,6 +1,7 @@
 package com.example.media.manager
 
 import com.example.media.audio.SignalsmithAudioProcessor
+import com.example.media.audio.VocalRemovalProcessor
 import com.example.media.audio_effect.data.eq.SignalsmithEqPresets
 import com.example.media.audio_effect.data.reverb.SignalsmithReverbPresets
 import dagger.Lazy
@@ -19,6 +20,7 @@ import javax.inject.Singleton
 @Singleton
 class AudioEffectsManager @Inject constructor(
     private val signalsmithAudioProcessor: SignalsmithAudioProcessor,
+    private val vocalRemovalProcessor: VocalRemovalProcessor,
     private val mediaPlaybackManager: Lazy<MediaPlaybackManager>
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -87,6 +89,27 @@ class AudioEffectsManager @Inject constructor(
     }
 
     fun setTempo() {
+    }
+
+    private val _isVocalRemovalEnabled = MutableStateFlow(false)
+    val isVocalRemovalEnabled: StateFlow<Boolean> = _isVocalRemovalEnabled.asStateFlow()
+
+    private val _vocalRemovalMix = MutableStateFlow(1.0f)
+    val vocalRemovalMix: StateFlow<Float> = _vocalRemovalMix.asStateFlow()
+
+    fun updateIsVocalRemovalEnabled() {
+        _isVocalRemovalEnabled.value = !_isVocalRemovalEnabled.value
+        vocalRemovalProcessor.enabled = _isVocalRemovalEnabled.value
+    }
+
+    fun updateVocalRemovalMix(value: Float) {
+        _vocalRemovalMix.value = value.coerceIn(0f, 1f)
+        vocalRemovalProcessor.mixRatio = _vocalRemovalMix.value
+    }
+
+    fun initVocalRemovalValues() {
+        _vocalRemovalMix.value = 1.0f
+        vocalRemovalProcessor.mixRatio = 1.0f
     }
 
     // =========================

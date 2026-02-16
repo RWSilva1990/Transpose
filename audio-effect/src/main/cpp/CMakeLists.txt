@@ -27,6 +27,7 @@ add_library(
     SHARED
     SignalsmithAudioBridge.cpp
     SignalsmithProcessor.cpp
+    VocalRemovalNative.cpp
     # MIT HRTF
     ${MIT_HRTF_PATH}/source/mit_hrtf_lib.c
     # FFTConvolver

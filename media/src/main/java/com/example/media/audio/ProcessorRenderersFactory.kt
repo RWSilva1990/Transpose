@@ -10,6 +10,7 @@ import androidx.media3.exoplayer.audio.DefaultAudioSink
 @OptIn(UnstableApi::class)
 class ProcessorRenderersFactory(
     context: Context,
+    private val vocalRemovalProcessor: VocalRemovalProcessor,
     private val signalsmithProcessor: SignalsmithAudioProcessor
 ) : DefaultRenderersFactory(context) {
 
@@ -19,8 +20,10 @@ class ProcessorRenderersFactory(
         enableAudioTrackPlaybackParams: Boolean
     ): AudioSink {
         return DefaultAudioSink.Builder(context)
-            .setAudioProcessors(arrayOf(signalsmithProcessor))
-            .setEnableFloatOutput(enableFloatOutput)
+            .setAudioProcessors(arrayOf(vocalRemovalProcessor, signalsmithProcessor))
+            // Our custom processors currently support PCM_16BIT only.
+            // For correctness, force 16-bit output from the sink.
+            .setEnableFloatOutput(false)
             .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
             .build()
     }

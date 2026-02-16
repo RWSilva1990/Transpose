@@ -25,12 +25,13 @@ import com.example.convert.audio_edit.components.signalsmith.LimiterSection
 import com.example.convert.audio_edit.components.signalsmith.SignalsmithReverbSection
 import com.example.convert.audio_edit.components.signalsmith.SignalsmithVirtualizerSection
 import com.example.convert.audio_edit.components.signalsmith.StereoWidenerSection
+import com.example.convert.audio_edit.components.signalsmith.VocalRemovalSection
 import com.example.convert.audio_edit.components.tempo.TempoSection
 import com.example.transpose.core.ui.R as CoreUiR
 import kotlinx.coroutines.launch
 
 // Section indices for auto-scroll (only for bottom sections)
-private const val SECTION_STEREO_WIDENER = 13
+private const val SECTION_STEREO_WIDENER = 15
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -81,6 +82,18 @@ fun ConvertAudioEditScreen(
         }
 
         item(key = "spacer1") {
+            Spacer(modifier = Modifier.height(10.dp))
+        }
+
+        // Vocal Removal (AI)
+        item(key = "vocal_removal") {
+            VocalRemovalSection(
+                title = stringResource(id = CoreUiR.string.vocal_removal_text),
+                convertAudioEditViewModel = convertAudioEditViewModel
+            )
+        }
+
+        item(key = "spacer_vocal") {
             Spacer(modifier = Modifier.height(10.dp))
         }
 

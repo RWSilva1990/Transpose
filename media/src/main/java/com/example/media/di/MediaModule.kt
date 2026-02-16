@@ -13,6 +13,7 @@ import com.example.media.CustomHttpDataSource
 import com.example.media.CustomMediaSourceFactory
 import com.example.media.audio.SignalsmithAudioProcessor
 import com.example.media.audio.ProcessorRenderersFactory
+import com.example.media.audio.VocalRemovalProcessor
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -84,13 +85,20 @@ class MediaModule {
         return SignalsmithAudioProcessor()
     }
 
+    @Provides
+    @Singleton
+    fun provideVocalRemovalProcessor(@ApplicationContext context: Context): VocalRemovalProcessor {
+        return VocalRemovalProcessor(context)
+    }
+
     @OptIn(UnstableApi::class)
     @Provides
     @Singleton
     fun provideProcessorRenderersFactory(
         @ApplicationContext context: Context,
+        vocalRemovalProcessor: VocalRemovalProcessor,
         signalsmithProcessor: SignalsmithAudioProcessor
     ): ProcessorRenderersFactory {
-        return ProcessorRenderersFactory(context, signalsmithProcessor)
+        return ProcessorRenderersFactory(context, vocalRemovalProcessor, signalsmithProcessor)
     }
 }

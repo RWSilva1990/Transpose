@@ -134,6 +134,13 @@ class ConvertAudioEditViewModel @Inject constructor(
     fun updateHrtfAzimuth(azimuth: Int) = audioEffectsManager.updateHrtfAzimuth(azimuth)
     fun initHrtfValues() = audioEffectsManager.initHrtfValues()
 
+    // Vocal Removal
+    val isVocalRemovalEnabled = audioEffectsManager.isVocalRemovalEnabled
+    val vocalRemovalMix = audioEffectsManager.vocalRemovalMix
+    fun updateIsVocalRemovalEnabled() = audioEffectsManager.updateIsVocalRemovalEnabled()
+    fun updateVocalRemovalMix(value: Float) = audioEffectsManager.updateVocalRemovalMix(value)
+    fun initVocalRemovalValues() = audioEffectsManager.initVocalRemovalValues()
+
     // Stereo Widener
     val isStereoWidenerEnabled = audioEffectsManager.isStereoWidenerEnabled
     val stereoWidenerWidth = audioEffectsManager.stereoWidenerWidth
