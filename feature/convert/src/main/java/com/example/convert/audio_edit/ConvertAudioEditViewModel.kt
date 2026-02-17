@@ -137,8 +137,11 @@ class ConvertAudioEditViewModel @Inject constructor(
     // Vocal Removal
     val isVocalRemovalEnabled = audioEffectsManager.isVocalRemovalEnabled
     val vocalRemovalMix = audioEffectsManager.vocalRemovalMix
+    val vocalRemovalModelOptions = audioEffectsManager.vocalRemovalModelOptions
+    val vocalRemovalModelIndex = audioEffectsManager.vocalRemovalModelIndex
     fun updateIsVocalRemovalEnabled() = audioEffectsManager.updateIsVocalRemovalEnabled()
     fun updateVocalRemovalMix(value: Float) = audioEffectsManager.updateVocalRemovalMix(value)
+    fun updateVocalRemovalModel(index: Int) = audioEffectsManager.updateVocalRemovalModel(index)
     fun initVocalRemovalValues() = audioEffectsManager.initVocalRemovalValues()
 
     // Stereo Widener

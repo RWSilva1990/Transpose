@@ -223,6 +223,7 @@
 
     <string name="vocal_removal_text">Vocal Removal · AI Instrumental</string>
     <string name="vocal_removal_mix">Vocal Reduction</string>
+    <string name="vocal_removal_model">AI Model</string>
 
     <string name="stereo_widener_text">Stereo Widener · Adjust Soundstage</string>
     <string name="stereo_widener_width">Stereo Width</string>

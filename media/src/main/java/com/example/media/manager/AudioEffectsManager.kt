@@ -1,6 +1,7 @@
 package com.example.media.manager
 
 import com.example.media.audio.SignalsmithAudioProcessor
+import com.example.media.audio.VocalRemovalModelProfile
 import com.example.media.audio.VocalRemovalProcessor
 import com.example.media.audio_effect.data.eq.SignalsmithEqPresets
 import com.example.media.audio_effect.data.reverb.SignalsmithReverbPresets
@@ -97,6 +98,14 @@ class AudioEffectsManager @Inject constructor(
     private val _vocalRemovalMix = MutableStateFlow(1.0f)
     val vocalRemovalMix: StateFlow<Float> = _vocalRemovalMix.asStateFlow()
 
+    private val vocalRemovalProfiles: List<VocalRemovalModelProfile> = vocalRemovalProcessor.getVocalRemovalModelProfiles()
+    val vocalRemovalModelOptions: List<String> = vocalRemovalProfiles.map { "${it.uiLabel} [${it.category}]" }
+
+    private val _vocalRemovalModelIndex = MutableStateFlow(
+        vocalRemovalProfiles.indexOf(vocalRemovalProcessor.getSelectedVocalRemovalModelProfile()).coerceAtLeast(0)
+    )
+    val vocalRemovalModelIndex: StateFlow<Int> = _vocalRemovalModelIndex.asStateFlow()
+
     fun updateIsVocalRemovalEnabled() {
         _isVocalRemovalEnabled.value = !_isVocalRemovalEnabled.value
         vocalRemovalProcessor.enabled = _isVocalRemovalEnabled.value
@@ -105,6 +114,13 @@ class AudioEffectsManager @Inject constructor(
     fun updateVocalRemovalMix(value: Float) {
         _vocalRemovalMix.value = value.coerceIn(0f, 1f)
         vocalRemovalProcessor.mixRatio = _vocalRemovalMix.value
+    }
+
+    fun updateVocalRemovalModel(index: Int) {
+        if (vocalRemovalProfiles.isEmpty()) return
+        val safeIndex = index.coerceIn(0, vocalRemovalProfiles.lastIndex)
+        _vocalRemovalModelIndex.value = safeIndex
+        vocalRemovalProcessor.updateVocalRemovalModelProfile(vocalRemovalProfiles[safeIndex])
     }
 
     fun initVocalRemovalValues() {

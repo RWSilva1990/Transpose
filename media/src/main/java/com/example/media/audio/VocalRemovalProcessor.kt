@@ -11,6 +11,7 @@ import ai.onnxruntime.OnnxTensor
 import ai.onnxruntime.OrtEnvironment
 import ai.onnxruntime.OrtException
 import ai.onnxruntime.OrtSession
+import ai.onnxruntime.TensorInfo
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -33,22 +34,9 @@ class VocalRemovalProcessor @Inject constructor(
         private const val TAG = "VocalRemoval"
         private const val N_FFT = 6144
         private const val HOP_LENGTH = 1024
-        private const val DIM_F = 2048
-        // Tradeoff knob:
-        // - Smaller T: lower latency + faster inference, but typically more "voice leak" and artifacts.
-        // - Larger T: better separation, but higher latency and heavier CPU/NNAPI load.
-        // NNAPI path on some devices rejects T!=32 for this model (ORT_INVALID_ARGUMENT shape errors).
-        // Keep T fixed at 32 for compatibility/stability.
-        private const val TARGET_T = 32
+        private const val DEFAULT_DIM_F = 2048
+        private const val DEFAULT_TARGET_T = 32
         private const val MODEL_CHANNELS = 2
-        private const val MODEL_FILE = "UVR-MDX-NET-Inst_Main_fp16_dynT.onnx"
-
-        private const val CHUNK_SAMPLES = ((TARGET_T - 1) * HOP_LENGTH) + N_FFT
-        // Step size for consecutive chunks.
-        // Larger interval -> higher latency, but reduces inference frequency and helps avoid underruns (ACTIVE->STARVED).
-        private const val PROCESS_INTERVAL_SAMPLES = TARGET_T * HOP_LENGTH
-        // Center extraction is more stable (less zipper/edge artifacts) than tail extraction.
-        private const val EXTRACT_OFFSET_SAMPLES = (CHUNK_SAMPLES - PROCESS_INTERVAL_SAMPLES) / 2
 
         private const val CROSSFADE_MS = 30
         private const val WARMUP_BLEND_MS = 70
@@ -102,6 +90,62 @@ class VocalRemovalProcessor @Inject constructor(
     @Volatile
     var mixRatio: Float = 1.0f
 
+    fun getVocalRemovalModelProfiles(): List<VocalRemovalModelProfile> = VocalRemovalModelProfile.values().toList()
+
+    fun getSelectedVocalRemovalModelProfile(): VocalRemovalModelProfile = selectedModelProfile
+
+    fun updateVocalRemovalModelProfile(profile: VocalRemovalModelProfile) {
+        val previousProfile = selectedModelProfile
+        if (previousProfile == profile) return
+        selectedModelProfile = profile
+        processingGeneration.incrementAndGet()
+        shouldStopProcessing = true
+        canProcessFormat = false
+        modelExecutor.execute {
+            try {
+                applySelectedModelRuntimeConfig()
+                closeCurrentOrtSession()
+                synchronized(inputLock) { if (::inputRing.isInitialized) inputRing.clear() }
+                synchronized(outputLock) { if (::outputRing.isInitialized) outputRing.clear() }
+                synchronized(dryLock) {
+                    if (::dryDelayRing.isInitialized) {
+                        dryDelayRing.clear()
+                        prefillDryDelay()
+                    }
+                }
+                outputState = if (enabled) OutputState.WARMUP else OutputState.BYPASS
+                enabledOutputBytesEmitted = 0L
+                if (inputAudioFormat != AudioFormat.NOT_SET) {
+                    setupRuntimeForFormat(inputAudioFormat)
+                }
+                if (enabled) ensureModelLoaded()
+                Log.i(TAG, "Vocal model switched to ${profile.uiLabel} (${profile.assetFileName})")
+            } catch (t: Throwable) {
+                Log.e(TAG, "Failed to switch vocal model to ${profile.uiLabel}", t)
+                selectedModelProfile = previousProfile
+                try {
+                    applySelectedModelRuntimeConfig()
+                    if (inputAudioFormat != AudioFormat.NOT_SET) {
+                        setupRuntimeForFormat(inputAudioFormat)
+                    }
+                    ensureModelLoaded()
+                    Log.i(TAG, "Reverted vocal model to ${previousProfile.uiLabel}")
+                } catch (fallbackError: Throwable) {
+                    Log.e(TAG, "Failed to restore previous vocal model ${previousProfile.uiLabel}", fallbackError)
+                }
+            }
+        }
+    }
+
+    private fun applySelectedModelRuntimeConfig() {
+        val profile = selectedModelProfile
+        modelDimF = profile.dimF
+        modelTargetT = profile.targetT
+        chunkSamples = ((modelTargetT - 1) * HOP_LENGTH) + N_FFT
+        processIntervalSamples = modelTargetT * HOP_LENGTH
+        extractOffsetSamples = (chunkSamples - processIntervalSamples) / 2
+    }
+
     private var inputAudioFormat: AudioFormat = AudioFormat.NOT_SET
     private var outputAudioFormat: AudioFormat = AudioFormat.NOT_SET
     private var outputBuffer: ByteBuffer = AudioProcessor.EMPTY_BUFFER
@@ -111,10 +155,19 @@ class VocalRemovalProcessor @Inject constructor(
     @Volatile private var modelLoading = false
     private var ortEnv: OrtEnvironment? = null
     private var ortSession: OrtSession? = null
+    private var modelInputName: String = "input"
+    private var activeModelProfile: VocalRemovalModelProfile? = null
+    @Volatile private var selectedModelProfile: VocalRemovalModelProfile = VocalRemovalModelProfile.MDX_MAIN
 
     @Volatile private var nativeHandle: Long = 0L
 
-    private var canProcessFormat = false
+    private var modelDimF: Int = DEFAULT_DIM_F
+    private var modelTargetT: Int = DEFAULT_TARGET_T
+    private var chunkSamples: Int = ((DEFAULT_TARGET_T - 1) * HOP_LENGTH) + N_FFT
+    private var processIntervalSamples: Int = DEFAULT_TARGET_T * HOP_LENGTH
+    private var extractOffsetSamples: Int = (chunkSamples - processIntervalSamples) / 2
+
+    @Volatile private var canProcessFormat = false
     private var bytesPerFrame = 0
     private var chunkBytes = 0
     private var processIntervalBytes = 0
@@ -184,7 +237,8 @@ class VocalRemovalProcessor @Inject constructor(
         Log.i(
             TAG,
             "configure: sampleRate=${inputAudioFormat.sampleRate}, " +
-                "channels=${inputAudioFormat.channelCount}, encoding=${inputAudioFormat.encoding}, enabled=$enabled"
+                "channels=${inputAudioFormat.channelCount}, encoding=${inputAudioFormat.encoding}, " +
+                "enabled=$enabled, model=${selectedModelProfile.uiLabel}"
         )
 
         if (inputAudioFormat.encoding != C.ENCODING_PCM_16BIT) {
@@ -197,78 +251,8 @@ class VocalRemovalProcessor @Inject constructor(
 
         this.inputAudioFormat = inputAudioFormat
         this.outputAudioFormat = inputAudioFormat
-        this.bytesPerFrame = inputAudioFormat.channelCount * 2
-        this.chunkBytes = CHUNK_SAMPLES * bytesPerFrame
-        this.processIntervalBytes = PROCESS_INTERVAL_SAMPLES * bytesPerFrame
-        this.extractOffsetBytes = EXTRACT_OFFSET_SAMPLES * bytesPerFrame
-
-        // This implementation waits for a full CHUNK_SAMPLES before producing the first processed interval
-        // (which starts at EXTRACT_OFFSET_SAMPLES). We delay the dry path by the minimum amount needed so that
-        // processed audio can be time-aligned when we switch to ACTIVE.
-        val latencySamples = (CHUNK_SAMPLES - EXTRACT_OFFSET_SAMPLES)
-        dryDelayBytes = latencySamples * bytesPerFrame
-        // Start with a lower cushion to reduce WARMUP delay; adaptive logic can raise it if needed.
-        preBufferBytes = (processIntervalBytes * PREBUFFER_DEFAULT_X100 + 99) / 100
-        warmupBlendBytes = (inputAudioFormat.sampleRate * bytesPerFrame * WARMUP_BLEND_MS) / 1000
-        crossfadeTotalBytes = (inputAudioFormat.sampleRate * CROSSFADE_MS / 1000) * bytesPerFrame
-        crossfadeActive = false
-        crossfadePosition = 0
-        prevTail = ByteArray(crossfadeTotalBytes)
-        processIntervalMs = PROCESS_INTERVAL_SAMPLES * 1000f / inputAudioFormat.sampleRate
-        avgInferMs = 0f
-        inferSumMs = 0f
-        inferMaxMs = 0f
-        inferCount = 0
-        starvedTransitions = 0
-        lastPerfLogChunk = 0
-        enabledOutputBytesEmitted = 0L
-
-        val dryDelayMs = dryDelayBytes.toFloat() * 1000f / (inputAudioFormat.sampleRate * bytesPerFrame)
-        Log.i(
-            TAG,
-            "latency config: interval=${processIntervalMs.toInt()}ms, dryDelay=${dryDelayMs.toInt()}ms, " +
-                "preBuffer=${(preBufferBytes * 1000f / (inputAudioFormat.sampleRate * bytesPerFrame)).toInt()}ms, " +
-                "blend=${WARMUP_BLEND_MS}ms"
-        )
-
-        inputRing = ByteRingBuffer(3 * chunkBytes)
-        outputRing = ByteRingBuffer(3 * chunkBytes)
-        dryDelayRing = ByteRingBuffer(dryDelayBytes + 2 * chunkBytes)
-        prefillDryDelay()
-
-        procStftInput = ByteBuffer.allocateDirect(chunkBytes).order(ByteOrder.nativeOrder())
-        procIstftOutput = ByteBuffer.allocateDirect(chunkBytes).order(ByteOrder.nativeOrder())
-
-        val frameTensorSize = DIM_F * TARGET_T
-        // Model always expects stereo (L/R) complex STFT packed into 4 channels.
-        procStftReal = FloatArray(MODEL_CHANNELS * frameTensorSize)
-        procStftImag = FloatArray(MODEL_CHANNELS * frameTensorSize)
-        procModelInput = FloatArray(4 * frameTensorSize)
-        procModelOutput = FloatArray(4 * frameTensorSize)
-        procIstftReal = FloatArray(MODEL_CHANNELS * frameTensorSize)
-        procIstftImag = FloatArray(MODEL_CHANNELS * frameTensorSize)
-
-        val initSize = processIntervalBytes
-        scratchInput = ByteArray(initSize)
-        scratchDry = ByteArray(initSize)
-        scratchOut = ByteArray(initSize)
-        outputBuf = ByteBuffer.allocateDirect(initSize).order(ByteOrder.nativeOrder())
-
-        pcmChunkScratch = ByteArray(chunkBytes)
-        processedIntervalScratch = ByteArray(processIntervalBytes)
-
-        if (nativeHandle != 0L) {
-            nativeReleaseStft(nativeHandle)
-            nativeHandle = 0L
-        }
-        nativeHandle = nativeInitStft(
-            inputAudioFormat.sampleRate, N_FFT, HOP_LENGTH, DIM_F
-        )
-
-        canProcessFormat = (inputAudioFormat.channelCount == 1 || inputAudioFormat.channelCount == 2) && nativeHandle != 0L
-        if (!canProcessFormat) {
-            Log.w(TAG, "Unsupported channelCount=${inputAudioFormat.channelCount} (need mono/stereo) or native init failed")
-        }
+        applySelectedModelRuntimeConfig()
+        setupRuntimeForFormat(inputAudioFormat)
         outputState = if (enabled) OutputState.WARMUP else OutputState.BYPASS
         return outputAudioFormat
     }
@@ -500,6 +484,77 @@ class VocalRemovalProcessor @Inject constructor(
         }
     }
 
+    private fun setupRuntimeForFormat(format: AudioFormat) {
+        bytesPerFrame = format.channelCount * 2
+        chunkBytes = chunkSamples * bytesPerFrame
+        processIntervalBytes = processIntervalSamples * bytesPerFrame
+        extractOffsetBytes = extractOffsetSamples * bytesPerFrame
+
+        // This implementation waits for a full chunk before producing the first processed interval.
+        val latencySamples = (chunkSamples - extractOffsetSamples)
+        dryDelayBytes = latencySamples * bytesPerFrame
+        preBufferBytes = (processIntervalBytes * PREBUFFER_DEFAULT_X100 + 99) / 100
+        warmupBlendBytes = (format.sampleRate * bytesPerFrame * WARMUP_BLEND_MS) / 1000
+        crossfadeTotalBytes = (format.sampleRate * CROSSFADE_MS / 1000) * bytesPerFrame
+        crossfadeActive = false
+        crossfadePosition = 0
+        prevTail = ByteArray(crossfadeTotalBytes)
+        processIntervalMs = processIntervalSamples * 1000f / format.sampleRate
+        avgInferMs = 0f
+        inferSumMs = 0f
+        inferMaxMs = 0f
+        inferCount = 0
+        starvedTransitions = 0
+        lastPerfLogChunk = 0
+        enabledOutputBytesEmitted = 0L
+
+        val dryDelayMs = dryDelayBytes.toFloat() * 1000f / (format.sampleRate * bytesPerFrame)
+        Log.i(
+            TAG,
+            "latency config: profile=${selectedModelProfile.uiLabel}, dimF=$modelDimF, T=$modelTargetT, " +
+                "interval=${processIntervalMs.toInt()}ms, dryDelay=${dryDelayMs.toInt()}ms, " +
+                "preBuffer=${(preBufferBytes * 1000f / (format.sampleRate * bytesPerFrame)).toInt()}ms, blend=${WARMUP_BLEND_MS}ms"
+        )
+
+        inputRing = ByteRingBuffer(3 * chunkBytes)
+        outputRing = ByteRingBuffer(3 * chunkBytes)
+        dryDelayRing = ByteRingBuffer(dryDelayBytes + 2 * chunkBytes)
+        prefillDryDelay()
+
+        procStftInput = ByteBuffer.allocateDirect(chunkBytes).order(ByteOrder.nativeOrder())
+        procIstftOutput = ByteBuffer.allocateDirect(chunkBytes).order(ByteOrder.nativeOrder())
+
+        val frameTensorSize = modelDimF * modelTargetT
+        procStftReal = FloatArray(MODEL_CHANNELS * frameTensorSize)
+        procStftImag = FloatArray(MODEL_CHANNELS * frameTensorSize)
+        procModelInput = FloatArray(4 * frameTensorSize)
+        procModelOutput = FloatArray(4 * frameTensorSize)
+        procIstftReal = FloatArray(MODEL_CHANNELS * frameTensorSize)
+        procIstftImag = FloatArray(MODEL_CHANNELS * frameTensorSize)
+
+        val initSize = processIntervalBytes
+        scratchInput = ByteArray(initSize)
+        scratchDry = ByteArray(initSize)
+        scratchOut = ByteArray(initSize)
+        outputBuf = ByteBuffer.allocateDirect(initSize).order(ByteOrder.nativeOrder())
+
+        pcmChunkScratch = ByteArray(chunkBytes)
+        processedIntervalScratch = ByteArray(processIntervalBytes)
+
+        if (nativeHandle != 0L) {
+            nativeReleaseStft(nativeHandle)
+            nativeHandle = 0L
+        }
+        nativeHandle = nativeInitStft(
+            format.sampleRate, N_FFT, HOP_LENGTH, modelDimF
+        )
+
+        canProcessFormat = (format.channelCount == 1 || format.channelCount == 2) && nativeHandle != 0L
+        if (!canProcessFormat) {
+            Log.w(TAG, "Unsupported channelCount=${format.channelCount} (need mono/stereo) or native init failed")
+        }
+    }
+
     private fun maybeUpdateAdaptivePreBuffer() {
         if (inferCount < PERF_WARMUP_CHUNKS || processIntervalMs <= 0f || processIntervalBytes <= 0) return
         val ratio = avgInferMs / processIntervalMs
@@ -610,7 +665,8 @@ class VocalRemovalProcessor @Inject constructor(
     }
 
     private fun ensureModelLoadingAsync() {
-        if (ortSession != null || modelLoading) return
+        val alreadyLoadedForSelected = ortSession != null && activeModelProfile == selectedModelProfile
+        if (alreadyLoadedForSelected || modelLoading) return
         modelLoading = true
         modelExecutor.execute {
             try {
@@ -624,19 +680,75 @@ class VocalRemovalProcessor @Inject constructor(
     }
 
     private fun ensureModelLoaded() {
-        if (ortSession != null) return
+        if (ortSession != null && activeModelProfile == selectedModelProfile) return
+        closeCurrentOrtSession()
+
+        val profile = selectedModelProfile
         val env = ortEnv ?: OrtEnvironment.getEnvironment().also { ortEnv = it }
-        val modelBytes = context.assets.open(MODEL_FILE).use { it.readBytes() }
+        val modelBytes = context.assets.open(profile.assetFileName).use { it.readBytes() }
 
         val nnapiOptions = OrtSession.SessionOptions().apply {
             setOptimizationLevel(OrtSession.SessionOptions.OptLevel.ALL_OPT)
             addNnapi()
         }
         try {
-            ortSession = env.createSession(modelBytes, nnapiOptions)
-            Log.i(TAG, "ONNX session created with NNAPI")
+            val newSession = env.createSession(modelBytes, nnapiOptions)
+            val inputName = newSession.inputNames.firstOrNull()
+                ?: throw IllegalStateException("Model ${profile.assetFileName} has no input")
+            val inputNodeInfo = newSession.inputInfo[inputName]
+                ?: throw IllegalStateException("Model ${profile.assetFileName} input info missing")
+            val inputTensorInfo = inputNodeInfo.info as? TensorInfo
+                ?: throw IllegalStateException("Model ${profile.assetFileName} input is not tensor")
+
+            val outputName = newSession.outputNames.firstOrNull()
+                ?: throw IllegalStateException("Model ${profile.assetFileName} has no output")
+            val outputNodeInfo = newSession.outputInfo[outputName]
+                ?: throw IllegalStateException("Model ${profile.assetFileName} output info missing")
+            val outputTensorInfo = outputNodeInfo.info as? TensorInfo
+                ?: throw IllegalStateException("Model ${profile.assetFileName} output is not tensor")
+
+            if (!isSupportedModelShape(inputTensorInfo.shape, profile) || !isSupportedModelShape(outputTensorInfo.shape, profile)) {
+                throw IllegalStateException(
+                    "Unsupported model I/O shape for ${profile.assetFileName}. " +
+                        "input=${inputTensorInfo.shape.contentToString()}, " +
+                        "output=${outputTensorInfo.shape.contentToString()}, " +
+                        "expected rank4 [1,4,${profile.dimF},${profile.targetT}|dynamic]"
+                )
+            }
+
+            ortSession = newSession
+            modelInputName = inputName
+            activeModelProfile = profile
+            Log.i(
+                TAG,
+                "ONNX session created with NNAPI for ${profile.uiLabel} " +
+                    "(input=$inputName, inputShape=${inputTensorInfo.shape.contentToString()})"
+            )
         } finally {
             try { nnapiOptions.close() } catch (_: Throwable) {}
+        }
+    }
+
+    private fun isSupportedModelShape(shape: LongArray, profile: VocalRemovalModelProfile): Boolean {
+        if (shape.size != 4) return false
+        val channel = shape[1]
+        val freq = shape[2]
+        val t = shape[3]
+        if (channel > 0 && channel != 4L) return false
+        if (freq > 0 && freq != profile.dimF.toLong()) return false
+        if (t > 0 && t != profile.targetT.toLong()) return false
+        return true
+    }
+
+    private fun closeCurrentOrtSession() {
+        val current = ortSession ?: return
+        try {
+            current.close()
+        } catch (_: Throwable) {
+        } finally {
+            ortSession = null
+            activeModelProfile = null
+            modelInputName = "input"
         }
     }
 
@@ -722,14 +834,14 @@ class VocalRemovalProcessor @Inject constructor(
         procStftInput.flip()
 
         val frames = nativeComputeStft(
-            handle, procStftInput, CHUNK_SAMPLES,
+            handle, procStftInput, chunkSamples,
             procStftReal, procStftImag, inputAudioFormat.channelCount
         )
         if (frames <= 0) return false
 
         // Model expects stereo. If input is mono, duplicate channel 0 into channel 1.
         if (inputAudioFormat.channelCount == 1) {
-            val channelStride = DIM_F * frames
+            val channelStride = modelDimF * frames
             System.arraycopy(procStftReal, 0, procStftReal, channelStride, channelStride)
             System.arraycopy(procStftImag, 0, procStftImag, channelStride, channelStride)
         }
@@ -789,8 +901,8 @@ class VocalRemovalProcessor @Inject constructor(
     }
 
     private fun packModelInput(frames: Int) {
-        val channelStride = DIM_F * frames
-        for (f in 0 until DIM_F) {
+        val channelStride = modelDimF * frames
+        for (f in 0 until modelDimF) {
             val bandOffset = f * frames
             for (t in 0 until frames) {
                 val tf = bandOffset + t
@@ -804,7 +916,7 @@ class VocalRemovalProcessor @Inject constructor(
     }
 
     private fun unpackModelOutput(frames: Int) {
-        val channelStride = DIM_F * frames
+        val channelStride = modelDimF * frames
         if (inputAudioFormat.channelCount == 1) {
             // For mono output, average L/R model outputs into a single complex spectrum.
             for (i in 0 until channelStride) {
@@ -816,7 +928,7 @@ class VocalRemovalProcessor @Inject constructor(
                 procIstftImag[i] = 0.5f * (lI + rI)
             }
         } else {
-            for (f in 0 until DIM_F) {
+            for (f in 0 until modelDimF) {
                 val bandOffset = f * frames
                 for (t in 0 until frames) {
                     val tf = bandOffset + t
@@ -833,10 +945,10 @@ class VocalRemovalProcessor @Inject constructor(
     private fun runModel(frames: Int): Boolean {
         val env = ortEnv ?: return false
         val session = ortSession ?: return false
-        val shape = longArrayOf(1L, 4L, DIM_F.toLong(), frames.toLong())
+        val shape = longArrayOf(1L, 4L, modelDimF.toLong(), frames.toLong())
         return try {
             OnnxTensor.createTensor(env, FloatBuffer.wrap(procModelInput), shape).use { inputTensor ->
-                session.run(mapOf("input" to inputTensor)).use { result ->
+                session.run(mapOf(modelInputName to inputTensor)).use { result ->
                     val outputTensor = result[0] as? OnnxTensor ?: return false
                     val buf = outputTensor.floatBuffer
                     buf.rewind()
