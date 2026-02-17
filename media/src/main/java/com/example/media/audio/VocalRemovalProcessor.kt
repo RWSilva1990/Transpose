@@ -15,6 +15,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.FloatBuffer
+import java.util.Locale
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicLong
 import javax.inject.Inject
@@ -36,6 +37,8 @@ class VocalRemovalProcessor @Inject constructor(
         // Tradeoff knob:
         // - Smaller T: lower latency + faster inference, but typically more "voice leak" and artifacts.
         // - Larger T: better separation, but higher latency and heavier CPU/NNAPI load.
+        // NNAPI path on some devices rejects T!=32 for this model (ORT_INVALID_ARGUMENT shape errors).
+        // Keep T fixed at 32 for compatibility/stability.
         private const val TARGET_T = 32
         private const val MODEL_CHANNELS = 2
         private const val MODEL_FILE = "UVR-MDX-NET-Inst_Main_fp16_dynT.onnx"
@@ -48,8 +51,11 @@ class VocalRemovalProcessor @Inject constructor(
         private const val EXTRACT_OFFSET_SAMPLES = (CHUNK_SAMPLES - PROCESS_INTERVAL_SAMPLES) / 2
 
         private const val CROSSFADE_MS = 30
-        private const val WARMUP_BLEND_MS = 200
+        private const val WARMUP_BLEND_MS = 70
         private const val INFER_EMA_ALPHA = 0.1f
+        private const val PERF_WARMUP_CHUNKS = 8
+        private const val PREBUFFER_DEFAULT_X100 = 125
+        private const val PREBUFFER_MAX_X100 = 140
 
         init {
             System.loadLibrary("signalsmith_audio")
@@ -66,6 +72,7 @@ class VocalRemovalProcessor @Inject constructor(
                 ensureModelLoadingAsync()
                 outputState = OutputState.WARMUP
                 enabledOutputBytesEmitted = 0L
+                starvedTransitions = 0
                 synchronized(inputLock) { if (::inputRing.isInitialized) inputRing.clear() }
                 synchronized(outputLock) { if (::outputRing.isInitialized) outputRing.clear() }
                 synchronized(dryLock) {
@@ -88,6 +95,7 @@ class VocalRemovalProcessor @Inject constructor(
                 crossfadeActive = false
                 crossfadePosition = 0
                 enabledOutputBytesEmitted = 0L
+                starvedTransitions = 0
             }
         }
 
@@ -123,7 +131,7 @@ class VocalRemovalProcessor @Inject constructor(
 
     private var outputState = OutputState.BYPASS
     private var prevOutputState = OutputState.BYPASS
-    private var preBufferBytes = 0
+    @Volatile private var preBufferBytes = 0
     private var warmupBlendBytes = 0
 
     private var dryDelayBytes = 0
@@ -139,6 +147,11 @@ class VocalRemovalProcessor @Inject constructor(
     private val processingGeneration = AtomicLong(0L)
 
     private var avgInferMs = 0f
+    private var inferSumMs = 0f
+    private var inferMaxMs = 0f
+    private var inferCount = 0
+    private var starvedTransitions = 0
+    private var lastPerfLogChunk = 0
     private var processIntervalMs = 0f
 
     private var procStftInput: ByteBuffer = ByteBuffer.allocateDirect(0).order(ByteOrder.nativeOrder())
@@ -194,8 +207,8 @@ class VocalRemovalProcessor @Inject constructor(
         // processed audio can be time-aligned when we switch to ACTIVE.
         val latencySamples = (CHUNK_SAMPLES - EXTRACT_OFFSET_SAMPLES)
         dryDelayBytes = latencySamples * bytesPerFrame
-        // Keep a small cushion to reduce ACTIVE<->STARVED oscillation without adding excessive warmup time.
-        preBufferBytes = 2 * processIntervalBytes
+        // Start with a lower cushion to reduce WARMUP delay; adaptive logic can raise it if needed.
+        preBufferBytes = (processIntervalBytes * PREBUFFER_DEFAULT_X100 + 99) / 100
         warmupBlendBytes = (inputAudioFormat.sampleRate * bytesPerFrame * WARMUP_BLEND_MS) / 1000
         crossfadeTotalBytes = (inputAudioFormat.sampleRate * CROSSFADE_MS / 1000) * bytesPerFrame
         crossfadeActive = false
@@ -203,7 +216,20 @@ class VocalRemovalProcessor @Inject constructor(
         prevTail = ByteArray(crossfadeTotalBytes)
         processIntervalMs = PROCESS_INTERVAL_SAMPLES * 1000f / inputAudioFormat.sampleRate
         avgInferMs = 0f
+        inferSumMs = 0f
+        inferMaxMs = 0f
+        inferCount = 0
+        starvedTransitions = 0
+        lastPerfLogChunk = 0
         enabledOutputBytesEmitted = 0L
+
+        val dryDelayMs = dryDelayBytes.toFloat() * 1000f / (inputAudioFormat.sampleRate * bytesPerFrame)
+        Log.i(
+            TAG,
+            "latency config: interval=${processIntervalMs.toInt()}ms, dryDelay=${dryDelayMs.toInt()}ms, " +
+                "preBuffer=${(preBufferBytes * 1000f / (inputAudioFormat.sampleRate * bytesPerFrame)).toInt()}ms, " +
+                "blend=${WARMUP_BLEND_MS}ms"
+        )
 
         inputRing = ByteRingBuffer(3 * chunkBytes)
         outputRing = ByteRingBuffer(3 * chunkBytes)
@@ -331,10 +357,14 @@ class VocalRemovalProcessor @Inject constructor(
 
         val wasActive = prevOutputState == OutputState.ACTIVE
         val isNowActive = outputState == OutputState.ACTIVE
+        if (prevOutputState == OutputState.ACTIVE && outputState == OutputState.STARVED) {
+            starvedTransitions += 1
+        }
         if (wasActive != isNowActive) {
             Log.i(
                 TAG,
-                "state: $prevOutputState -> $outputState (processedAvail=$processedAvail, inputBytes=$inputBytes, modelReady=${isModelReady()}, channels=${inputAudioFormat.channelCount})"
+                "state: $prevOutputState -> $outputState (processedAvail=$processedAvail, inputBytes=$inputBytes, " +
+                    "preBufferBytes=$preBufferBytes, modelReady=${isModelReady()}, channels=${inputAudioFormat.channelCount})"
             )
         }
         if (wasActive != isNowActive) {
@@ -441,6 +471,11 @@ class VocalRemovalProcessor @Inject constructor(
         crossfadePosition = 0
         if (prevTail.isNotEmpty()) prevTail.fill(0)
         avgInferMs = 0f
+        inferSumMs = 0f
+        inferMaxMs = 0f
+        inferCount = 0
+        lastPerfLogChunk = 0
+        starvedTransitions = 0
         enabledOutputBytesEmitted = 0L
         outputState = if (enabled) OutputState.WARMUP else OutputState.BYPASS
     }
@@ -463,6 +498,49 @@ class VocalRemovalProcessor @Inject constructor(
             val silence = ByteArray(dryDelayBytes)
             dryDelayRing.writeBytes(silence, 0, silence.size)
         }
+    }
+
+    private fun maybeUpdateAdaptivePreBuffer() {
+        if (inferCount < PERF_WARMUP_CHUNKS || processIntervalMs <= 0f || processIntervalBytes <= 0) return
+        val ratio = avgInferMs / processIntervalMs
+        val multiplierX100 = when {
+            starvedTransitions > 0 -> PREBUFFER_MAX_X100
+            ratio <= 0.50f -> 110
+            ratio <= 0.65f -> 120
+            ratio <= 0.80f -> PREBUFFER_DEFAULT_X100
+            else -> PREBUFFER_MAX_X100
+        }
+        val newPreBuffer = (processIntervalBytes * multiplierX100 + 99) / 100
+        if (newPreBuffer != preBufferBytes) {
+            preBufferBytes = newPreBuffer
+            val preBufferMs = preBufferBytes * 1000f / (inputAudioFormat.sampleRate * bytesPerFrame)
+            Log.i(
+                TAG,
+                "Adaptive preBuffer updated: ${preBufferMs.toInt()}ms " +
+                "(ratio=${String.format(Locale.US, "%.2f", ratio)}, " +
+                    "avgInfer=${avgInferMs.toInt()}ms, budget=${processIntervalMs.toInt()}ms, " +
+                    "starvedTransitions=$starvedTransitions)"
+            )
+        }
+    }
+
+    private fun maybeLogPerfSnapshot() {
+        if (inferCount <= 0) return
+        val shouldLog = inferCount == PERF_WARMUP_CHUNKS || inferCount == 24 || (inferCount - lastPerfLogChunk) >= 64
+        if (!shouldLog) return
+        lastPerfLogChunk = inferCount
+        val inferAvg = inferSumMs / inferCount.toFloat()
+        val preBufferMs = if (bytesPerFrame > 0) {
+            preBufferBytes * 1000f / (inputAudioFormat.sampleRate * bytesPerFrame)
+        } else {
+            0f
+        }
+        Log.i(
+            TAG,
+            "perf snapshot: chunks=$inferCount avgInfer=${inferAvg.toInt()}ms emaInfer=${avgInferMs.toInt()}ms " +
+                "maxInfer=${inferMaxMs.toInt()}ms budget=${processIntervalMs.toInt()}ms " +
+                "preBuffer=${preBufferMs.toInt()}ms starvedTransitions=$starvedTransitions"
+        )
     }
 
     // NOTE: We intentionally do not try to "seek-align" processed output to dry output via discards here.
@@ -672,7 +750,12 @@ class VocalRemovalProcessor @Inject constructor(
         val t3 = System.nanoTime()
 
         val inferMs = (t2 - t1) / 1_000_000f
+        inferCount += 1
+        inferSumMs += inferMs
+        if (inferMs > inferMaxMs) inferMaxMs = inferMs
         avgInferMs = avgInferMs * (1 - INFER_EMA_ALPHA) + inferMs * INFER_EMA_ALPHA
+        maybeUpdateAdaptivePreBuffer()
+        maybeLogPerfSnapshot()
         if (avgInferMs > 0.8f * processIntervalMs) {
             Log.w(TAG, "Inference too slow: avg=${avgInferMs.toInt()}ms, budget=${processIntervalMs.toInt()}ms")
         }
