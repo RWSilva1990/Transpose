@@ -1,5 +1,0 @@
-{
-  "last_turn_at": "2026-03-20T14:40:46.634Z",
-  "turn_count": 15,
-  "last_agent_output": "**변경 내용**\n- Perfetto에서 바로 찾을 수 있게 병목 후보 구간에 trace를 넣었습니다.\n- 넣은 trace는 `measure`, `draw`, `offset 계산`"
-}

@@ -12,6 +12,9 @@ local.properties
 # Log Files
 *.log
 
+# oh-my-claude
+.omx/
+
 # Android Studio Navigation editor temp files
 .navigation/
 
