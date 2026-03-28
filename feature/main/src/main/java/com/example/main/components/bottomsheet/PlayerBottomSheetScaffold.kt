@@ -22,14 +22,17 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.util.trace
 import com.example.main.MainViewModel
 import com.example.main.components.appbar.SearchBarState
 
 private fun Modifier.scrimOverlay(bottomSheetOffset: () -> Float): Modifier = this.drawBehind {
-    val offset = bottomSheetOffset()
-    if (offset > 0f) {
-        val alpha = 0.7f * offset.coerceIn(0f, 1f)
-        drawRect(Color.Black.copy(alpha = alpha))
+    trace("PlayerBottomSheetScaffold.scrimOverlay.draw") {
+        val offset = bottomSheetOffset()
+        if (offset > 0f) {
+            val alpha = 0.7f * offset.coerceIn(0f, 1f)
+            drawRect(Color.Black.copy(alpha = alpha))
+        }
     }
 }
 
@@ -78,20 +81,21 @@ fun PlayerBottomSheetScaffold(
         }
     }
 
-    val currentOffset = bottomSheetOffset()
-    // isLocalSearchActive가 true면 BottomNav가 숨겨지므로 패딩 불필요
-    val scaffoldBottomPadding = if (isLocalSearchActive) {
-        0.dp
-    } else {
-        when {
-            currentOffset <= 0.0f -> {
-                val progress = (currentOffset * 25).coerceIn(-1f, 0f)
-                (56 * (1 + progress)).coerceAtLeast(0f).dp
-            }
-            currentOffset >= 1.0f -> 56.dp
-            else -> {
-                val progress = currentOffset.coerceIn(0f, 1f)
-                (56 * progress).dp
+    val scaffoldBottomPadding = trace("PlayerBottomSheetScaffold.computeBottomPadding") {
+        val currentOffset = bottomSheetOffset()
+        if (isLocalSearchActive) {
+            0.dp
+        } else {
+            when {
+                currentOffset <= 0.0f -> {
+                    val progress = (currentOffset * 25).coerceIn(-1f, 0f)
+                    (56 * (1 + progress)).coerceAtLeast(0f).dp
+                }
+                currentOffset >= 1.0f -> 56.dp
+                else -> {
+                    val progress = currentOffset.coerceIn(0f, 1f)
+                    (56 * progress).dp
+                }
             }
         }
     }
@@ -140,4 +144,3 @@ fun PlayerBottomSheetScaffold(
         }
     }
 }
-

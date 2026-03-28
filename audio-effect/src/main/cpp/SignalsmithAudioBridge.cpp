@@ -19,9 +19,6 @@
 #include "signalsmith/basics/modules/dsp/filters.h"
 #include "signalsmith/basics/modules/dsp/envelopes.h"
 
-#include "mit_hrtf_lib.h"
-#include "FFTConvolver.h"
-
 #define LOG_TAG "SignalsmithNative"
 #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
@@ -163,34 +160,14 @@ static std::atomic<float> eqBand4Gain(0.0f);
 static std::atomic<float> eqBand5Freq(12000.0f);
 static std::atomic<float> eqBand5Gain(0.0f);
 
-static std::atomic<bool> compressorEnabled(false);
-static std::atomic<float> compThresholdDb(-20.0f);
-static std::atomic<float> compRatio(4.0f);
-static std::atomic<float> compAttackMs(10.0f);
-static std::atomic<float> compReleaseMs(100.0f);
-static std::atomic<float> compMakeupGainDb(0.0f);
-
 static std::atomic<float> detectedPitch(0.0f);
 static std::atomic<bool> pitchDetectionEnabled(false);
-
-// MIT HRTF Virtualizer
-static std::atomic<bool> hrtfEnabled(false);
-static std::atomic<float> hrtfIntensity(1.0f);
-static std::atomic<int> hrtfAzimuth(30);
-
-static fftconvolver::FFTConvolver hrtfConvolverL;
-static fftconvolver::FFTConvolver hrtfConvolverR;
-static bool hrtfInitialized = false;
-static int hrtfCurrentAzimuth = 0;
-static std::vector<float> hrtfTempBufferL, hrtfTempBufferR;
 
 using BiquadFilter = signalsmith::filters::BiquadStatic<float>;
 
 static std::vector<BiquadFilter> eqFiltersL(5);
 static std::vector<BiquadFilter> eqFiltersR(5);
 
-static float compEnvelopeL = 0.0f;
-static float compEnvelopeR = 0.0f;
 
 static std::vector<float> effectsBufferLeft, effectsBufferRight;
 
@@ -391,74 +368,6 @@ static int processAudio(float* outputInterleaved, int outputFrames) {
                 }
                 effectsBufferLeft[i] = sampleL;
                 effectsBufferRight[i] = sampleR;
-            }
-        }
-
-        if (compressorEnabled.load()) {
-            float threshold = powf(10.0f, compThresholdDb.load() / 20.0f);
-            float ratio = compRatio.load();
-            float attackCoef = expf(-1.0f / (compAttackMs.load() * 0.001f * sampleRate));
-            float releaseCoef = expf(-1.0f / (compReleaseMs.load() * 0.001f * sampleRate));
-            float makeupGain = powf(10.0f, compMakeupGainDb.load() / 20.0f);
-            
-            for (int i = 0; i < outputFrames; i++) {
-                float inputL = fabsf(effectsBufferLeft[i]);
-                float inputR = fabsf(effectsBufferRight[i]);
-                float inputPeak = fmaxf(inputL, inputR);
-                
-                float targetEnv = inputPeak;
-                float coef = (targetEnv > compEnvelopeL) ? attackCoef : releaseCoef;
-                compEnvelopeL = coef * compEnvelopeL + (1.0f - coef) * targetEnv;
-                
-                float gainReduction = 1.0f;
-                if (compEnvelopeL > threshold) {
-                    float overDb = 20.0f * log10f(compEnvelopeL / threshold);
-                    float reducedDb = overDb * (1.0f - 1.0f / ratio);
-                    gainReduction = powf(10.0f, -reducedDb / 20.0f);
-                }
-                
-                effectsBufferLeft[i] *= gainReduction * makeupGain;
-                effectsBufferRight[i] *= gainReduction * makeupGain;
-            }
-        }
-
-        if (hrtfEnabled.load()) {
-            int azimuth = hrtfAzimuth.load();
-            float intensity = hrtfIntensity.load();
-            
-            if (!hrtfInitialized || hrtfCurrentAzimuth != azimuth) {
-                int actualAzimuth = azimuth;
-                int actualElevation = 0;
-                unsigned int taps = mit_hrtf_availability(azimuth, 0, 44100, 1);
-                
-                if (taps > 0) {
-                    std::vector<short> hrtfL(taps), hrtfR(taps);
-                    mit_hrtf_get(&actualAzimuth, &actualElevation, 44100, 1, hrtfL.data(), hrtfR.data());
-                    
-                    std::vector<float> irL(taps), irR(taps);
-                    for (unsigned int i = 0; i < taps; i++) {
-                        irL[i] = hrtfL[i] / 32768.0f;
-                        irR[i] = hrtfR[i] / 32768.0f;
-                    }
-                    
-                    hrtfConvolverL.init(512, irL.data(), taps);
-                    hrtfConvolverR.init(512, irR.data(), taps);
-                    hrtfCurrentAzimuth = azimuth;
-                    hrtfInitialized = true;
-                    
-                    hrtfTempBufferL.resize(outputFrames);
-                    hrtfTempBufferR.resize(outputFrames);
-                }
-            }
-            
-            if (hrtfInitialized) {
-                hrtfConvolverL.process(effectsBufferLeft.data(), hrtfTempBufferL.data(), outputFrames);
-                hrtfConvolverR.process(effectsBufferRight.data(), hrtfTempBufferR.data(), outputFrames);
-                
-                for (int i = 0; i < outputFrames; i++) {
-                    effectsBufferLeft[i] = effectsBufferLeft[i] * (1.0f - intensity) + hrtfTempBufferL[i] * intensity;
-                    effectsBufferRight[i] = effectsBufferRight[i] * (1.0f - intensity) + hrtfTempBufferR[i] * intensity;
-                }
             }
         }
 
@@ -1003,39 +912,6 @@ Java_com_example_audio_1effect_SignalsmithAudioEngine_nativeSetEqBand(
 }
 
 JNIEXPORT void JNICALL
-Java_com_example_audio_1effect_SignalsmithAudioEngine_nativeSetCompressorEnabled(
-        JNIEnv *env,
-        jobject /* this */,
-        jboolean enabled
-) {
-    LOGD("nativeSetCompressorEnabled: %d", enabled);
-    compressorEnabled.store(enabled);
-    if (!enabled) {
-        compEnvelopeL = 0.0f;
-        compEnvelopeR = 0.0f;
-    }
-}
-
-JNIEXPORT void JNICALL
-Java_com_example_audio_1effect_SignalsmithAudioEngine_nativeSetCompressorParams(
-        JNIEnv *env,
-        jobject /* this */,
-        jfloat thresholdDb,
-        jfloat ratio,
-        jfloat attackMs,
-        jfloat releaseMs,
-        jfloat makeupGainDb
-) {
-    LOGD("nativeSetCompressorParams: threshold=%f, ratio=%f, attack=%f, release=%f, makeup=%f", 
-         thresholdDb, ratio, attackMs, releaseMs, makeupGainDb);
-    compThresholdDb.store(thresholdDb);
-    compRatio.store(ratio);
-    compAttackMs.store(attackMs);
-    compReleaseMs.store(releaseMs);
-    compMakeupGainDb.store(makeupGainDb);
-}
-
-JNIEXPORT void JNICALL
 Java_com_example_audio_1effect_SignalsmithAudioEngine_nativeSetPitchDetectionEnabled(
         JNIEnv *env,
         jobject /* this */,
@@ -1051,31 +927,6 @@ Java_com_example_audio_1effect_SignalsmithAudioEngine_nativeGetDetectedPitch(
         jobject /* this */
 ) {
     return detectedPitch.load();
-}
-
-JNIEXPORT void JNICALL
-Java_com_example_audio_1effect_SignalsmithAudioEngine_nativeSetHrtfEnabled(
-        JNIEnv *env,
-        jobject /* this */,
-        jboolean enabled
-) {
-    LOGD("nativeSetHrtfEnabled: %d", enabled);
-    hrtfEnabled.store(enabled);
-    if (!enabled) {
-        hrtfInitialized = false;
-    }
-}
-
-JNIEXPORT void JNICALL
-Java_com_example_audio_1effect_SignalsmithAudioEngine_nativeSetHrtfParams(
-        JNIEnv *env,
-        jobject /* this */,
-        jfloat intensity,
-        jint azimuth
-) {
-    LOGD("nativeSetHrtfParams: intensity=%f, azimuth=%d", intensity, azimuth);
-    hrtfIntensity.store(intensity);
-    hrtfAzimuth.store(azimuth);
 }
 
 } // extern "C"

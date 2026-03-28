@@ -104,12 +104,12 @@ Java_com_example_media_audio_VocalRemovalProcessor_nativeComputeStft(
     jlong handle,
     jobject pcmInput,
     jint numSamples,
-    jfloatArray outputReal,
-    jfloatArray outputImag,
+    jobject outputRealBuffer,
+    jobject outputImagBuffer,
     jint channelCount
 ) {
     auto *engine = toEngine(handle);
-    if (engine == nullptr || pcmInput == nullptr || outputReal == nullptr || outputImag == nullptr) {
+    if (engine == nullptr || pcmInput == nullptr || outputRealBuffer == nullptr || outputImagBuffer == nullptr) {
         return 0;
     }
     if (channelCount <= 0 || numSamples < engine->nFft) {
@@ -122,21 +122,25 @@ Java_com_example_media_audio_VocalRemovalProcessor_nativeComputeStft(
         return 0;
     }
 
+    auto *realOut = static_cast<float *>(env->GetDirectBufferAddress(outputRealBuffer));
+    auto *imagOut = static_cast<float *>(env->GetDirectBufferAddress(outputImagBuffer));
+    if (realOut == nullptr || imagOut == nullptr) {
+        LOGE("nativeComputeStft output requires direct ByteBuffer");
+        return 0;
+    }
+
     const int frames = 1 + ((numSamples - engine->nFft) / engine->hopLength);
     if (frames <= 0) {
         return 0;
     }
 
     const jint expectedSize = channelCount * engine->dimF * frames;
-    if (env->GetArrayLength(outputReal) < expectedSize || env->GetArrayLength(outputImag) < expectedSize) {
-        LOGE("nativeComputeStft output arrays too small");
+    const jlong expectedBytes = static_cast<jlong>(expectedSize) * static_cast<jlong>(sizeof(float));
+    if (env->GetDirectBufferCapacity(outputRealBuffer) < expectedBytes ||
+        env->GetDirectBufferCapacity(outputImagBuffer) < expectedBytes) {
+        LOGE("nativeComputeStft output buffer too small");
         return 0;
     }
-
-    jboolean realIsCopy = JNI_FALSE;
-    jboolean imagIsCopy = JNI_FALSE;
-    auto *realOut = env->GetFloatArrayElements(outputReal, &realIsCopy);
-    auto *imagOut = env->GetFloatArrayElements(outputImag, &imagIsCopy);
 
     for (int channel = 0; channel < channelCount; ++channel) {
         for (int t = 0; t < frames; ++t) {
@@ -164,8 +168,6 @@ Java_com_example_media_audio_VocalRemovalProcessor_nativeComputeStft(
         }
     }
 
-    env->ReleaseFloatArrayElements(outputReal, realOut, 0);
-    env->ReleaseFloatArrayElements(outputImag, imagOut, 0);
     return frames;
 }
 
@@ -174,14 +176,14 @@ Java_com_example_media_audio_VocalRemovalProcessor_nativeComputeIstft(
     JNIEnv *env,
     jobject,
     jlong handle,
-    jfloatArray inputReal,
-    jfloatArray inputImag,
+    jobject inputRealBuffer,
+    jobject inputImagBuffer,
     jobject pcmOutput,
     jint numFrames,
     jint channelCount
 ) {
     auto *engine = toEngine(handle);
-    if (engine == nullptr || inputReal == nullptr || inputImag == nullptr || pcmOutput == nullptr) {
+    if (engine == nullptr || inputRealBuffer == nullptr || inputImagBuffer == nullptr || pcmOutput == nullptr) {
         return 0;
     }
     if (numFrames <= 0 || channelCount <= 0) {
@@ -199,16 +201,20 @@ Java_com_example_media_audio_VocalRemovalProcessor_nativeComputeIstft(
         return 0;
     }
 
-    const jint expectedSize = channelCount * engine->dimF * numFrames;
-    if (env->GetArrayLength(inputReal) < expectedSize || env->GetArrayLength(inputImag) < expectedSize) {
-        LOGE("nativeComputeIstft input arrays too small");
+    auto *realIn = static_cast<float *>(env->GetDirectBufferAddress(inputRealBuffer));
+    auto *imagIn = static_cast<float *>(env->GetDirectBufferAddress(inputImagBuffer));
+    if (realIn == nullptr || imagIn == nullptr) {
+        LOGE("nativeComputeIstft input requires direct ByteBuffer");
         return 0;
     }
 
-    jboolean realIsCopy = JNI_FALSE;
-    jboolean imagIsCopy = JNI_FALSE;
-    auto *realIn = env->GetFloatArrayElements(inputReal, &realIsCopy);
-    auto *imagIn = env->GetFloatArrayElements(inputImag, &imagIsCopy);
+    const jint expectedSize = channelCount * engine->dimF * numFrames;
+    const jlong expectedBytes = static_cast<jlong>(expectedSize) * static_cast<jlong>(sizeof(float));
+    if (env->GetDirectBufferCapacity(inputRealBuffer) < expectedBytes ||
+        env->GetDirectBufferCapacity(inputImagBuffer) < expectedBytes) {
+        LOGE("nativeComputeIstft input buffer too small");
+        return 0;
+    }
 
     const size_t totalSamples = static_cast<size_t>(outputSamples * channelCount);
     if (engine->outputInterleaved.size() != totalSamples) {
@@ -279,8 +285,6 @@ Java_com_example_media_audio_VocalRemovalProcessor_nativeComputeIstft(
         pcmPtr[i] = floatToPcm16(outputInterleaved[i]);
     }
 
-    env->ReleaseFloatArrayElements(inputReal, realIn, JNI_ABORT);
-    env->ReleaseFloatArrayElements(inputImag, imagIn, JNI_ABORT);
     return outputSamples;
 }
 

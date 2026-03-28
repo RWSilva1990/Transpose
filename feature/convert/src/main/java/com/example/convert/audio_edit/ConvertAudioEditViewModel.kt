@@ -9,6 +9,10 @@ import javax.inject.Inject
 class ConvertAudioEditViewModel @Inject constructor(
     private val audioEffectsManager: AudioEffectsManager
 ) : ViewModel() {
+    init {
+        // Preload model when edit screen/viewmodel is created to reduce first-enable hitch.
+        audioEffectsManager.prewarmVocalRemovalModel()
+    }
 
     // Pitch / Tempo
     val pitchValue = audioEffectsManager.pitchValue
@@ -96,63 +100,16 @@ class ConvertAudioEditViewModel @Inject constructor(
     fun updateEqBandGain(band: Int, gain: Float) = audioEffectsManager.updateEqBandGain(band, gain)
     fun initEqValues() = audioEffectsManager.initEqValues()
 
-    // Signalsmith Compressor
-    val isCompressorEnabled = audioEffectsManager.isCompressorEnabled
-    val compThresholdDb = audioEffectsManager.compThresholdDb
-    val compRatio = audioEffectsManager.compRatio
-    val compAttackMs = audioEffectsManager.compAttackMs
-    val compReleaseMs = audioEffectsManager.compReleaseMs
-    val compMakeupGainDb = audioEffectsManager.compMakeupGainDb
-    fun updateIsCompressorEnabled() = audioEffectsManager.updateIsCompressorEnabled()
-    fun updateCompThresholdDb(value: Float) = audioEffectsManager.updateCompThresholdDb(value)
-    fun updateCompRatio(value: Float) = audioEffectsManager.updateCompRatio(value)
-    fun updateCompAttackMs(value: Float) = audioEffectsManager.updateCompAttackMs(value)
-    fun updateCompReleaseMs(value: Float) = audioEffectsManager.updateCompReleaseMs(value)
-    fun updateCompMakeupGainDb(value: Float) = audioEffectsManager.updateCompMakeupGainDb(value)
-    fun setCompressorParams() = audioEffectsManager.setCompressorParams()
-    fun initCompressorValues() = audioEffectsManager.initCompressorValues()
-    fun applyCompressorPreset(thresholdDb: Float, ratio: Float, attackMs: Float, releaseMs: Float, makeupGainDb: Float) {
-        audioEffectsManager.updateCompThresholdDb(thresholdDb)
-        audioEffectsManager.updateCompRatio(ratio)
-        audioEffectsManager.updateCompAttackMs(attackMs)
-        audioEffectsManager.updateCompReleaseMs(releaseMs)
-        audioEffectsManager.updateCompMakeupGainDb(makeupGainDb)
-        audioEffectsManager.setCompressorParams()
-    }
-
     // Signalsmith Pitch Detection
     val isPitchDetectionEnabled = audioEffectsManager.isPitchDetectionEnabled
     fun updateIsPitchDetectionEnabled() = audioEffectsManager.updateIsPitchDetectionEnabled()
     fun getDetectedPitch(): Float = audioEffectsManager.getDetectedPitch()
 
-    // Signalsmith HRTF
-    val isHrtfEnabled = audioEffectsManager.isHrtfEnabled
-    val hrtfIntensity = audioEffectsManager.hrtfIntensity
-    val hrtfAzimuth = audioEffectsManager.hrtfAzimuth
-    fun updateIsHrtfEnabled() = audioEffectsManager.updateIsHrtfEnabled()
-    fun updateHrtfIntensity(value: Float) = audioEffectsManager.updateHrtfIntensity(value)
-    fun updateHrtfAzimuth(azimuth: Int) = audioEffectsManager.updateHrtfAzimuth(azimuth)
-    fun initHrtfValues() = audioEffectsManager.initHrtfValues()
-
     // Vocal Removal
     val isVocalRemovalEnabled = audioEffectsManager.isVocalRemovalEnabled
     val vocalRemovalMix = audioEffectsManager.vocalRemovalMix
-    val vocalRemovalModelOptions = audioEffectsManager.vocalRemovalModelOptions
-    val vocalRemovalModelIndex = audioEffectsManager.vocalRemovalModelIndex
     fun updateIsVocalRemovalEnabled() = audioEffectsManager.updateIsVocalRemovalEnabled()
     fun updateVocalRemovalMix(value: Float) = audioEffectsManager.updateVocalRemovalMix(value)
-    fun updateVocalRemovalModel(index: Int) = audioEffectsManager.updateVocalRemovalModel(index)
     fun initVocalRemovalValues() = audioEffectsManager.initVocalRemovalValues()
 
-    // Stereo Widener
-    val isStereoWidenerEnabled = audioEffectsManager.isStereoWidenerEnabled
-    val stereoWidenerWidth = audioEffectsManager.stereoWidenerWidth
-    fun updateIsStereoWidenerEnabled() = audioEffectsManager.updateIsStereoWidenerEnabled()
-    fun updateStereoWidenerWidth(value: Float) = audioEffectsManager.updateStereoWidenerWidth(value)
-    fun setStereoWidenerParams() = audioEffectsManager.setStereoWidenerParams()
-    fun initStereoWidenerValues() = audioEffectsManager.initStereoWidenerValues()
-    fun applyStereoWidenerPreset(width: Float) {
-        audioEffectsManager.updateStereoWidenerWidth(width)
-        audioEffectsManager.setStereoWidenerParams()
-    }
 }

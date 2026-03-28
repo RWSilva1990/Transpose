@@ -288,16 +288,6 @@ class SignalsmithAudioEngine @Inject constructor(
         nativeSetEqBand(band, freq, gainDb)
     }
 
-    fun setCompressorEnabled(enabled: Boolean) {
-        if (!isInitialized) return
-        nativeSetCompressorEnabled(enabled)
-    }
-
-    fun setCompressorParams(thresholdDb: Float, ratio: Float, attackMs: Float, releaseMs: Float, makeupGainDb: Float) {
-        if (!isInitialized) return
-        nativeSetCompressorParams(thresholdDb, ratio, attackMs, releaseMs, makeupGainDb)
-    }
-
     fun setPitchDetectionEnabled(enabled: Boolean) {
         if (!isInitialized) return
         nativeSetPitchDetectionEnabled(enabled)
@@ -306,16 +296,6 @@ class SignalsmithAudioEngine @Inject constructor(
     fun getDetectedPitch(): Float {
         if (!isInitialized) return 0f
         return nativeGetDetectedPitch()
-    }
-
-    fun setHrtfEnabled(enabled: Boolean) {
-        if (!isInitialized) return
-        nativeSetHrtfEnabled(enabled)
-    }
-
-    fun setHrtfParams(intensity: Float, azimuth: Int) {
-        if (!isInitialized) return
-        nativeSetHrtfParams(intensity, azimuth)
     }
 
     fun setPhaserEnabled(enabled: Boolean) {
@@ -398,12 +378,8 @@ class SignalsmithAudioEngine @Inject constructor(
     private external fun nativeSetCrunchParams(driveDb: Float, fuzz: Float, toneHz: Float)
     private external fun nativeSetEqEnabled(enabled: Boolean)
     private external fun nativeSetEqBand(band: Int, freq: Float, gainDb: Float)
-    private external fun nativeSetCompressorEnabled(enabled: Boolean)
-    private external fun nativeSetCompressorParams(thresholdDb: Float, ratio: Float, attackMs: Float, releaseMs: Float, makeupGainDb: Float)
     private external fun nativeSetPitchDetectionEnabled(enabled: Boolean)
     private external fun nativeGetDetectedPitch(): Float
-    private external fun nativeSetHrtfEnabled(enabled: Boolean)
-    private external fun nativeSetHrtfParams(intensity: Float, azimuth: Int)
     private external fun nativeSetPhaserEnabled(enabled: Boolean)
     private external fun nativeSetPhaserParams(lfoFreq: Float, lfoDepth: Float, feedback: Float, poles: Int)
     private external fun nativeSetFlangerEnabled(enabled: Boolean)

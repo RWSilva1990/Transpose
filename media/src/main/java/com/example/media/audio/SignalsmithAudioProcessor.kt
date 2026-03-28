@@ -20,6 +20,7 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
 
     companion object {
         private const val TAG = "SignalsmithProcessor"
+        private const val EFFECT_TRANSITION_MS = 36
         
         init {
             System.loadLibrary("signalsmith_audio")
@@ -36,6 +37,12 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
     private var processingBuffer: ByteBuffer? = null
     private var scratchInputBuffer: ByteBuffer? = null
     private var pendingOutputBuffer: ByteBuffer? = null
+    @Volatile private var transitionRequested = false
+    private var transitionActive = false
+    private var transitionPositionBytes = 0
+    private var transitionTotalBytes = 0
+    private var transitionTail = ByteArray(0)
+    private var transitionScratch = ByteArray(0)
     
     @Volatile
     private var nativeHandle: Long = 0
@@ -81,24 +88,11 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
     private var eqBand5Freq: Float = 12000.0f
     private var eqBand5Gain: Float = 0.0f
 
-    private var compressorEnabled: Boolean = false
-    private var compThresholdDb: Float = -20.0f
-    private var compRatio: Float = 4.0f
-    private var compAttackMs: Float = 10.0f
-    private var compReleaseMs: Float = 100.0f
-    private var compMakeupGainDb: Float = 0.0f
-
     private var pitchDetectionEnabled: Boolean = false
-
-    private var hrtfEnabled: Boolean = false
-    private var hrtfIntensity: Float = 1.0f
-    private var hrtfAzimuth: Int = 0  // 0 = Front, negative = Left, positive = Right
-
-    private var stereoWidenerEnabled: Boolean = false
-    private var stereoWidenerWidth: Float = 1.0f  // 0.0-2.0, 1.0 = original
 
     fun setPitchSemitones(semitones: Float) {
         _pitchSemitones.value = semitones.coerceIn(-24f, 24f)
+        requestOutputTransition()
         if (nativeHandle != 0L) {
             nativeSetPitchSemitones(nativeHandle, _pitchSemitones.value)
         }
@@ -119,6 +113,7 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
 
     fun setTempoRate(rate: Float) {
         tempoRate = rate.coerceIn(0.5f, 2.0f)
+        requestOutputTransition()
         if (nativeHandle != 0L) {
             nativeSetTempoRate(nativeHandle, tempoRate)
         }
@@ -128,6 +123,7 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
     fun setTempoSemitones(semitones: Float) {
         _tempoSemitones.value = semitones.coerceIn(-24f, 24f)
         tempoRate = Math.pow(2.0, semitones.toDouble() / 12.0).toFloat()
+        requestOutputTransition()
         if (nativeHandle != 0L) {
             nativeSetTempoRate(nativeHandle, tempoRate)
         }
@@ -148,6 +144,7 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
 
     fun setChorusEnabled(enabled: Boolean) {
         chorusEnabled = enabled
+        requestOutputTransition()
         if (nativeHandle != 0L) {
             nativeSetChorusEnabled(nativeHandle, enabled)
         }
@@ -165,6 +162,7 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
 
     fun setLimiterEnabled(enabled: Boolean) {
         limiterEnabled = enabled
+        requestOutputTransition()
         if (nativeHandle != 0L) {
             nativeSetLimiterEnabled(nativeHandle, enabled)
         }
@@ -182,6 +180,7 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
 
     fun setReverbEnabled(enabled: Boolean) {
         reverbEnabled = enabled
+        requestOutputTransition()
         if (nativeHandle != 0L) {
             nativeSetReverbEnabled(nativeHandle, enabled)
         }
@@ -199,6 +198,7 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
 
     fun setEqEnabled(enabled: Boolean) {
         eqEnabled = enabled
+        requestOutputTransition()
         if (nativeHandle != 0L) {
             nativeSetEqEnabled(nativeHandle, enabled)
         }
@@ -233,31 +233,6 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
         }
     }
 
-    fun setCompressorEnabled(enabled: Boolean) {
-        compressorEnabled = enabled
-        if (nativeHandle != 0L) {
-            nativeSetCompressorEnabled(nativeHandle, enabled)
-        }
-    }
-
-    fun setCompressorParams(
-        thresholdDb: Float,
-        ratio: Float,
-        attackMs: Float,
-        releaseMs: Float,
-        makeupGainDb: Float
-    ) {
-        compThresholdDb = thresholdDb
-        compRatio = ratio
-        compAttackMs = attackMs
-        compReleaseMs = releaseMs
-        compMakeupGainDb = makeupGainDb
-
-        if (nativeHandle != 0L) {
-            nativeSetCompressorParams(nativeHandle, thresholdDb, ratio, attackMs, releaseMs, makeupGainDb)
-        }
-    }
-
     fun setPitchDetectionEnabled(enabled: Boolean) {
         pitchDetectionEnabled = enabled
         if (nativeHandle != 0L) {
@@ -268,35 +243,6 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
     fun getDetectedPitch(): Float {
         if (nativeHandle == 0L) return 0f
         return nativeGetDetectedPitch(nativeHandle)
-    }
-
-    fun setHrtfEnabled(enabled: Boolean) {
-        hrtfEnabled = enabled
-        if (nativeHandle != 0L) {
-            nativeSetHrtfEnabled(nativeHandle, enabled)
-        }
-    }
-
-    fun setHrtfParams(intensity: Float, azimuth: Int) {
-        hrtfIntensity = intensity
-        hrtfAzimuth = azimuth
-        if (nativeHandle != 0L) {
-            nativeSetHrtfParams(nativeHandle, intensity, azimuth)
-        }
-    }
-
-    fun setStereoWidenerEnabled(enabled: Boolean) {
-        stereoWidenerEnabled = enabled
-        if (nativeHandle != 0L) {
-            nativeSetStereoWidenerEnabled(nativeHandle, enabled)
-        }
-    }
-
-    fun setStereoWidenerParams(width: Float) {
-        stereoWidenerWidth = width
-        if (nativeHandle != 0L) {
-            nativeSetStereoWidenerParams(nativeHandle, width)
-        }
     }
 
     override fun configure(inputAudioFormat: AudioFormat): AudioFormat {
@@ -313,6 +259,13 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
 
         this.inputAudioFormat = inputAudioFormat
         this.outputAudioFormat = inputAudioFormat
+        transitionTotalBytes =
+            ((inputAudioFormat.sampleRate * inputAudioFormat.channelCount * 2 * EFFECT_TRANSITION_MS) / 1000)
+                .coerceAtLeast(inputAudioFormat.channelCount * 2 * 8)
+        transitionTail = ByteArray(transitionTotalBytes)
+        transitionScratch = ByteArray(0)
+        transitionActive = false
+        transitionPositionBytes = 0
 
         if (nativeHandle != 0L) {
             nativeRelease(nativeHandle)
@@ -342,16 +295,7 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
             nativeSetEqBand(nativeHandle, 3, eqBand4Freq, eqBand4Gain)
             nativeSetEqBand(nativeHandle, 4, eqBand5Freq, eqBand5Gain)
 
-            nativeSetCompressorEnabled(nativeHandle, compressorEnabled)
-            nativeSetCompressorParams(nativeHandle, compThresholdDb, compRatio, compAttackMs, compReleaseMs, compMakeupGainDb)
-
             nativeSetPitchDetectionEnabled(nativeHandle, pitchDetectionEnabled)
-
-            nativeSetHrtfEnabled(nativeHandle, hrtfEnabled)
-            nativeSetHrtfParams(nativeHandle, hrtfIntensity, hrtfAzimuth)
-
-            nativeSetStereoWidenerEnabled(nativeHandle, stereoWidenerEnabled)
-            nativeSetStereoWidenerParams(nativeHandle, stereoWidenerWidth)
         }
 
         Log.d(TAG, "configure: nativeHandle=$nativeHandle")
@@ -435,6 +379,11 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
             val actualOutputBytes = actualOutputFrames * bytesPerFrame
             processingBuffer!!.position(0)
             processingBuffer!!.limit(actualOutputBytes)
+            maybeStartOutputTransition()
+            applyOutputTransition(processingBuffer!!, actualOutputBytes)
+            saveTransitionTail(processingBuffer!!, actualOutputBytes)
+            processingBuffer!!.position(0)
+            processingBuffer!!.limit(actualOutputBytes)
 
             outputBuffer = processingBuffer!!
         } else {
@@ -493,6 +442,8 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
         outputBuffer = AudioProcessor.EMPTY_BUFFER
         pendingOutputBuffer = null
         inputEnded = false
+        transitionActive = false
+        transitionPositionBytes = 0
         
         if (nativeHandle != 0L) {
             nativeFlush(nativeHandle)
@@ -511,6 +462,85 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
         inputAudioFormat = AudioFormat.NOT_SET
         outputAudioFormat = AudioFormat.NOT_SET
         processingBuffer = null
+    }
+
+    private fun requestOutputTransition() {
+        transitionRequested = true
+    }
+
+    private fun maybeStartOutputTransition() {
+        if (!transitionRequested || transitionTotalBytes <= 0) return
+        transitionRequested = false
+        transitionActive = true
+        transitionPositionBytes = 0
+    }
+
+    private fun applyOutputTransition(buffer: ByteBuffer, outputBytes: Int) {
+        if (!transitionActive || outputBytes <= 0 || transitionTotalBytes <= 0) return
+
+        if (transitionScratch.size < outputBytes) {
+            transitionScratch = ByteArray(outputBytes)
+        }
+
+        val readView = buffer.duplicate().order(ByteOrder.nativeOrder())
+        readView.position(0)
+        readView.limit(outputBytes)
+        readView.get(transitionScratch, 0, outputBytes)
+
+        val remaining = transitionTotalBytes - transitionPositionBytes
+        if (remaining <= 0) {
+            transitionActive = false
+            return
+        }
+
+        val fadeBytes = minOf(remaining, outputBytes) and 0xFFFFFFFE.toInt()
+        val fadeSamples = fadeBytes / 2
+        for (i in 0 until fadeSamples) {
+            val idx = i * 2
+            val globalPos = transitionPositionBytes + idx
+            val progress = globalPos.toFloat() / transitionTotalBytes.toFloat()
+            val oldSample = if (globalPos + 1 < transitionTail.size) {
+                ((transitionTail[globalPos + 1].toInt() shl 8) or (transitionTail[globalPos].toInt() and 0xFF)).toShort()
+            } else {
+                0
+            }
+            val newSample = ((transitionScratch[idx + 1].toInt() shl 8) or (transitionScratch[idx].toInt() and 0xFF)).toShort()
+            val mixed = (oldSample.toInt() * (1f - progress) + newSample.toInt() * progress).toInt()
+                .coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt())
+            transitionScratch[idx] = (mixed and 0xFF).toByte()
+            transitionScratch[idx + 1] = (mixed shr 8).toByte()
+        }
+
+        val writeView = buffer.duplicate().order(ByteOrder.nativeOrder())
+        writeView.position(0)
+        writeView.limit(outputBytes)
+        writeView.put(transitionScratch, 0, outputBytes)
+
+        transitionPositionBytes += fadeBytes
+        if (transitionPositionBytes >= transitionTotalBytes) {
+            transitionActive = false
+            transitionPositionBytes = 0
+        }
+    }
+
+    private fun saveTransitionTail(buffer: ByteBuffer, outputBytes: Int) {
+        if (transitionTotalBytes <= 0 || outputBytes <= 0) return
+        if (transitionTail.size < transitionTotalBytes) {
+            transitionTail = ByteArray(transitionTotalBytes)
+        }
+        val view = buffer.duplicate().order(ByteOrder.nativeOrder())
+        view.position(0)
+        view.limit(outputBytes)
+
+        if (outputBytes >= transitionTotalBytes) {
+            view.position(outputBytes - transitionTotalBytes)
+            view.get(transitionTail, 0, transitionTotalBytes)
+            return
+        }
+
+        val shift = transitionTotalBytes - outputBytes
+        System.arraycopy(transitionTail, outputBytes, transitionTail, 0, shift)
+        view.get(transitionTail, shift, outputBytes)
     }
 
     private external fun nativeInit(sampleRate: Int, channelCount: Int): Long
@@ -566,32 +596,9 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
         gainDb: Float
     )
 
-    private external fun nativeSetCompressorEnabled(handle: Long, enabled: Boolean)
-
-    private external fun nativeSetCompressorParams(
-        handle: Long,
-        thresholdDb: Float,
-        ratio: Float,
-        attackMs: Float,
-        releaseMs: Float,
-        makeupGainDb: Float
-    )
-
     private external fun nativeSetPitchDetectionEnabled(handle: Long, enabled: Boolean)
 
     private external fun nativeGetDetectedPitch(handle: Long): Float
-
-    private external fun nativeSetHrtfEnabled(handle: Long, enabled: Boolean)
-
-    private external fun nativeSetHrtfParams(
-        handle: Long,
-        intensity: Float,
-        azimuth: Int
-    )
-
-    private external fun nativeSetStereoWidenerEnabled(handle: Long, enabled: Boolean)
-
-    private external fun nativeSetStereoWidenerParams(handle: Long, width: Float)
 
     private external fun nativeFlush(handle: Long)
     

@@ -191,7 +191,6 @@
 
     <string name="vocal_removal_text">보컬 제거 · AI 인스트루멘탈</string>
     <string name="vocal_removal_mix">보컬 감소량</string>
-    <string name="vocal_removal_model">AI 모델</string>
 
     <string name="stereo_widener_text">스테레오 확장 · 공간감 조절</string>
     <string name="stereo_widener_width">스테레오 폭</string>

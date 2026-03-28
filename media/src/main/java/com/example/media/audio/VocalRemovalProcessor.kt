@@ -18,6 +18,9 @@ import java.nio.ByteOrder
 import java.nio.FloatBuffer
 import java.util.Locale
 import java.util.concurrent.Executors
+import java.util.concurrent.ScheduledExecutorService
+import java.util.concurrent.ScheduledFuture
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -36,14 +39,21 @@ class VocalRemovalProcessor @Inject constructor(
         private const val HOP_LENGTH = 1024
         private const val DEFAULT_DIM_F = 2048
         private const val DEFAULT_TARGET_T = 32
+        private const val DEFAULT_MODEL_ASSET_FILE = "UVR-MDX-NET-Inst_Main_fp16_dynT.onnx"
         private const val MODEL_CHANNELS = 2
 
         private const val CROSSFADE_MS = 30
         private const val WARMUP_BLEND_MS = 70
         private const val INFER_EMA_ALPHA = 0.1f
         private const val PERF_WARMUP_CHUNKS = 8
-        private const val PREBUFFER_DEFAULT_X100 = 125
-        private const val PREBUFFER_MAX_X100 = 140
+        private const val PREBUFFER_DEFAULT_X100 = 110
+        private const val PREBUFFER_MAX_X100 = 130
+        private const val ACTIVE_SHORTFALL_GRACE_CHUNKS = 6
+        private const val SHORTFALL_BOUNDARY_FADE_SAMPLES = 128
+        private const val INPUT_RING_INITIAL_CHUNKS = 6
+        private const val OUTPUT_RING_INITIAL_CHUNKS = 6
+        private const val RING_MAX_CHUNKS = 24
+        private const val SESSION_IDLE_TIMEOUT_SEC = 30L
 
         init {
             System.loadLibrary("signalsmith_audio")
@@ -57,10 +67,12 @@ class VocalRemovalProcessor @Inject constructor(
             field = value
             processingGeneration.incrementAndGet()
             if (value) {
+                cancelSessionRelease()
                 ensureModelLoadingAsync()
                 outputState = OutputState.WARMUP
                 enabledOutputBytesEmitted = 0L
                 starvedTransitions = 0
+                activeShortfallStreak = 0
                 synchronized(inputLock) { if (::inputRing.isInitialized) inputRing.clear() }
                 synchronized(outputLock) { if (::outputRing.isInitialized) outputRing.clear() }
                 synchronized(dryLock) {
@@ -84,66 +96,16 @@ class VocalRemovalProcessor @Inject constructor(
                 crossfadePosition = 0
                 enabledOutputBytesEmitted = 0L
                 starvedTransitions = 0
+                activeShortfallStreak = 0
+                scheduleSessionRelease()
             }
         }
 
     @Volatile
     var mixRatio: Float = 1.0f
 
-    fun getVocalRemovalModelProfiles(): List<VocalRemovalModelProfile> = VocalRemovalModelProfile.values().toList()
-
-    fun getSelectedVocalRemovalModelProfile(): VocalRemovalModelProfile = selectedModelProfile
-
-    fun updateVocalRemovalModelProfile(profile: VocalRemovalModelProfile) {
-        val previousProfile = selectedModelProfile
-        if (previousProfile == profile) return
-        selectedModelProfile = profile
-        processingGeneration.incrementAndGet()
-        shouldStopProcessing = true
-        canProcessFormat = false
-        modelExecutor.execute {
-            try {
-                applySelectedModelRuntimeConfig()
-                closeCurrentOrtSession()
-                synchronized(inputLock) { if (::inputRing.isInitialized) inputRing.clear() }
-                synchronized(outputLock) { if (::outputRing.isInitialized) outputRing.clear() }
-                synchronized(dryLock) {
-                    if (::dryDelayRing.isInitialized) {
-                        dryDelayRing.clear()
-                        prefillDryDelay()
-                    }
-                }
-                outputState = if (enabled) OutputState.WARMUP else OutputState.BYPASS
-                enabledOutputBytesEmitted = 0L
-                if (inputAudioFormat != AudioFormat.NOT_SET) {
-                    setupRuntimeForFormat(inputAudioFormat)
-                }
-                if (enabled) ensureModelLoaded()
-                Log.i(TAG, "Vocal model switched to ${profile.uiLabel} (${profile.assetFileName})")
-            } catch (t: Throwable) {
-                Log.e(TAG, "Failed to switch vocal model to ${profile.uiLabel}", t)
-                selectedModelProfile = previousProfile
-                try {
-                    applySelectedModelRuntimeConfig()
-                    if (inputAudioFormat != AudioFormat.NOT_SET) {
-                        setupRuntimeForFormat(inputAudioFormat)
-                    }
-                    ensureModelLoaded()
-                    Log.i(TAG, "Reverted vocal model to ${previousProfile.uiLabel}")
-                } catch (fallbackError: Throwable) {
-                    Log.e(TAG, "Failed to restore previous vocal model ${previousProfile.uiLabel}", fallbackError)
-                }
-            }
-        }
-    }
-
-    private fun applySelectedModelRuntimeConfig() {
-        val profile = selectedModelProfile
-        modelDimF = profile.dimF
-        modelTargetT = profile.targetT
-        chunkSamples = ((modelTargetT - 1) * HOP_LENGTH) + N_FFT
-        processIntervalSamples = modelTargetT * HOP_LENGTH
-        extractOffsetSamples = (chunkSamples - processIntervalSamples) / 2
+    fun prewarm() {
+        ensureModelLoadingAsync()
     }
 
     private var inputAudioFormat: AudioFormat = AudioFormat.NOT_SET
@@ -152,20 +114,20 @@ class VocalRemovalProcessor @Inject constructor(
     private var inputEnded = false
 
     private val modelExecutor = Executors.newSingleThreadExecutor()
+    private val idleScheduler: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor()
+    private var sessionReleaseTask: ScheduledFuture<*>? = null
     @Volatile private var modelLoading = false
     private var ortEnv: OrtEnvironment? = null
     private var ortSession: OrtSession? = null
     private var modelInputName: String = "input"
-    private var activeModelProfile: VocalRemovalModelProfile? = null
-    @Volatile private var selectedModelProfile: VocalRemovalModelProfile = VocalRemovalModelProfile.MDX_MAIN
 
     @Volatile private var nativeHandle: Long = 0L
 
-    private var modelDimF: Int = DEFAULT_DIM_F
-    private var modelTargetT: Int = DEFAULT_TARGET_T
-    private var chunkSamples: Int = ((DEFAULT_TARGET_T - 1) * HOP_LENGTH) + N_FFT
-    private var processIntervalSamples: Int = DEFAULT_TARGET_T * HOP_LENGTH
-    private var extractOffsetSamples: Int = (chunkSamples - processIntervalSamples) / 2
+    private val modelDimF: Int = DEFAULT_DIM_F
+    private val modelTargetT: Int = DEFAULT_TARGET_T
+    private val chunkSamples: Int = ((DEFAULT_TARGET_T - 1) * HOP_LENGTH) + N_FFT
+    private val processIntervalSamples: Int = DEFAULT_TARGET_T * HOP_LENGTH
+    private val extractOffsetSamples: Int = (chunkSamples - processIntervalSamples) / 2
 
     @Volatile private var canProcessFormat = false
     private var bytesPerFrame = 0
@@ -206,15 +168,20 @@ class VocalRemovalProcessor @Inject constructor(
     private var starvedTransitions = 0
     private var lastPerfLogChunk = 0
     private var processIntervalMs = 0f
+    private var activeShortfallStreak = 0
 
     private var procStftInput: ByteBuffer = ByteBuffer.allocateDirect(0).order(ByteOrder.nativeOrder())
     private var procIstftOutput: ByteBuffer = ByteBuffer.allocateDirect(0).order(ByteOrder.nativeOrder())
-    private var procStftReal = FloatArray(0)
-    private var procStftImag = FloatArray(0)
-    private var procModelInput = FloatArray(0)
-    private var procModelOutput = FloatArray(0)
-    private var procIstftReal = FloatArray(0)
-    private var procIstftImag = FloatArray(0)
+    private var procStftRealBuffer: ByteBuffer = ByteBuffer.allocateDirect(0).order(ByteOrder.nativeOrder())
+    private var procStftImagBuffer: ByteBuffer = ByteBuffer.allocateDirect(0).order(ByteOrder.nativeOrder())
+    private var procIstftRealBuffer: ByteBuffer = ByteBuffer.allocateDirect(0).order(ByteOrder.nativeOrder())
+    private var procIstftImagBuffer: ByteBuffer = ByteBuffer.allocateDirect(0).order(ByteOrder.nativeOrder())
+    private var procModelInputBuffer: ByteBuffer = ByteBuffer.allocateDirect(0).order(ByteOrder.nativeOrder())
+    private var procStftRealFloats: FloatBuffer = procStftRealBuffer.asFloatBuffer()
+    private var procStftImagFloats: FloatBuffer = procStftImagBuffer.asFloatBuffer()
+    private var procIstftRealFloats: FloatBuffer = procIstftRealBuffer.asFloatBuffer()
+    private var procIstftImagFloats: FloatBuffer = procIstftImagBuffer.asFloatBuffer()
+    private var procModelInputFloats: FloatBuffer = procModelInputBuffer.asFloatBuffer()
 
     private var scratchInput = ByteArray(0)
     private var scratchDry = ByteArray(0)
@@ -224,6 +191,7 @@ class VocalRemovalProcessor @Inject constructor(
     // Avoid per-chunk heap churn (GC spikes -> starvation -> dry/processed flip-flop).
     private var pcmChunkScratch = ByteArray(0)
     private var processedIntervalScratch = ByteArray(0)
+    private var silenceScratch = ByteArray(0)
 
     override fun configure(inputAudioFormat: AudioFormat): AudioFormat {
         awaitProcessingStopped()
@@ -238,7 +206,7 @@ class VocalRemovalProcessor @Inject constructor(
             TAG,
             "configure: sampleRate=${inputAudioFormat.sampleRate}, " +
                 "channels=${inputAudioFormat.channelCount}, encoding=${inputAudioFormat.encoding}, " +
-                "enabled=$enabled, model=${selectedModelProfile.uiLabel}"
+                "enabled=$enabled, model=$DEFAULT_MODEL_ASSET_FILE"
         )
 
         if (inputAudioFormat.encoding != C.ENCODING_PCM_16BIT) {
@@ -251,7 +219,6 @@ class VocalRemovalProcessor @Inject constructor(
 
         this.inputAudioFormat = inputAudioFormat
         this.outputAudioFormat = inputAudioFormat
-        applySelectedModelRuntimeConfig()
         setupRuntimeForFormat(inputAudioFormat)
         outputState = if (enabled) OutputState.WARMUP else OutputState.BYPASS
         return outputAudioFormat
@@ -290,8 +257,13 @@ class VocalRemovalProcessor @Inject constructor(
             var off = 0
             while (off < inputBytes) {
                 val w = inputRing.writeBytes(scratchInput, off, inputBytes - off)
-                if (w == 0) inputRing.discard(processIntervalBytes)
-                else off += w
+                if (w > 0) {
+                    off += w
+                    continue
+                }
+                // Last-resort backpressure handling. Prefer keeping stream continuity over hard failure.
+                val dropped = inputRing.discard(maxOf(bytesPerFrame, processIntervalBytes / 4))
+                if (dropped <= 0) break
             }
         }
 
@@ -299,8 +271,12 @@ class VocalRemovalProcessor @Inject constructor(
             var off = 0
             while (off < inputBytes) {
                 val w = dryDelayRing.writeBytes(scratchInput, off, inputBytes - off)
-                if (w == 0) dryDelayRing.discard(processIntervalBytes)
-                else off += w
+                if (w > 0) {
+                    off += w
+                    continue
+                }
+                val dropped = dryDelayRing.discard(maxOf(bytesPerFrame, processIntervalBytes / 4))
+                if (dropped <= 0) break
             }
         }
 
@@ -329,13 +305,23 @@ class VocalRemovalProcessor @Inject constructor(
                 else OutputState.WARMUP
             }
             OutputState.ACTIVE -> {
-                if (processedAvail >= inputBytes) OutputState.ACTIVE
-                else OutputState.STARVED
+                if (processedAvail >= inputBytes) {
+                    activeShortfallStreak = 0
+                    OutputState.ACTIVE
+                } else {
+                    activeShortfallStreak += 1
+                    if (activeShortfallStreak >= ACTIVE_SHORTFALL_GRACE_CHUNKS) OutputState.STARVED
+                    else OutputState.ACTIVE
+                }
             }
             OutputState.STARVED -> {
                 val warmupDelayReady = enabledOutputBytesEmitted >= (dryDelayBytes + warmupBlendBytes).toLong()
-                if (warmupDelayReady && processedAvail >= preBufferBytes) OutputState.ACTIVE
-                else OutputState.STARVED
+                if (warmupDelayReady && processedAvail >= preBufferBytes) {
+                    activeShortfallStreak = 0
+                    OutputState.ACTIVE
+                } else {
+                    OutputState.STARVED
+                }
             }
         }
 
@@ -357,42 +343,20 @@ class VocalRemovalProcessor @Inject constructor(
         }
 
         if (isNowActive) {
-            synchronized(outputLock) {
-                val read = outputRing.readToArray(scratchOut, inputBytes)
-                if (read < inputBytes) {
-                    // Safety: shouldn't happen due to state checks, but avoid stale bytes.
-                    System.arraycopy(scratchDry, 0, scratchOut, 0, inputBytes)
-                }
+            val read = synchronized(outputLock) { outputRing.readToArray(scratchOut, inputBytes) }
+            if (read < inputBytes) {
+                fillProcessedShortfallWithDry(read, inputBytes)
             }
         } else {
-            // During WARMUP/STARVED, keep output continuous: start with original audio, then gently crossfade
-            // to the delayed dry path (so we can later switch to processed without a hard jump).
-            val emitted = enabledOutputBytesEmitted
-            when {
-                emitted < dryDelayBytes.toLong() -> {
-                    System.arraycopy(scratchInput, 0, scratchOut, 0, inputBytes)
-                }
-                warmupBlendBytes <= 0 -> {
-                    System.arraycopy(scratchDry, 0, scratchOut, 0, inputBytes)
-                }
-                emitted < (dryDelayBytes + warmupBlendBytes).toLong() -> {
-                    val a = ((emitted - dryDelayBytes).toFloat() / warmupBlendBytes.toFloat()).coerceIn(0f, 1f)
-                    val invA = 1f - a
-                    val sampleCount = inputBytes / 2
-                    for (i in 0 until sampleCount) {
-                        val idx = i * 2
-                        val sNow = ((scratchInput[idx + 1].toInt() shl 8) or (scratchInput[idx].toInt() and 0xFF)).toShort()
-                        val sDel = ((scratchDry[idx + 1].toInt() shl 8) or (scratchDry[idx].toInt() and 0xFF)).toShort()
-                        val mixed = (sNow.toInt() * invA + sDel.toInt() * a).toInt()
-                            .coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt())
-                        scratchOut[idx] = (mixed and 0xFF).toByte()
-                        scratchOut[idx + 1] = (mixed shr 8).toByte()
-                    }
-                }
-                else -> {
-                    System.arraycopy(scratchDry, 0, scratchOut, 0, inputBytes)
+            synchronized(outputLock) {
+                if (outputRing.availableBytes() > processIntervalBytes) {
+                    // Prevent stale processed backlog from growing too far when model is not ACTIVE.
+                    outputRing.discard(processIntervalBytes)
                 }
             }
+            // During WARMUP/STARVED, always stay on delayed dry timeline.
+            // This avoids the "live -> delayed rewind" repetition before processed audio becomes ACTIVE.
+            fillWarmupDryOutput(inputBytes, enabledOutputBytesEmitted)
         }
 
         if (crossfadeActive) {
@@ -407,6 +371,32 @@ class VocalRemovalProcessor @Inject constructor(
         outputBuffer = out
 
         enabledOutputBytesEmitted = outputStartBytes + inputBytes.toLong()
+    }
+
+    private fun fillWarmupDryOutput(totalBytes: Int, emittedBytes: Long) {
+        if (warmupBlendBytes <= 0) {
+            System.arraycopy(scratchDry, 0, scratchOut, 0, totalBytes)
+            return
+        }
+
+        val sampleCount = totalBytes / 2
+        val fadeStart = dryDelayBytes.toLong()
+        val fadeEnd = fadeStart + warmupBlendBytes.toLong()
+        for (i in 0 until sampleCount) {
+            val idx = i * 2
+            val absoluteBytePos = emittedBytes + idx.toLong()
+            val alpha = when {
+                absoluteBytePos < fadeStart -> 0f
+                absoluteBytePos >= fadeEnd -> 1f
+                else -> ((absoluteBytePos - fadeStart).toFloat() / warmupBlendBytes.toFloat()).coerceIn(0f, 1f)
+            }
+            val drySample =
+                ((scratchDry[idx + 1].toInt() shl 8) or (scratchDry[idx].toInt() and 0xFF)).toShort()
+            val outSample = (drySample.toInt() * alpha).toInt()
+                .coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt())
+            scratchOut[idx] = (outSample and 0xFF).toByte()
+            scratchOut[idx + 1] = (outSample shr 8).toByte()
+        }
     }
 
     override fun queueEndOfStream() {
@@ -460,6 +450,7 @@ class VocalRemovalProcessor @Inject constructor(
         inferCount = 0
         lastPerfLogChunk = 0
         starvedTransitions = 0
+        activeShortfallStreak = 0
         enabledOutputBytesEmitted = 0L
         outputState = if (enabled) OutputState.WARMUP else OutputState.BYPASS
     }
@@ -479,8 +470,12 @@ class VocalRemovalProcessor @Inject constructor(
 
     private fun prefillDryDelay() {
         if (dryDelayBytes > 0 && ::dryDelayRing.isInitialized) {
-            val silence = ByteArray(dryDelayBytes)
-            dryDelayRing.writeBytes(silence, 0, silence.size)
+            if (silenceScratch.size < dryDelayBytes) {
+                silenceScratch = ByteArray(dryDelayBytes)
+            } else {
+                silenceScratch.fill(0, 0, dryDelayBytes)
+            }
+            dryDelayRing.writeBytes(silenceScratch, 0, dryDelayBytes)
         }
     }
 
@@ -506,31 +501,47 @@ class VocalRemovalProcessor @Inject constructor(
         inferCount = 0
         starvedTransitions = 0
         lastPerfLogChunk = 0
+        activeShortfallStreak = 0
         enabledOutputBytesEmitted = 0L
 
         val dryDelayMs = dryDelayBytes.toFloat() * 1000f / (format.sampleRate * bytesPerFrame)
         Log.i(
             TAG,
-            "latency config: profile=${selectedModelProfile.uiLabel}, dimF=$modelDimF, T=$modelTargetT, " +
+            "latency config: model=$DEFAULT_MODEL_ASSET_FILE, dimF=$modelDimF, T=$modelTargetT, " +
                 "interval=${processIntervalMs.toInt()}ms, dryDelay=${dryDelayMs.toInt()}ms, " +
                 "preBuffer=${(preBufferBytes * 1000f / (format.sampleRate * bytesPerFrame)).toInt()}ms, blend=${WARMUP_BLEND_MS}ms"
         )
 
-        inputRing = ByteRingBuffer(3 * chunkBytes)
-        outputRing = ByteRingBuffer(3 * chunkBytes)
-        dryDelayRing = ByteRingBuffer(dryDelayBytes + 2 * chunkBytes)
+        inputRing = ByteRingBuffer(
+            INPUT_RING_INITIAL_CHUNKS * chunkBytes,
+            RING_MAX_CHUNKS * chunkBytes
+        )
+        outputRing = ByteRingBuffer(
+            OUTPUT_RING_INITIAL_CHUNKS * chunkBytes,
+            RING_MAX_CHUNKS * chunkBytes
+        )
+        dryDelayRing = ByteRingBuffer(
+            dryDelayBytes + 2 * chunkBytes,
+            dryDelayBytes + (RING_MAX_CHUNKS * chunkBytes)
+        )
         prefillDryDelay()
 
         procStftInput = ByteBuffer.allocateDirect(chunkBytes).order(ByteOrder.nativeOrder())
         procIstftOutput = ByteBuffer.allocateDirect(chunkBytes).order(ByteOrder.nativeOrder())
 
         val frameTensorSize = modelDimF * modelTargetT
-        procStftReal = FloatArray(MODEL_CHANNELS * frameTensorSize)
-        procStftImag = FloatArray(MODEL_CHANNELS * frameTensorSize)
-        procModelInput = FloatArray(4 * frameTensorSize)
-        procModelOutput = FloatArray(4 * frameTensorSize)
-        procIstftReal = FloatArray(MODEL_CHANNELS * frameTensorSize)
-        procIstftImag = FloatArray(MODEL_CHANNELS * frameTensorSize)
+        val stereoTensorSize = MODEL_CHANNELS * frameTensorSize
+        val modelTensorSize = 4 * frameTensorSize
+        procStftRealBuffer = allocateFloatByteBuffer(stereoTensorSize)
+        procStftImagBuffer = allocateFloatByteBuffer(stereoTensorSize)
+        procIstftRealBuffer = allocateFloatByteBuffer(stereoTensorSize)
+        procIstftImagBuffer = allocateFloatByteBuffer(stereoTensorSize)
+        procModelInputBuffer = allocateFloatByteBuffer(modelTensorSize)
+        procStftRealFloats = procStftRealBuffer.asFloatBuffer()
+        procStftImagFloats = procStftImagBuffer.asFloatBuffer()
+        procIstftRealFloats = procIstftRealBuffer.asFloatBuffer()
+        procIstftImagFloats = procIstftImagBuffer.asFloatBuffer()
+        procModelInputFloats = procModelInputBuffer.asFloatBuffer()
 
         val initSize = processIntervalBytes
         scratchInput = ByteArray(initSize)
@@ -601,6 +612,10 @@ class VocalRemovalProcessor @Inject constructor(
     // NOTE: We intentionally do not try to "seek-align" processed output to dry output via discards here.
     // Without an explicit timestamped queue, aggressive discards can prevent the processor from ever becoming ACTIVE.
 
+    private fun allocateFloatByteBuffer(floatCount: Int): ByteBuffer {
+        return ByteBuffer.allocateDirect(floatCount * Float.SIZE_BYTES).order(ByteOrder.nativeOrder())
+    }
+
     private fun ensureScratchCapacity(bytes: Int) {
         if (scratchInput.size < bytes) {
             scratchInput = ByteArray(bytes)
@@ -615,6 +630,42 @@ class VocalRemovalProcessor @Inject constructor(
         }
         outputBuf.clear()
         return outputBuf
+    }
+
+    private fun fillProcessedShortfallWithDry(processedBytes: Int, totalBytes: Int) {
+        if (processedBytes <= 0) {
+            System.arraycopy(scratchDry, 0, scratchOut, 0, totalBytes)
+            return
+        }
+        if (processedBytes >= totalBytes) return
+
+        val missingBytes = totalBytes - processedBytes
+        val fadeSamples = minOf(SHORTFALL_BOUNDARY_FADE_SAMPLES, missingBytes / 2)
+        val fadeBytes = fadeSamples * 2
+
+        if (fadeBytes <= 0 || processedBytes < 2) {
+            System.arraycopy(scratchDry, processedBytes, scratchOut, processedBytes, missingBytes)
+            return
+        }
+
+        val lastProcessed =
+            ((scratchOut[processedBytes - 1].toInt() shl 8) or (scratchOut[processedBytes - 2].toInt() and 0xFF)).toShort()
+
+        for (i in 0 until fadeSamples) {
+            val dstIndex = processedBytes + (i * 2)
+            val drySample =
+                ((scratchDry[dstIndex + 1].toInt() shl 8) or (scratchDry[dstIndex].toInt() and 0xFF)).toShort()
+            val alpha = (i + 1).toFloat() / fadeSamples.toFloat()
+            val blended = (lastProcessed.toInt() * (1f - alpha) + drySample.toInt() * alpha).toInt()
+                .coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt())
+            scratchOut[dstIndex] = (blended and 0xFF).toByte()
+            scratchOut[dstIndex + 1] = (blended shr 8).toByte()
+        }
+
+        val remainStart = processedBytes + fadeBytes
+        if (remainStart < totalBytes) {
+            System.arraycopy(scratchDry, remainStart, scratchOut, remainStart, totalBytes - remainStart)
+        }
     }
 
     private fun applyCrossfade(data: ByteArray, length: Int) {
@@ -665,8 +716,7 @@ class VocalRemovalProcessor @Inject constructor(
     }
 
     private fun ensureModelLoadingAsync() {
-        val alreadyLoadedForSelected = ortSession != null && activeModelProfile == selectedModelProfile
-        if (alreadyLoadedForSelected || modelLoading) return
+        if (ortSession != null || modelLoading) return
         modelLoading = true
         modelExecutor.execute {
             try {
@@ -680,12 +730,11 @@ class VocalRemovalProcessor @Inject constructor(
     }
 
     private fun ensureModelLoaded() {
-        if (ortSession != null && activeModelProfile == selectedModelProfile) return
+        if (ortSession != null) return
         closeCurrentOrtSession()
 
-        val profile = selectedModelProfile
         val env = ortEnv ?: OrtEnvironment.getEnvironment().also { ortEnv = it }
-        val modelBytes = context.assets.open(profile.assetFileName).use { it.readBytes() }
+        val modelBytes = context.assets.open(DEFAULT_MODEL_ASSET_FILE).use { it.readBytes() }
 
         val nnapiOptions = OrtSession.SessionOptions().apply {
             setOptimizationLevel(OrtSession.SessionOptions.OptLevel.ALL_OPT)
@@ -694,34 +743,33 @@ class VocalRemovalProcessor @Inject constructor(
         try {
             val newSession = env.createSession(modelBytes, nnapiOptions)
             val inputName = newSession.inputNames.firstOrNull()
-                ?: throw IllegalStateException("Model ${profile.assetFileName} has no input")
+                ?: throw IllegalStateException("Model $DEFAULT_MODEL_ASSET_FILE has no input")
             val inputNodeInfo = newSession.inputInfo[inputName]
-                ?: throw IllegalStateException("Model ${profile.assetFileName} input info missing")
+                ?: throw IllegalStateException("Model $DEFAULT_MODEL_ASSET_FILE input info missing")
             val inputTensorInfo = inputNodeInfo.info as? TensorInfo
-                ?: throw IllegalStateException("Model ${profile.assetFileName} input is not tensor")
+                ?: throw IllegalStateException("Model $DEFAULT_MODEL_ASSET_FILE input is not tensor")
 
             val outputName = newSession.outputNames.firstOrNull()
-                ?: throw IllegalStateException("Model ${profile.assetFileName} has no output")
+                ?: throw IllegalStateException("Model $DEFAULT_MODEL_ASSET_FILE has no output")
             val outputNodeInfo = newSession.outputInfo[outputName]
-                ?: throw IllegalStateException("Model ${profile.assetFileName} output info missing")
+                ?: throw IllegalStateException("Model $DEFAULT_MODEL_ASSET_FILE output info missing")
             val outputTensorInfo = outputNodeInfo.info as? TensorInfo
-                ?: throw IllegalStateException("Model ${profile.assetFileName} output is not tensor")
+                ?: throw IllegalStateException("Model $DEFAULT_MODEL_ASSET_FILE output is not tensor")
 
-            if (!isSupportedModelShape(inputTensorInfo.shape, profile) || !isSupportedModelShape(outputTensorInfo.shape, profile)) {
+            if (!isSupportedModelShape(inputTensorInfo.shape) || !isSupportedModelShape(outputTensorInfo.shape)) {
                 throw IllegalStateException(
-                    "Unsupported model I/O shape for ${profile.assetFileName}. " +
+                    "Unsupported model I/O shape for $DEFAULT_MODEL_ASSET_FILE. " +
                         "input=${inputTensorInfo.shape.contentToString()}, " +
                         "output=${outputTensorInfo.shape.contentToString()}, " +
-                        "expected rank4 [1,4,${profile.dimF},${profile.targetT}|dynamic]"
+                        "expected rank4 [1,4,$modelDimF,$modelTargetT|dynamic]"
                 )
             }
 
             ortSession = newSession
             modelInputName = inputName
-            activeModelProfile = profile
             Log.i(
                 TAG,
-                "ONNX session created with NNAPI for ${profile.uiLabel} " +
+                "ONNX session created with NNAPI for default model $DEFAULT_MODEL_ASSET_FILE " +
                     "(input=$inputName, inputShape=${inputTensorInfo.shape.contentToString()})"
             )
         } finally {
@@ -729,14 +777,14 @@ class VocalRemovalProcessor @Inject constructor(
         }
     }
 
-    private fun isSupportedModelShape(shape: LongArray, profile: VocalRemovalModelProfile): Boolean {
+    private fun isSupportedModelShape(shape: LongArray): Boolean {
         if (shape.size != 4) return false
         val channel = shape[1]
         val freq = shape[2]
         val t = shape[3]
         if (channel > 0 && channel != 4L) return false
-        if (freq > 0 && freq != profile.dimF.toLong()) return false
-        if (t > 0 && t != profile.targetT.toLong()) return false
+        if (freq > 0 && freq != modelDimF.toLong()) return false
+        if (t > 0 && t != modelTargetT.toLong()) return false
         return true
     }
 
@@ -747,12 +795,26 @@ class VocalRemovalProcessor @Inject constructor(
         } catch (_: Throwable) {
         } finally {
             ortSession = null
-            activeModelProfile = null
             modelInputName = "input"
         }
     }
 
     private fun isModelReady(): Boolean = ortSession != null
+
+    private fun scheduleSessionRelease() {
+        sessionReleaseTask?.cancel(false)
+        sessionReleaseTask = idleScheduler.schedule({
+            if (!enabled && ortSession != null) {
+                closeCurrentOrtSession()
+                Log.i(TAG, "ORT session released after ${SESSION_IDLE_TIMEOUT_SEC}s idle timeout")
+            }
+        }, SESSION_IDLE_TIMEOUT_SEC, TimeUnit.SECONDS)
+    }
+
+    private fun cancelSessionRelease() {
+        sessionReleaseTask?.cancel(false)
+        sessionReleaseTask = null
+    }
 
     private fun maybeScheduleProcessing() {
         if (processingScheduled) return
@@ -785,8 +847,12 @@ class VocalRemovalProcessor @Inject constructor(
                     var off = 0
                     while (off < processIntervalBytes) {
                         val w = outputRing.writeBytes(processedIntervalScratch, off, processIntervalBytes - off)
-                        if (w == 0) outputRing.discard(processIntervalBytes)
-                        else off += w
+                        if (w > 0) {
+                            off += w
+                            continue
+                        }
+                        val dropped = outputRing.discard(maxOf(bytesPerFrame, processIntervalBytes / 4))
+                        if (dropped <= 0) break
                     }
                 }
                 synchronized(inputLock) {
@@ -835,15 +901,17 @@ class VocalRemovalProcessor @Inject constructor(
 
         val frames = nativeComputeStft(
             handle, procStftInput, chunkSamples,
-            procStftReal, procStftImag, inputAudioFormat.channelCount
+            procStftRealBuffer, procStftImagBuffer, inputAudioFormat.channelCount
         )
         if (frames <= 0) return false
 
         // Model expects stereo. If input is mono, duplicate channel 0 into channel 1.
         if (inputAudioFormat.channelCount == 1) {
             val channelStride = modelDimF * frames
-            System.arraycopy(procStftReal, 0, procStftReal, channelStride, channelStride)
-            System.arraycopy(procStftImag, 0, procStftImag, channelStride, channelStride)
+            for (i in 0 until channelStride) {
+                procStftRealFloats.put(channelStride + i, procStftRealFloats.get(i))
+                procStftImagFloats.put(channelStride + i, procStftImagFloats.get(i))
+            }
         }
         val t1 = System.nanoTime()
 
@@ -851,11 +919,9 @@ class VocalRemovalProcessor @Inject constructor(
         if (!runModel(frames)) return false
         val t2 = System.nanoTime()
 
-        unpackModelOutput(frames)
-
         procIstftOutput.clear()
         val outSamples = nativeComputeIstft(
-            handle, procIstftReal, procIstftImag,
+            handle, procIstftRealBuffer, procIstftImagBuffer,
             procIstftOutput, frames, inputAudioFormat.channelCount
         )
         if (outSamples <= 0) return false
@@ -907,37 +973,33 @@ class VocalRemovalProcessor @Inject constructor(
             for (t in 0 until frames) {
                 val tf = bandOffset + t
                 val rBase = channelStride + tf
-                procModelInput[tf] = procStftReal[tf]
-                procModelInput[channelStride + tf] = procStftImag[tf]
-                procModelInput[(2 * channelStride) + tf] = procStftReal[rBase]
-                procModelInput[(3 * channelStride) + tf] = procStftImag[rBase]
+                procModelInputFloats.put(tf, procStftRealFloats.get(tf))
+                procModelInputFloats.put(channelStride + tf, procStftImagFloats.get(tf))
+                procModelInputFloats.put((2 * channelStride) + tf, procStftRealFloats.get(rBase))
+                procModelInputFloats.put((3 * channelStride) + tf, procStftImagFloats.get(rBase))
             }
         }
     }
 
-    private fun unpackModelOutput(frames: Int) {
+    private fun unpackModelOutput(modelOutput: FloatBuffer, frames: Int) {
         val channelStride = modelDimF * frames
         if (inputAudioFormat.channelCount == 1) {
             // For mono output, average L/R model outputs into a single complex spectrum.
             for (i in 0 until channelStride) {
-                val lR = procModelOutput[i]
-                val lI = procModelOutput[channelStride + i]
-                val rR = procModelOutput[(2 * channelStride) + i]
-                val rI = procModelOutput[(3 * channelStride) + i]
-                procIstftReal[i] = 0.5f * (lR + rR)
-                procIstftImag[i] = 0.5f * (lI + rI)
+                val lR = modelOutput.get(i)
+                val lI = modelOutput.get(channelStride + i)
+                val rR = modelOutput.get((2 * channelStride) + i)
+                val rI = modelOutput.get((3 * channelStride) + i)
+                procIstftRealFloats.put(i, 0.5f * (lR + rR))
+                procIstftImagFloats.put(i, 0.5f * (lI + rI))
             }
         } else {
-            for (f in 0 until modelDimF) {
-                val bandOffset = f * frames
-                for (t in 0 until frames) {
-                    val tf = bandOffset + t
-                    val rBase = channelStride + tf
-                    procIstftReal[tf] = procModelOutput[tf]
-                    procIstftImag[tf] = procModelOutput[channelStride + tf]
-                    procIstftReal[rBase] = procModelOutput[(2 * channelStride) + tf]
-                    procIstftImag[rBase] = procModelOutput[(3 * channelStride) + tf]
-                }
+            for (i in 0 until channelStride) {
+                val rightIndex = channelStride + i
+                procIstftRealFloats.put(i, modelOutput.get(i))
+                procIstftImagFloats.put(i, modelOutput.get(channelStride + i))
+                procIstftRealFloats.put(rightIndex, modelOutput.get((2 * channelStride) + i))
+                procIstftImagFloats.put(rightIndex, modelOutput.get((3 * channelStride) + i))
             }
         }
     }
@@ -946,13 +1008,18 @@ class VocalRemovalProcessor @Inject constructor(
         val env = ortEnv ?: return false
         val session = ortSession ?: return false
         val shape = longArrayOf(1L, 4L, modelDimF.toLong(), frames.toLong())
+        val frameTensorSize = modelDimF * frames
+        val modelValueCount = 4 * frameTensorSize
         return try {
-            OnnxTensor.createTensor(env, FloatBuffer.wrap(procModelInput), shape).use { inputTensor ->
+            procModelInputFloats.position(0)
+            procModelInputFloats.limit(modelValueCount)
+            OnnxTensor.createTensor(env, procModelInputFloats, shape).use { inputTensor ->
                 session.run(mapOf(modelInputName to inputTensor)).use { result ->
                     val outputTensor = result[0] as? OnnxTensor ?: return false
                     val buf = outputTensor.floatBuffer
                     buf.rewind()
-                    buf.get(procModelOutput, 0, procModelOutput.size)
+                    if (buf.remaining() < modelValueCount) return false
+                    unpackModelOutput(buf, frames)
                 }
             }
             true
@@ -967,18 +1034,18 @@ class VocalRemovalProcessor @Inject constructor(
 
     private external fun nativeComputeStft(
         handle: Long, pcmInput: ByteBuffer, numSamples: Int,
-        outputReal: FloatArray, outputImag: FloatArray, channelCount: Int
+        outputReal: ByteBuffer, outputImag: ByteBuffer, channelCount: Int
     ): Int
 
     private external fun nativeComputeIstft(
-        handle: Long, inputReal: FloatArray, inputImag: FloatArray,
+        handle: Long, inputReal: ByteBuffer, inputImag: ByteBuffer,
         pcmOutput: ByteBuffer, numFrames: Int, channelCount: Int
     ): Int
 
     private external fun nativeReleaseStft(handle: Long)
 
-    private class ByteRingBuffer(capacity: Int) {
-        private val buffer = ByteArray(capacity)
+    private class ByteRingBuffer(initialCapacity: Int, private val maxCapacity: Int = initialCapacity) {
+        private var buffer = ByteArray(initialCapacity.coerceAtLeast(1))
         private var readPos = 0
         private var writePos = 0
         private var size = 0
@@ -993,6 +1060,8 @@ class VocalRemovalProcessor @Inject constructor(
         }
 
         fun writeBytes(src: ByteArray, offset: Int, length: Int): Int {
+            if (length <= 0) return 0
+            ensureWritable(length)
             val writable = minOf(space(), length)
             if (writable <= 0) return 0
             var written = 0
@@ -1040,6 +1109,40 @@ class VocalRemovalProcessor @Inject constructor(
             readPos = (readPos + discarded) % buffer.size
             size -= discarded
             return discarded
+        }
+
+        private fun ensureWritable(requiredBytes: Int) {
+            if (requiredBytes <= space()) return
+            val currentCapacity = buffer.size
+            val hardLimit = maxOf(currentCapacity, maxCapacity)
+            var nextCapacity = currentCapacity
+            val requiredCapacity = size + requiredBytes
+            while (nextCapacity < requiredCapacity && nextCapacity < hardLimit) {
+                val doubled = nextCapacity * 2
+                nextCapacity = if (doubled <= 0) hardLimit else minOf(doubled, hardLimit)
+            }
+            if (nextCapacity > currentCapacity) {
+                growTo(nextCapacity)
+            }
+        }
+
+        private fun growTo(newCapacity: Int) {
+            if (newCapacity <= buffer.size) return
+            val newBuffer = ByteArray(newCapacity)
+            if (size > 0) {
+                if (readPos < writePos) {
+                    System.arraycopy(buffer, readPos, newBuffer, 0, size)
+                } else {
+                    val first = buffer.size - readPos
+                    System.arraycopy(buffer, readPos, newBuffer, 0, first)
+                    if (writePos > 0) {
+                        System.arraycopy(buffer, 0, newBuffer, first, writePos)
+                    }
+                }
+            }
+            buffer = newBuffer
+            readPos = 0
+            writePos = size
         }
     }
 }

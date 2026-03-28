@@ -19,6 +19,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.util.trace
 import com.example.domain.model.local_file.LocalFileData
 import com.example.library.R
 import com.example.library.my_local_item.item.LocalFileData as LocalFileDataItem
@@ -73,12 +74,16 @@ fun LibraryMyLocalItemScreen(
     val videoFiles by libraryMyLocalItemViewModel.videoFiles.collectAsState()
 
     val filteredAudioFiles = remember(audioFiles, localSearchQuery) {
-        if (localSearchQuery.isBlank()) audioFiles
-        else audioFiles.filter { it.title.contains(localSearchQuery, ignoreCase = true) }
+        trace("LibraryMyLocalItemScreen.filterAudioFiles") {
+            if (localSearchQuery.isBlank()) audioFiles
+            else audioFiles.filter { it.title.contains(localSearchQuery, ignoreCase = true) }
+        }
     }
     val filteredVideoFiles = remember(videoFiles, localSearchQuery) {
-        if (localSearchQuery.isBlank()) videoFiles
-        else videoFiles.filter { it.title.contains(localSearchQuery, ignoreCase = true) }
+        trace("LibraryMyLocalItemScreen.filterVideoFiles") {
+            if (localSearchQuery.isBlank()) videoFiles
+            else videoFiles.filter { it.title.contains(localSearchQuery, ignoreCase = true) }
+        }
     }
 
     BackHandler(

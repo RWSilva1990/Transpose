@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.util.trace
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -184,33 +185,34 @@ fun MainScreen(
 
         snapshotFlow { sheetState.requireOffset() }
             .collect { currentOffset ->
-                try {
-                    // parentScaffoldHeightPx의 값은 keyboardInfo.height 값이 계산되어 적용되어 계산됨. 까먹지 말자!!
-                    // 부모 scaffold의 높이를 기준으로 pratiallyExpandedOffset 기준값을 설정!!
-                    // isLocalSearchActive가 true일 때도 SearchBarState.OPENED처럼 처리
-                    val isSearchActive = searchBarState == SearchBarState.OPENED || isLocalSearchActive
-                    val partiallyExpandedOffset = if (!isSearchActive) {
-                        parentScaffoldHeightPx - with(density) {
-                            (scaffoldInnerPaddingBottomPadding + 56.dp).toPx()
+                trace("MainScreen.bottomSheetOffset.collect") {
+                    try {
+                        // parentScaffoldHeightPx의 값은 keyboardInfo.height 값이 계산되어 적용되어 계산됨. 까먹지 말자!!
+                        // 부모 scaffold의 높이를 기준으로 pratiallyExpandedOffset 기준값을 설정!!
+                        // isLocalSearchActive가 true일 때도 SearchBarState.OPENED처럼 처리
+                        val isSearchActive = searchBarState == SearchBarState.OPENED || isLocalSearchActive
+                        val partiallyExpandedOffset = if (!isSearchActive) {
+                            parentScaffoldHeightPx - with(density) {
+                                (scaffoldInnerPaddingBottomPadding + 56.dp).toPx()
+                            }
+                        } else {
+                            parentScaffoldHeightPx - with(density) {
+                                scaffoldInnerPaddingBottomPadding.toPx()
+                            }
                         }
-                    } else {
-                        parentScaffoldHeightPx - with(density) {
-                            scaffoldInnerPaddingBottomPadding.toPx()
+
+                        val finalProgress =
+                            calculateDragProgress(
+                                currentOffset,
+                                partiallyExpandedOffset,
+                                parentScaffoldHeightPx
+                            )
+
+                        bottomSheetOffset = finalProgress
+                    } catch (e: Exception) {
+                        if (BuildConfig.DEBUG) {
+                            Logger.d("BottomSheet error: ${e.message}")
                         }
-                    }
-
-                    val finalProgress =
-                        calculateDragProgress(
-                            currentOffset,
-                            partiallyExpandedOffset,
-                            parentScaffoldHeightPx
-                        )
-
-                    bottomSheetOffset = finalProgress
-
-                } catch (e: Exception) {
-                    if (BuildConfig.DEBUG) {
-                        Logger.d("BottomSheet error: ${e.message}")
                     }
                 }
             }
@@ -510,42 +512,35 @@ private fun Modifier.dynamicBottomPadding(
     bottomSheetOffset: () -> Float,
     isBottomNavHidden: Boolean = false
 ): Modifier = this.layout { measurable, constraints ->
-    val offset = bottomSheetOffset()
+    trace("MainScreen.dynamicBottomPadding.measure") {
+        val offset = bottomSheetOffset()
 
-    // Mini player 패딩: offset >= 0일 때 전체, offset이 -1로 갈수록 0으로 감소
-    val miniPlayerPadding = when {
-        offset >= 0f -> miniPlayerHeightPx
-        else -> {
-            val progress = (offset + 1f).coerceIn(0f, 1f)
-            (miniPlayerHeightPx * progress).toInt()
+        val miniPlayerPadding = when {
+            offset >= 0f -> miniPlayerHeightPx
+            else -> {
+                val progress = (offset + 1f).coerceIn(0f, 1f)
+                (miniPlayerHeightPx * progress).toInt()
+            }
         }
-    }
 
-    // BottomNav 패딩 계산
-    // - isBottomNavHidden: Local Search 등으로 BottomNav가 숨겨진 경우 BottomNav 패딩 제외
-    // - offset >= 0: Mini player가 BottomNav를 덮으므로 BottomNav 패딩 불필요
-    // - offset < 0: Mini player가 사라지면서 BottomNav가 노출됨
-    val additionalPadding = when {
-        offset >= 0f -> miniPlayerPadding  // Mini player가 BottomNav를 덮음
-        isBottomNavHidden -> miniPlayerPadding  // BottomNav가 숨겨져 있으므로 mini player 패딩만
-        else -> {
-            // Mini player가 사라지면서 BottomNav가 드러남
-            // 둘 중 큰 값을 사용하여 컨텐츠가 가려지지 않도록 함
-            maxOf(miniPlayerPadding, bottomNavHeightPx)
+        val additionalPadding = when {
+            offset >= 0f -> miniPlayerPadding
+            isBottomNavHidden -> miniPlayerPadding
+            else -> {
+                maxOf(miniPlayerPadding, bottomNavHeightPx)
+            }
         }
-    }
 
-    // 하단 패딩을 위해 높이를 줄여서 측정
-    val newMaxHeight = (constraints.maxHeight - additionalPadding).coerceAtLeast(0)
-    val newMinHeight = (constraints.minHeight - additionalPadding).coerceIn(0, newMaxHeight)
-    val adjustedConstraints = constraints.copy(
-        minHeight = newMinHeight,
-        maxHeight = newMaxHeight
-    )
-    val placeable = measurable.measure(adjustedConstraints)
+        val newMaxHeight = (constraints.maxHeight - additionalPadding).coerceAtLeast(0)
+        val newMinHeight = (constraints.minHeight - additionalPadding).coerceIn(0, newMaxHeight)
+        val adjustedConstraints = constraints.copy(
+            minHeight = newMinHeight,
+            maxHeight = newMaxHeight
+        )
+        val placeable = measurable.measure(adjustedConstraints)
 
-    // 전체 높이는 컨텐츠 + 하단 패딩
-    layout(placeable.width, placeable.height + additionalPadding) {
-        placeable.placeRelative(0, 0)  // 컨텐츠는 상단에 고정
+        layout(placeable.width, placeable.height + additionalPadding) {
+            placeable.placeRelative(0, 0)
+        }
     }
 }

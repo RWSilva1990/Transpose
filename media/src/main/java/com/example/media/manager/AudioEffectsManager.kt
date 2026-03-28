@@ -1,20 +1,23 @@
 package com.example.media.manager
 
 import com.example.media.audio.SignalsmithAudioProcessor
-import com.example.media.audio.VocalRemovalModelProfile
 import com.example.media.audio.VocalRemovalProcessor
 import com.example.media.audio_effect.data.eq.SignalsmithEqPresets
 import com.example.media.audio_effect.data.reverb.SignalsmithReverbPresets
 import dagger.Lazy
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+import kotlin.math.abs
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -24,7 +27,26 @@ class AudioEffectsManager @Inject constructor(
     private val vocalRemovalProcessor: VocalRemovalProcessor,
     private val mediaPlaybackManager: Lazy<MediaPlaybackManager>
 ) {
+    companion object {
+        private const val EQ_CONTROL_INTERVAL_MS = 40L
+    }
+
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private val eqUpdateLock = Any()
+    private val pendingEqBands = LinkedHashSet<Int>()
+    private var eqDispatchJob: Job? = null
+    private var lastChorusMix = Float.NaN
+    private var lastChorusDepthMs = Float.NaN
+    private var lastChorusDetune = Float.NaN
+    private var lastChorusStereo = Float.NaN
+    private var lastLimiterInputGainDb = Float.NaN
+    private var lastLimiterLimitDb = Float.NaN
+    private var lastLimiterAttackMs = Float.NaN
+    private var lastLimiterReleaseMs = Float.NaN
+    private var lastReverbDry = Float.NaN
+    private var lastReverbWet = Float.NaN
+    private var lastReverbRoomMs = Float.NaN
+    private var lastReverbDecaySec = Float.NaN
 
     // =========================
     // Pitch / Tempo
@@ -98,14 +120,6 @@ class AudioEffectsManager @Inject constructor(
     private val _vocalRemovalMix = MutableStateFlow(1.0f)
     val vocalRemovalMix: StateFlow<Float> = _vocalRemovalMix.asStateFlow()
 
-    private val vocalRemovalProfiles: List<VocalRemovalModelProfile> = vocalRemovalProcessor.getVocalRemovalModelProfiles()
-    val vocalRemovalModelOptions: List<String> = vocalRemovalProfiles.map { "${it.uiLabel} [${it.category}]" }
-
-    private val _vocalRemovalModelIndex = MutableStateFlow(
-        vocalRemovalProfiles.indexOf(vocalRemovalProcessor.getSelectedVocalRemovalModelProfile()).coerceAtLeast(0)
-    )
-    val vocalRemovalModelIndex: StateFlow<Int> = _vocalRemovalModelIndex.asStateFlow()
-
     fun updateIsVocalRemovalEnabled() {
         _isVocalRemovalEnabled.value = !_isVocalRemovalEnabled.value
         vocalRemovalProcessor.enabled = _isVocalRemovalEnabled.value
@@ -116,11 +130,8 @@ class AudioEffectsManager @Inject constructor(
         vocalRemovalProcessor.mixRatio = _vocalRemovalMix.value
     }
 
-    fun updateVocalRemovalModel(index: Int) {
-        if (vocalRemovalProfiles.isEmpty()) return
-        val safeIndex = index.coerceIn(0, vocalRemovalProfiles.lastIndex)
-        _vocalRemovalModelIndex.value = safeIndex
-        vocalRemovalProcessor.updateVocalRemovalModelProfile(vocalRemovalProfiles[safeIndex])
+    fun prewarmVocalRemovalModel() {
+        vocalRemovalProcessor.prewarm()
     }
 
     fun initVocalRemovalValues() {
@@ -158,6 +169,17 @@ class AudioEffectsManager @Inject constructor(
     fun updateChorusStereo(value: Float) { _chorusStereo.value = value }
 
     fun setChorusParams() {
+        if (
+            isNearlySame(_chorusMix.value, lastChorusMix) &&
+            isNearlySame(_chorusDepthMs.value, lastChorusDepthMs) &&
+            isNearlySame(_chorusDetune.value, lastChorusDetune) &&
+            isNearlySame(_chorusStereo.value, lastChorusStereo)
+        ) return
+
+        lastChorusMix = _chorusMix.value
+        lastChorusDepthMs = _chorusDepthMs.value
+        lastChorusDetune = _chorusDetune.value
+        lastChorusStereo = _chorusStereo.value
         signalsmithAudioProcessor.setChorusParams(
             _chorusMix.value, _chorusDepthMs.value, _chorusDetune.value, _chorusStereo.value
         )
@@ -202,6 +224,17 @@ class AudioEffectsManager @Inject constructor(
     fun updateLimiterReleaseMs(value: Float) { _limiterReleaseMs.value = value }
 
     fun setLimiterParams() {
+        if (
+            isNearlySame(_limiterInputGainDb.value, lastLimiterInputGainDb) &&
+            isNearlySame(_limiterLimitDb.value, lastLimiterLimitDb) &&
+            isNearlySame(_limiterAttackMs.value, lastLimiterAttackMs) &&
+            isNearlySame(_limiterReleaseMs.value, lastLimiterReleaseMs)
+        ) return
+
+        lastLimiterInputGainDb = _limiterInputGainDb.value
+        lastLimiterLimitDb = _limiterLimitDb.value
+        lastLimiterAttackMs = _limiterAttackMs.value
+        lastLimiterReleaseMs = _limiterReleaseMs.value
         signalsmithAudioProcessor.setLimiterParams(
             _limiterInputGainDb.value, _limiterLimitDb.value, _limiterAttackMs.value, _limiterReleaseMs.value
         )
@@ -271,6 +304,17 @@ class AudioEffectsManager @Inject constructor(
     }
 
     fun setSignalsmithReverbParams() {
+        if (
+            isNearlySame(_signalsmithReverbDry.value, lastReverbDry) &&
+            isNearlySame(_signalsmithReverbWet.value, lastReverbWet) &&
+            isNearlySame(_signalsmithReverbRoomMs.value, lastReverbRoomMs) &&
+            isNearlySame(_signalsmithReverbDecaySec.value, lastReverbDecaySec)
+        ) return
+
+        lastReverbDry = _signalsmithReverbDry.value
+        lastReverbWet = _signalsmithReverbWet.value
+        lastReverbRoomMs = _signalsmithReverbRoomMs.value
+        lastReverbDecaySec = _signalsmithReverbDecaySec.value
         signalsmithAudioProcessor.setReverbParams(
             _signalsmithReverbDry.value, _signalsmithReverbWet.value,
             _signalsmithReverbRoomMs.value, _signalsmithReverbDecaySec.value
@@ -325,6 +369,9 @@ class AudioEffectsManager @Inject constructor(
 
     fun updateIsEqEnabled() {
         _isEqEnabled.value = !_isEqEnabled.value
+        if (!_isEqEnabled.value) {
+            clearPendingEqUpdates()
+        }
         signalsmithAudioProcessor.setEqEnabled(_isEqEnabled.value)
     }
 
@@ -336,7 +383,7 @@ class AudioEffectsManager @Inject constructor(
             3 -> { _eqBand4Freq.value = freq; _eqBand4Gain.value = gain }
             4 -> { _eqBand5Freq.value = freq; _eqBand5Gain.value = gain }
         }
-        signalsmithAudioProcessor.setEqBand(band, freq, gain)
+        enqueueEqUpdate(band)
     }
 
     fun updateEqBandGain(band: Int, gain: Float) {
@@ -354,6 +401,7 @@ class AudioEffectsManager @Inject constructor(
 
     fun updateEqPreset(presetIndex: Int) {
         _eqPreset.value = presetIndex
+        clearPendingEqUpdates()
         val preset = SignalsmithEqPresets.getPreset(presetIndex)
         val gains = preset.gains
         _eqBand1Gain.value = gains[0]
@@ -369,6 +417,7 @@ class AudioEffectsManager @Inject constructor(
 
     fun initEqValues() {
         _eqPreset.value = SignalsmithEqPresets.PRESET_FLAT
+        clearPendingEqUpdates()
         _eqBand1Gain.value = 0f; _eqBand2Gain.value = 0f; _eqBand3Gain.value = 0f
         _eqBand4Gain.value = 0f; _eqBand5Gain.value = 0f
         for (i in 0..4) {
@@ -377,56 +426,66 @@ class AudioEffectsManager @Inject constructor(
         }
     }
 
-
-    // =========================
-    // Signalsmith Compressor
-    // =========================
-
-    private val _isCompressorEnabled = MutableStateFlow(false)
-    val isCompressorEnabled: StateFlow<Boolean> = _isCompressorEnabled.asStateFlow()
-
-    private val _compThresholdDb = MutableStateFlow(-20f)
-    val compThresholdDb: StateFlow<Float> = _compThresholdDb.asStateFlow()
-
-    private val _compRatio = MutableStateFlow(4f)
-    val compRatio: StateFlow<Float> = _compRatio.asStateFlow()
-
-    private val _compAttackMs = MutableStateFlow(10f)
-    val compAttackMs: StateFlow<Float> = _compAttackMs.asStateFlow()
-
-    private val _compReleaseMs = MutableStateFlow(100f)
-    val compReleaseMs: StateFlow<Float> = _compReleaseMs.asStateFlow()
-
-    private val _compMakeupGainDb = MutableStateFlow(0f)
-    val compMakeupGainDb: StateFlow<Float> = _compMakeupGainDb.asStateFlow()
-
-    fun updateIsCompressorEnabled() {
-        _isCompressorEnabled.value = !_isCompressorEnabled.value
-        signalsmithAudioProcessor.setCompressorEnabled(_isCompressorEnabled.value)
+    private fun enqueueEqUpdate(band: Int) {
+        if (band !in 0..4) return
+        synchronized(eqUpdateLock) {
+            pendingEqBands.add(band)
+        }
+        scheduleEqDispatch()
     }
 
-    fun updateCompThresholdDb(value: Float) { _compThresholdDb.value = value }
-    fun updateCompRatio(value: Float) { _compRatio.value = value }
-    fun updateCompAttackMs(value: Float) { _compAttackMs.value = value }
-    fun updateCompReleaseMs(value: Float) { _compReleaseMs.value = value }
-    fun updateCompMakeupGainDb(value: Float) { _compMakeupGainDb.value = value }
-
-    fun setCompressorParams() {
-        signalsmithAudioProcessor.setCompressorParams(
-            _compThresholdDb.value, _compRatio.value, _compAttackMs.value,
-            _compReleaseMs.value, _compMakeupGainDb.value
-        )
+    private fun clearPendingEqUpdates() {
+        synchronized(eqUpdateLock) {
+            pendingEqBands.clear()
+        }
     }
 
-    fun initCompressorValues() {
-        _compThresholdDb.value = -20f
-        _compRatio.value = 4f
-        _compAttackMs.value = 10f
-        _compReleaseMs.value = 100f
-        _compMakeupGainDb.value = 0f
-        setCompressorParams()
+    private fun scheduleEqDispatch() {
+        if (eqDispatchJob?.isActive == true) return
+        eqDispatchJob = scope.launch {
+            while (true) {
+                delay(EQ_CONTROL_INTERVAL_MS)
+                val bands = synchronized(eqUpdateLock) {
+                    if (pendingEqBands.isEmpty()) {
+                        eqDispatchJob = null
+                        return@launch
+                    }
+                    val copy = pendingEqBands.toList()
+                    pendingEqBands.clear()
+                    copy
+                }
+                for (band in bands) {
+                    signalsmithAudioProcessor.setEqBand(band, getEqFreqForBand(band), getEqGainForBand(band))
+                }
+            }
+        }
     }
 
+    private fun getEqFreqForBand(band: Int): Float {
+        return when (band) {
+            0 -> _eqBand1Freq.value
+            1 -> _eqBand2Freq.value
+            2 -> _eqBand3Freq.value
+            3 -> _eqBand4Freq.value
+            4 -> _eqBand5Freq.value
+            else -> 1000f
+        }
+    }
+
+    private fun getEqGainForBand(band: Int): Float {
+        return when (band) {
+            0 -> _eqBand1Gain.value
+            1 -> _eqBand2Gain.value
+            2 -> _eqBand3Gain.value
+            3 -> _eqBand4Gain.value
+            4 -> _eqBand5Gain.value
+            else -> 0f
+        }
+    }
+
+    private fun isNearlySame(a: Float, b: Float, epsilon: Float = 0.0001f): Boolean {
+        return !a.isNaN() && !b.isNaN() && abs(a - b) <= epsilon
+    }
 
     // =========================
     // Signalsmith Pitch Detection
@@ -442,74 +501,7 @@ class AudioEffectsManager @Inject constructor(
 
     fun getDetectedPitch(): Float = signalsmithAudioProcessor.getDetectedPitch()
 
-
-    // =========================
-    // Signalsmith HRTF
-    // =========================
-
-    private val _isHrtfEnabled = MutableStateFlow(false)
-    val isHrtfEnabled: StateFlow<Boolean> = _isHrtfEnabled.asStateFlow()
-
-    private val _hrtfIntensity = MutableStateFlow(1.0f)
-    val hrtfIntensity: StateFlow<Float> = _hrtfIntensity.asStateFlow()
-
-    private val _hrtfAzimuth = MutableStateFlow(0)
-    val hrtfAzimuth: StateFlow<Int> = _hrtfAzimuth.asStateFlow()
-
-    fun updateIsHrtfEnabled() {
-        _isHrtfEnabled.value = !_isHrtfEnabled.value
-        signalsmithAudioProcessor.setHrtfEnabled(_isHrtfEnabled.value)
-    }
-
-    fun updateHrtfIntensity(value: Float) {
-        _hrtfIntensity.value = value
-        setHrtfParams()
-    }
-
-    fun updateHrtfAzimuth(azimuth: Int) {
-        _hrtfAzimuth.value = azimuth
-        setHrtfParams()
-    }
-
-    fun setHrtfParams() {
-        signalsmithAudioProcessor.setHrtfParams(_hrtfIntensity.value, _hrtfAzimuth.value)
-    }
-
-    fun initHrtfValues() {
-        _hrtfIntensity.value = 1.0f
-        _hrtfAzimuth.value = 0
-        setHrtfParams()
-    }
-
-
-    // =========================
-    // Stereo Widener
-    // =========================
-
-    private val _isStereoWidenerEnabled = MutableStateFlow(false)
-    val isStereoWidenerEnabled: StateFlow<Boolean> = _isStereoWidenerEnabled.asStateFlow()
-
-    private val _stereoWidenerWidth = MutableStateFlow(1.0f)
-    val stereoWidenerWidth: StateFlow<Float> = _stereoWidenerWidth.asStateFlow()
-
-    fun updateIsStereoWidenerEnabled() {
-        _isStereoWidenerEnabled.value = !_isStereoWidenerEnabled.value
-        signalsmithAudioProcessor.setStereoWidenerEnabled(_isStereoWidenerEnabled.value)
-    }
-
-    fun updateStereoWidenerWidth(value: Float) { _stereoWidenerWidth.value = value }
-
-    fun setStereoWidenerParams() {
-        signalsmithAudioProcessor.setStereoWidenerParams(_stereoWidenerWidth.value)
-    }
-
-    fun initStereoWidenerValues() {
-        _stereoWidenerWidth.value = 1.0f
-        setStereoWidenerParams()
-    }
-
-
     fun release() {
-        // No resources to release currently
+        eqDispatchJob?.cancel()
     }
 }

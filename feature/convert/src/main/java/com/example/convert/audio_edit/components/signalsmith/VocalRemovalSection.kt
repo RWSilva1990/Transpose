@@ -4,7 +4,6 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -37,9 +36,7 @@ fun VocalRemovalSection(
 ) {
     val isEnabled by convertAudioEditViewModel.isVocalRemovalEnabled.collectAsState()
     val mix by convertAudioEditViewModel.vocalRemovalMix.collectAsState()
-    val modelIndex by convertAudioEditViewModel.vocalRemovalModelIndex.collectAsState()
     var isExpanded by rememberSaveable { mutableStateOf(false) }
-    val modelOptions = convertAudioEditViewModel.vocalRemovalModelOptions
 
     val isKorean = Locale.getDefault().language == "ko"
 
@@ -78,36 +75,6 @@ fun VocalRemovalSection(
                     color = AppColors.BlueBackground.copy(alpha = 0.6f),
                     modifier = Modifier.padding(horizontal = 15.dp, vertical = 4.dp)
                 )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Text(
-                    text = stringResource(id = R.string.vocal_removal_model),
-                    fontSize = 12.sp,
-                    color = AppColors.BlueBackground.copy(alpha = 0.7f),
-                    modifier = Modifier.padding(horizontal = 15.dp, vertical = 4.dp)
-                )
-
-                modelOptions.forEachIndexed { index, label ->
-                    val isSelected = index == modelIndex
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 15.dp, vertical = 2.dp)
-                            .background(
-                                if (isSelected) AppColors.BlueBackground.copy(alpha = 0.14f)
-                                else Color.Transparent
-                            )
-                            .clickable { convertAudioEditViewModel.updateVocalRemovalModel(index) }
-                            .padding(horizontal = 10.dp, vertical = 8.dp)
-                    ) {
-                        Text(
-                            text = if (isSelected) "● $label" else "○ $label",
-                            fontSize = 12.sp,
-                            color = if (isSelected) AppColors.BlueBackground else Color.DarkGray
-                        )
-                    }
-                }
 
                 Spacer(modifier = Modifier.height(8.dp))
 
