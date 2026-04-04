@@ -6,7 +6,6 @@ import androidx.compose.material3.SheetState
 import androidx.compose.material3.SheetValue
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -35,8 +34,8 @@ fun PlaylistInfoScreen(
     playlistId: String?,
 ) {
 
-    val playlistInfo by playlistInfoViewModel.currentPlaylistInfo.collectAsState()
-    val playlistItemsState by playlistInfoViewModel.playlistItemsState.collectAsState()
+    val playlistInfo by playlistInfoViewModel.currentPlaylistInfo.collectAsStateWithLifecycle()
+    val playlistItemsState by playlistInfoViewModel.playlistItemsState.collectAsStateWithLifecycle()
 
     val context = LocalContext.current
     var isShowingPlaylistDialog by remember {

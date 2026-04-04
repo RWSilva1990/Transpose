@@ -10,8 +10,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -21,14 +19,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.domain.model.playable.PlayableItem
-import com.example.main.MainViewModel
 import com.example.main.R
 import com.example.util.TextFormatUtil
 import com.valentinilk.shimmer.shimmer
 
 @Composable
-fun VideoInfoSection(mainViewModel: MainViewModel) {
-    val currentItem by mainViewModel.currentItem.collectAsState()
+fun VideoInfoSection(currentItem: PlayableItem?) {
     val viewCountFormats = rememberStringArrayResource(R.array.view_count_formats)
 
     Column(
@@ -40,7 +36,7 @@ fun VideoInfoSection(mainViewModel: MainViewModel) {
             FullShimmerEffect()
         } else {
             VideoInfoContent(
-                item = currentItem!!,
+                item = currentItem,
                 viewCountFormats = viewCountFormats
             )
         }

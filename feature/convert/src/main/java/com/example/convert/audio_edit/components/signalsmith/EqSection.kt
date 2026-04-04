@@ -17,7 +17,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -43,13 +43,13 @@ fun EqSection(
     convertAudioEditViewModel: ConvertAudioEditViewModel,
     onExpandChanged: (Boolean) -> Unit = {}
 ) {
-    val isEnabled by convertAudioEditViewModel.isEqEnabled.collectAsState()
-    val currentPreset by convertAudioEditViewModel.eqPreset.collectAsState()
-    val band1Gain by convertAudioEditViewModel.eqBand1Gain.collectAsState()
-    val band2Gain by convertAudioEditViewModel.eqBand2Gain.collectAsState()
-    val band3Gain by convertAudioEditViewModel.eqBand3Gain.collectAsState()
-    val band4Gain by convertAudioEditViewModel.eqBand4Gain.collectAsState()
-    val band5Gain by convertAudioEditViewModel.eqBand5Gain.collectAsState()
+    val isEnabled by convertAudioEditViewModel.isEqEnabled.collectAsStateWithLifecycle()
+    val currentPreset by convertAudioEditViewModel.eqPreset.collectAsStateWithLifecycle()
+    val band1Gain by convertAudioEditViewModel.eqBand1Gain.collectAsStateWithLifecycle()
+    val band2Gain by convertAudioEditViewModel.eqBand2Gain.collectAsStateWithLifecycle()
+    val band3Gain by convertAudioEditViewModel.eqBand3Gain.collectAsStateWithLifecycle()
+    val band4Gain by convertAudioEditViewModel.eqBand4Gain.collectAsStateWithLifecycle()
+    val band5Gain by convertAudioEditViewModel.eqBand5Gain.collectAsStateWithLifecycle()
     var isExpanded by rememberSaveable { mutableStateOf(false) }
 
     val isKorean = LocalConfiguration.current.locales[0].language == "ko"

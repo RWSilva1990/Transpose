@@ -1,7 +1,7 @@
 package com.example.convert.audio_edit.components.pitch
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import com.example.convert.audio_edit.ConvertAudioEditViewModel
 import com.example.convert.audio_edit.components.SliderSection
@@ -11,7 +11,7 @@ import java.util.Locale
 fun PitchSection(
     convertAudioEditViewModel: ConvertAudioEditViewModel
 ) {
-    val pitchValue by convertAudioEditViewModel.pitchValue.collectAsState()
+    val pitchValue by convertAudioEditViewModel.pitchValue.collectAsStateWithLifecycle()
 
     val actualValue = (pitchValue * 0.1) - 10.0
 

@@ -1,6 +1,5 @@
 package com.example.main.components.bottomsheet
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
@@ -14,6 +13,8 @@ import androidx.compose.material3.SheetValue
 import androidx.compose.material3.rememberBottomSheetScaffoldState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
@@ -47,6 +48,7 @@ fun PlayerBottomSheetScaffold(
     bottomSheetOffset: () -> Float,
     onNavigateToChannelScreen: (String) -> Unit,
     isLocalSearchActive: Boolean,
+    onStopPlayback: () -> Unit,
     content: @Composable (PaddingValues) -> Unit,
 ) {
     val density = LocalDensity.current
@@ -78,20 +80,23 @@ fun PlayerBottomSheetScaffold(
         }
     }
 
-    val currentOffset = bottomSheetOffset()
-    // isLocalSearchActive가 true면 BottomNav가 숨겨지므로 패딩 불필요
-    val scaffoldBottomPadding = if (isLocalSearchActive) {
-        0.dp
-    } else {
-        when {
-            currentOffset <= 0.0f -> {
-                val progress = (currentOffset * 25).coerceIn(-1f, 0f)
-                (56 * (1 + progress)).coerceAtLeast(0f).dp
-            }
-            currentOffset >= 1.0f -> 56.dp
-            else -> {
-                val progress = currentOffset.coerceIn(0f, 1f)
-                (56 * progress).dp
+    val scaffoldBottomPadding by remember {
+        derivedStateOf {
+            val currentOffset = bottomSheetOffset()
+            if (isLocalSearchActive) {
+                0.dp
+            } else {
+                when {
+                    currentOffset <= 0.0f -> {
+                        val progress = (currentOffset * 25).coerceIn(-1f, 0f)
+                        (56 * (1 + progress)).coerceAtLeast(0f).dp
+                    }
+                    currentOffset >= 1.0f -> 56.dp
+                    else -> {
+                        val progress = currentOffset.coerceIn(0f, 1f)
+                        (56 * progress).dp
+                    }
+                }
             }
         }
     }
@@ -100,7 +105,7 @@ fun PlayerBottomSheetScaffold(
         snapshotFlow { bottomSheetState.currentValue }.collect {
             when (it) {
                 SheetValue.Hidden -> {
-                    mainViewModel.stopPlayback()
+                    onStopPlayback()
                 }
 
                 SheetValue.Expanded -> {}
@@ -140,4 +145,3 @@ fun PlayerBottomSheetScaffold(
         }
     }
 }
-

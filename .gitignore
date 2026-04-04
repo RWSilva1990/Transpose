@@ -12,6 +12,12 @@ local.properties
 # Log Files
 *.log
 
+# oh-my-claude
+.omx/
+
+# Benchmark results (large trace files)
+benchmark-results/
+
 # Android Studio Navigation editor temp files
 .navigation/
 

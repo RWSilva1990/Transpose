@@ -15,8 +15,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -25,17 +23,18 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
-import com.example.main.MainViewModel
 import com.example.main.R
 import com.example.util.ToastUtil
 
 
 @Composable
 fun TempoControlItem(
-    mainViewModel: MainViewModel
+    tempoValue: Int,
+    onPlusOne: () -> Unit,
+    onMinusOne: () -> Unit,
+    onInit: () -> Unit
 ) {
     val context = LocalContext.current
-    val tempoValue by mainViewModel.tempoValue.collectAsState()
     val actualValue = remember(tempoValue) {
         (tempoValue * 0.1) - 10.0
     }
@@ -62,7 +61,7 @@ fun TempoControlItem(
                     .weight(1f)
                     .fillMaxHeight()
                     .clickable {
-                        mainViewModel.tempoMinusOne()
+                        onMinusOne()
                         ToastUtil.showShort(
                             context,
                             context.getString(R.string.tempo_minus_text, actualValue - 1)
@@ -80,7 +79,7 @@ fun TempoControlItem(
                     .weight(1f)
                     .fillMaxHeight()
                     .clickable {
-                        mainViewModel.initTempoValue()
+                        onInit()
                         ToastUtil.showShort(context, context.getString(R.string.tempo_init_text, 0.0))
                     },
                 contentAlignment = Alignment.Center
@@ -96,7 +95,7 @@ fun TempoControlItem(
                     .weight(1f)
                     .fillMaxHeight()
                     .clickable {
-                        mainViewModel.tempoPlusOne()
+                        onPlusOne()
                         ToastUtil.showShort(
                             context,
                             context.getString(R.string.tempo_plus_text, actualValue + 1)

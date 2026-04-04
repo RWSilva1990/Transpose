@@ -19,8 +19,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -32,8 +30,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.domain.model.playable.PlayableItem
 import com.example.domain.model.preferences.RepeatMode
-import com.example.main.MainViewModel
+import com.example.domain.model.youtube.playlist.Playlist
 import com.example.main.R
 import com.example.main.components.bottomsheet.item.PlaylistBottomSheetItem
 
@@ -41,16 +40,16 @@ import com.example.main.components.bottomsheet.item.PlaylistBottomSheetItem
 @Composable
 fun PlaylistModalBottomSheet(
     onDismiss: () -> Unit,
-    mainViewModel: MainViewModel,
+    currentPlaylist: List<PlayableItem>,
+    currentPlaylistIndex: Int,
+    currentPlaylistInfo: Playlist?,
+    repeatMode: RepeatMode,
+    shuffleMode: Boolean,
+    onPlayPlaylistItems: (List<PlayableItem>, Int) -> Unit,
+    onToggleRepeatMode: () -> Unit,
+    onToggleShuffleMode: () -> Unit,
     playerViewHeight: Int,
 ) {
-
-    val currentPlaylist by mainViewModel.currentPlaylist.collectAsState()
-    val currentPlaylistIndex by mainViewModel.currentPlaylistIndex.collectAsState()
-    val currentPlaylistInfo by mainViewModel.currentPlaylistInfo.collectAsState()
-
-    val repeatMode by mainViewModel.repeatMode.collectAsState()
-    val shuffleMode by mainViewModel.shuffleMode.collectAsState()
 
     val sheetState = rememberModalBottomSheetState(
         skipPartiallyExpanded = true,
@@ -119,7 +118,7 @@ fun PlaylistModalBottomSheet(
                     .padding(start = 16.dp, end = 16.dp, bottom = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                IconButton(onClick = { mainViewModel.toggleRepeatMode() }) {
+                IconButton(onClick = onToggleRepeatMode) {
                     Icon(
                         painter = painterResource(
                             id = when (repeatMode) {
@@ -130,12 +129,11 @@ fun PlaylistModalBottomSheet(
                         ),
                         contentDescription = "Repeat",
                         modifier = Modifier.size(36.dp),
-                        // 활성화 상태에 따라 색상 변경
                         tint = if (repeatMode == RepeatMode.OFF) Color.Gray else Color(0xFF3F51B5)
                     )
                 }
                 IconButton(
-                    onClick = { mainViewModel.toggleShuffleMode() },
+                    onClick = onToggleShuffleMode,
                     modifier = Modifier.padding(start = 8.dp)
                 ) {
                     Icon(
@@ -144,7 +142,6 @@ fun PlaylistModalBottomSheet(
                         ),
                         contentDescription = "Shuffle",
                         modifier = Modifier.size(36.dp),
-                        // 활성화 상태에 따라 색상 변경
                         tint = if (shuffleMode) Color(0xFF3F51B5) else Color.Gray
                     )
                 }
@@ -183,10 +180,7 @@ fun PlaylistModalBottomSheet(
                         PlaylistBottomSheetItem(
                             item = item,
                             onClick = {
-                                mainViewModel.playPlaylistItems(
-                                    playlist = currentPlaylist,
-                                    startIndex = index
-                                )
+                                onPlayPlaylistItems(currentPlaylist, index)
                             },
                             isCurrentlyPlaying = index == currentPlaylistIndex
                         )

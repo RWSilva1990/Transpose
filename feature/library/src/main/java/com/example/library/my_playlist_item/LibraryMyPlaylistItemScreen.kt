@@ -56,7 +56,10 @@ fun LibraryMyPlaylistItemScreen(
                 LazyColumn(
                     modifier = Modifier.fillMaxSize()
                 ) {
-                    items(items.size) { index ->
+                    items(
+                        count = items.size,
+                        key = { items[it].id }
+                    ) { index ->
                         val item = items[index]
                         PlaylistItem(
                             item = item,

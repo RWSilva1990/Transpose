@@ -15,7 +15,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -52,9 +52,9 @@ fun SignalsmithVirtualizerSection(
     convertAudioEditViewModel: ConvertAudioEditViewModel,
     onExpandChanged: (Boolean) -> Unit = {}
 ) {
-    val isEnabled by convertAudioEditViewModel.isHrtfEnabled.collectAsState()
-    val intensity by convertAudioEditViewModel.hrtfIntensity.collectAsState()
-    val azimuth by convertAudioEditViewModel.hrtfAzimuth.collectAsState()
+    val isEnabled by convertAudioEditViewModel.isHrtfEnabled.collectAsStateWithLifecycle()
+    val intensity by convertAudioEditViewModel.hrtfIntensity.collectAsStateWithLifecycle()
+    val azimuth by convertAudioEditViewModel.hrtfAzimuth.collectAsStateWithLifecycle()
     var isExpanded by rememberSaveable { mutableStateOf(false) }
 
     Column(

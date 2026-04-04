@@ -9,7 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -34,11 +34,11 @@ fun LimiterSection(
     convertAudioEditViewModel: ConvertAudioEditViewModel,
     onExpandChanged: (Boolean) -> Unit = {}
 ) {
-    val isEnabled by convertAudioEditViewModel.isLimiterEnabled.collectAsState()
-    val inputGainDb by convertAudioEditViewModel.limiterInputGainDb.collectAsState()
-    val limitDb by convertAudioEditViewModel.limiterLimitDb.collectAsState()
-    val attackMs by convertAudioEditViewModel.limiterAttackMs.collectAsState()
-    val releaseMs by convertAudioEditViewModel.limiterReleaseMs.collectAsState()
+    val isEnabled by convertAudioEditViewModel.isLimiterEnabled.collectAsStateWithLifecycle()
+    val inputGainDb by convertAudioEditViewModel.limiterInputGainDb.collectAsStateWithLifecycle()
+    val limitDb by convertAudioEditViewModel.limiterLimitDb.collectAsStateWithLifecycle()
+    val attackMs by convertAudioEditViewModel.limiterAttackMs.collectAsStateWithLifecycle()
+    val releaseMs by convertAudioEditViewModel.limiterReleaseMs.collectAsStateWithLifecycle()
     var isExpanded by rememberSaveable { mutableStateOf(false) }
     var selectedPresetIndex by rememberSaveable { mutableIntStateOf(-1) }
 

@@ -19,7 +19,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.SheetState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -38,7 +37,7 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.example.domain.model.playable.PlayableItem
 import com.example.domain.model.youtube.video_detail.VideoDetail
-import com.example.main.MainViewModel
+import com.example.domain.model.library.MyPlaylist
 import com.example.main.R
 import com.example.main.components.bottomsheet.state.VideoDetailUiState
 import com.example.ui.components.dialog.AddItemToPlaylistDialog
@@ -52,20 +51,20 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChannelSection(
-    mainViewModel: MainViewModel,
+    videoDetailUiState: VideoDetailUiState,
+    currentItem: PlayableItem?,
+    myPlaylists: List<MyPlaylist>,
+    onAddItemToPlaylist: (PlayableItem, Long) -> Unit,
     bottomSheetState: SheetState,
     onNavigateToChannelScreen: (String) -> Unit
 ) {
     var isShowingPlaylistDialog by remember { mutableStateOf(false) }
-    val myPlaylists by mainViewModel.myPlaylists.collectAsState()
     val context = LocalContext.current
-    val videoDetailUiState by mainViewModel.videoDetailUiState.collectAsState()
-    val currentItem by mainViewModel.currentItem.collectAsState()
 
     when (currentItem) {
         is PlayableItem.Local -> {
             LocalFileSectionContent(
-                localItem = currentItem as PlayableItem.Local,
+                localItem = currentItem,
                 onAddButtonClicked = { isShowingPlaylistDialog = true }
             )
         }
@@ -77,7 +76,6 @@ fun ChannelSection(
                 is VideoDetailUiState.Success -> {
                     ChannelSectionContent(
                         videoDetail = state.videoDetail!!,
-                        mainViewModel = mainViewModel,
                         onAddButtonClicked = { isShowingPlaylistDialog = true },
                         onNavigateToChannelScreen = onNavigateToChannelScreen,
                         bottomSheetState = bottomSheetState
@@ -97,7 +95,7 @@ fun ChannelSection(
             onDismiss = { isShowingPlaylistDialog = false },
             onPlaylistSelected = { playlistId ->
                 currentItem?.let {
-                    mainViewModel.addItemToPlaylist(it, playlistId)
+                    onAddItemToPlaylist(it, playlistId)
                     ToastUtil.showShort(
                         context = context,
                         message = context.getString(R.string.notify_video_added_to_playlist)
@@ -112,7 +110,6 @@ fun ChannelSection(
 @Composable
 fun ChannelSectionContent(
     videoDetail: VideoDetail,
-    mainViewModel: MainViewModel,
     onAddButtonClicked: () -> Unit,
     bottomSheetState: SheetState,
     onNavigateToChannelScreen: (String) -> Unit
@@ -266,6 +263,3 @@ fun ChannelSectionShimmer() {
         Spacer(modifier = Modifier.weight(1f))
     }
 }
-
-
-
