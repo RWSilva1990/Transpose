@@ -21,7 +21,7 @@ import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -72,11 +72,13 @@ fun MainScreen(
 
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
-    val updateDialogState by mainViewModel.updateDialogState.collectAsState()
-    val localSearchQuery by mainViewModel.localSearchQuery.collectAsState()
-    val isLocalSearchActive by mainViewModel.isLocalSearchActive.collectAsState()
+    val updateDialogState by mainViewModel.updateDialogState.collectAsStateWithLifecycle()
+    val localSearchQuery by mainViewModel.localSearchQuery.collectAsStateWithLifecycle()
+    val isLocalSearchActive by mainViewModel.isLocalSearchActive.collectAsStateWithLifecycle()
+    val searchQuery by mainViewModel.searchQuery.collectAsStateWithLifecycle()
+    val suggestionKeywords by mainViewModel.suggestionKeywords.collectAsStateWithLifecycle()
 
-    val permissionGranted by mainViewModel.permissionGranted.collectAsState()
+    val permissionGranted by mainViewModel.permissionGranted.collectAsStateWithLifecycle()
 
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
@@ -216,11 +218,20 @@ fun MainScreen(
             }
     }
 
-    val blendRatio = bottomSheetOffset.coerceIn(0f, 1f)
-    val statusBarColor = blendColors(AppColors.StatusBarBackground, AppColors.CharcoalGray, blendRatio)
-    val navigationBarColor = blendColors(AppColors.BlueBackground, AppColors.CharcoalGray, blendRatio)
+    val statusBarColor by remember {
+        derivedStateOf {
+            val ratio = bottomSheetOffset.coerceIn(0f, 1f)
+            blendColors(AppColors.StatusBarBackground, AppColors.CharcoalGray, ratio)
+        }
+    }
+    val navigationBarColor by remember {
+        derivedStateOf {
+            val ratio = bottomSheetOffset.coerceIn(0f, 1f)
+            blendColors(AppColors.BlueBackground, AppColors.CharcoalGray, ratio)
+        }
+    }
 
-    SideEffect {
+    LaunchedEffect(statusBarColor, navigationBarColor) {
         systemUiController.setStatusBarColor(color = statusBarColor)
         systemUiController.setNavigationBarColor(color = navigationBarColor)
     }
@@ -291,13 +302,20 @@ fun MainScreen(
                         activeNavController.navigate(searchRouteFor(selectedTab, it))
                         searchBarState = SearchBarState.CLOSED
                     },
-                    mainViewModel = mainViewModel,
                     searchBarState = searchBarState,
                     updateSearchBarState = {
                         searchBarState = it
                     },
                     scrollBehavior = scrollBehavior,
                     isOnLocalFilesScreen = isOnLocalFilesScreen,
+                    isLocalSearchActive = isLocalSearchActive,
+                    localSearchQuery = localSearchQuery,
+                    searchQuery = searchQuery,
+                    suggestionKeywords = suggestionKeywords,
+                    onUpdateLocalSearchQuery = mainViewModel::updateLocalSearchQuery,
+                    onSetLocalSearchActive = mainViewModel::setLocalSearchActive,
+                    onUpdateSearchQuery = mainViewModel::updateSearchQuery,
+                    onClearSearchQuery = mainViewModel::clearSearchQuery,
                 )
             },
             mainViewModel = mainViewModel,
@@ -309,6 +327,7 @@ fun MainScreen(
                 activeNavController.navigate(channelRouteFor(selectedTab, channelId))
             },
             isLocalSearchActive = isLocalSearchActive,
+            onStopPlayback = mainViewModel::stopPlayback,
             ) { playerBottomSheetScaffoldPadding ->
             val miniPlayerHeightPx = with(density) { GraphicsLayerConstants.PEEK_HEIGHT.roundToPx() }
             val bottomNavHeightPx = with(density) { 56.dp.roundToPx() }
