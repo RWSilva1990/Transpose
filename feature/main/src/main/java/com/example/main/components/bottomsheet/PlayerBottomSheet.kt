@@ -16,7 +16,6 @@ import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -25,7 +24,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
@@ -39,6 +37,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.lerp
 import androidx.compose.ui.util.trace
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
@@ -75,30 +74,22 @@ fun PlayerBottomSheet(
     onNavigateToChannelScreen: (String) -> Unit
 ) = trace("PlayerBottomSheet") {
 
+    // ===== Collect all states here =====
+    val mediaController by mainViewModel.mediaControllerFlow.collectAsStateWithLifecycle()
+    val isPlaying by mainViewModel.isPlaying.collectAsStateWithLifecycle()
+    val currentItem by mainViewModel.currentItem.collectAsStateWithLifecycle()
+    val videoDetailUiState by mainViewModel.videoDetailUiState.collectAsStateWithLifecycle()
+    val pitchValue by mainViewModel.pitchValue.collectAsStateWithLifecycle()
+    val tempoValue by mainViewModel.tempoValue.collectAsStateWithLifecycle()
+    val myPlaylists by mainViewModel.myPlaylists.collectAsStateWithLifecycle()
+    val currentPlaylist by mainViewModel.currentPlaylist.collectAsStateWithLifecycle()
+    val currentPlaylistInfo by mainViewModel.currentPlaylistInfo.collectAsStateWithLifecycle()
+    val videoQuality by mainViewModel.videoQuality.collectAsStateWithLifecycle()
+
     val coroutineScope = rememberCoroutineScope()
     var showPlaylistModal by remember { mutableStateOf(false) }
     var showQualityModal by remember { mutableStateOf(false) }
     var isControllerVisible by remember { mutableStateOf(false) }
-    val mediaController by mainViewModel.mediaControllerFlow.collectAsState()
-
-//    val bottomSheetAlpha = remember(bottomSheetOffset) {
-//        if (bottomSheetOffset < 0) 1f else {
-//            when {
-//                bottomSheetOffset < 0.2f -> {
-//                    val alphaValue = (0.2 - bottomSheetOffset) / 0.2
-//                    alphaValue
-//                }
-//
-//                else -> 0f
-//            }
-//        }
-//    }
-
-//    val mainBackgroundAlpha = remember(bottomSheetOffset) {
-//        if (bottomSheetOffset < 0) 1f else {
-//            bottomSheetOffset.pow(3).coerceAtLeast(0f)
-//        }
-//    }
 
     var playerViewHeight by remember { mutableIntStateOf(0) }
 
@@ -114,7 +105,9 @@ fun PlayerBottomSheet(
 
     if (showQualityModal) {
         VideoQualityBottomSheet(
-            mainViewModel = mainViewModel,
+            videoDetailUiState = videoDetailUiState,
+            currentQuality = videoQuality,
+            onSetVideoQuality = mainViewModel::setVideoQuality,
             onDismiss = { showQualityModal = false }
         )
     }
@@ -143,7 +136,10 @@ fun PlayerBottomSheet(
         PlayerBottomSheetHeader(
             bottomSheetOffset = bottomSheetOffset,
             bottomSheetState = bottomSheetState,
-            mainViewModel = mainViewModel
+            isPlaying = isPlaying,
+            displayTitle = currentItem?.title ?: "",
+            onPlayPause = mainViewModel::playPause,
+            onStop = mainViewModel::stopPlayback
         )
 
         Column(
@@ -188,33 +184,35 @@ fun PlayerBottomSheet(
                                 }
                             }
                         }, update = { view ->
-                            mediaController?.let { controller ->
+                            val controller = mediaController
+                            if (view.player != controller) {
                                 view.player = controller
-                            } ?: run {
-                                view.player = null
                             }
-                            view.useController = when (bottomSheetState.currentValue) {
-                                SheetValue.Expanded -> true
-                                else -> false
+                            val shouldShowController = bottomSheetState.currentValue == SheetValue.Expanded
+                            if (view.useController != shouldShowController) {
+                                view.useController = shouldShowController
                             }
                         }, modifier = Modifier.fillMaxSize()
                     )
                 }
                 trace("PlayerThumbnailView") {
                     PlayerThumbnailView(
-                        mainViewModel = mainViewModel,
+                        videoDetailUiState = videoDetailUiState,
+                        currentItem = currentItem,
                         modifier = Modifier
                             .fillMaxSize()
                             .semantics { contentDescription = "PlayerThumbnailView" })
                 }
                 trace("PlayerLoadingIndicator") {
                     PlayerLoadingIndicator(
-                        mainViewModel = mainViewModel, modifier = Modifier.align(Alignment.Center)
+                        videoDetailUiState = videoDetailUiState,
+                        currentItem = currentItem,
+                        modifier = Modifier.align(Alignment.Center)
                     )
                 }
                 if (isControllerVisible && bottomSheetState.currentValue == SheetValue.Expanded) {
                     QualityIndicatorButton(
-                        mainViewModel = mainViewModel,
+                        videoQuality = videoQuality,
                         onClick = { showQualityModal = true },
                         modifier = Modifier
                             .align(Alignment.TopEnd)
@@ -223,7 +221,19 @@ fun PlayerBottomSheet(
                 }
             }
             VideoDetailPanel(
-                mainViewModel = mainViewModel,
+                videoDetailUiState = videoDetailUiState,
+                currentItem = currentItem,
+                myPlaylists = myPlaylists,
+                pitchValue = pitchValue,
+                tempoValue = tempoValue,
+                onPlayVideo = mainViewModel::playVideo,
+                onPitchPlusOne = mainViewModel::pitchPlusOne,
+                onPitchMinusOne = mainViewModel::pitchMinusOne,
+                onPitchInit = mainViewModel::initPitchValue,
+                onTempoPlusOne = mainViewModel::tempoPlusOne,
+                onTempoMinusOne = mainViewModel::tempoMinusOne,
+                onTempoInit = mainViewModel::initTempoValue,
+                onAddItemToPlaylist = mainViewModel::addItemToPlaylist,
                 onNavigateToChannelScreen = onNavigateToChannelScreen,
                 bottomSheetState = bottomSheetState,
                 modifier = Modifier
@@ -238,7 +248,8 @@ fun PlayerBottomSheet(
             )
         }
         PlaylistFloatingButton(
-            mainViewModel = mainViewModel,
+            currentPlaylist = currentPlaylist,
+            playlistTitle = currentPlaylistInfo?.title,
             bottomSheetState = bottomSheetState,
             onClick = { showPlaylistModal = true },
             bottomSheetOffset = bottomSheetOffset,
@@ -252,10 +263,8 @@ fun PlayerBottomSheet(
 
 
 private fun Modifier.changeMainBackgroundAlpha(bottomSheetOffset: Float): Modifier {
-    if (bottomSheetOffset < 0) return alpha(1f)
-    return this.alpha((bottomSheetOffset.pow(3)).coerceAtLeast(0f))
-
-
+    if (bottomSheetOffset < 0) return this.graphicsLayer { alpha = 1f }
+    return this.graphicsLayer { alpha = (bottomSheetOffset.pow(3)).coerceAtLeast(0f) }
 }
 
 private fun calculateDefaultScaleX(bottomSheetOffset: Float): Float {
@@ -274,19 +283,17 @@ private fun calculateScaleFactorY(bottomSheetOffset: Float): Float {
 
 @Composable
 private fun QualityIndicatorButton(
-    mainViewModel: MainViewModel,
+    videoQuality: com.example.domain.model.preferences.VideoQuality,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val currentQuality by mainViewModel.videoQuality.collectAsState()
-
     Surface(
         modifier = modifier.clickable(onClick = onClick),
         shape = RoundedCornerShape(4.dp),
         color = Color.Black.copy(alpha = 0.6f)
     ) {
         Text(
-            text = stringResource(currentQuality.getDisplayStringResId()),
+            text = stringResource(videoQuality.getDisplayStringResId()),
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
             color = Color.White,
             fontSize = 12.sp,

@@ -15,8 +15,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -25,16 +23,17 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
-import com.example.main.MainViewModel
 import com.example.main.R
 import com.example.util.ToastUtil
 
 @Composable
 fun PitchControlItem(
-    mainViewModel: MainViewModel
+    pitchValue: Int,
+    onPlusOne: () -> Unit,
+    onMinusOne: () -> Unit,
+    onInit: () -> Unit
 ) {
     val context = LocalContext.current
-    val pitchValue by mainViewModel.pitchValue.collectAsState()
 
     val actualValue = remember(pitchValue) {
         (pitchValue * 0.1) - 10.0
@@ -62,7 +61,7 @@ fun PitchControlItem(
                     .weight(1f)
                     .fillMaxHeight()
                     .clickable {
-                        mainViewModel.pitchMinusOne()
+                        onMinusOne()
                         ToastUtil.showShort(context, String.format(context.getString(R.string.pitch_minus_text), actualValue - 1))
                     },
                 contentAlignment = Alignment.Center
@@ -77,7 +76,7 @@ fun PitchControlItem(
                     .weight(1f)
                     .fillMaxHeight()
                     .clickable {
-                        mainViewModel.initPitchValue()
+                        onInit()
                         ToastUtil.showShort(context, context.getString(R.string.pitch_initialize_text, 0.0))
                     },
                 contentAlignment = Alignment.Center
@@ -93,7 +92,7 @@ fun PitchControlItem(
                     .weight(1f)
                     .fillMaxHeight()
                     .clickable {
-                        mainViewModel.pitchPlusOne()
+                        onPlusOne()
                         ToastUtil.showShort(context, context.getString(R.string.pitch_plus_text, actualValue + 1))
                     },
                 contentAlignment = Alignment.Center
