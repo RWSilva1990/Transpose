@@ -7,7 +7,7 @@ import androidx.compose.material3.SheetState
 import androidx.compose.material3.SheetValue
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -36,7 +36,7 @@ fun SearchResultScreen(
     navigateToBack: () -> Unit
 ) {
     val coroutineScope = rememberCoroutineScope()
-    val searchResultsState by searchResultViewModel.searchResultsState.collectAsState()
+    val searchResultsState by searchResultViewModel.searchResultsState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     var isShowingPlaylistDialog by remember {
         mutableStateOf(false)
@@ -45,7 +45,7 @@ fun SearchResultScreen(
         mutableStateOf(null as SearchResult.VideoResult?)
     }
 
-    val myPlaylists by searchResultViewModel.myPlaylists.collectAsState()
+    val myPlaylists by searchResultViewModel.myPlaylists.collectAsStateWithLifecycle()
 
     BackHandler(
         enabled = bottomSheetState.currentValue == SheetValue.Expanded

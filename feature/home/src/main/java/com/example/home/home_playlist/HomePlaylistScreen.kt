@@ -20,7 +20,7 @@ import androidx.compose.material3.SheetState
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
@@ -46,9 +46,9 @@ fun HomePlaylistScreen(
     modifier: Modifier = Modifier,
     navigateToBack: () -> Unit
 ) {
-    val nationalPlaylistState by homePlaylistViewModel.nationalPlaylistDataState.collectAsState()
-    val recommendedPlaylistState by homePlaylistViewModel.recommendedPlaylistDataState.collectAsState()
-    val typedPlaylistState by homePlaylistViewModel.typedPlaylistDataState.collectAsState()
+    val nationalPlaylistState by homePlaylistViewModel.nationalPlaylistDataState.collectAsStateWithLifecycle()
+    val recommendedPlaylistState by homePlaylistViewModel.recommendedPlaylistDataState.collectAsStateWithLifecycle()
+    val typedPlaylistState by homePlaylistViewModel.typedPlaylistDataState.collectAsStateWithLifecycle()
     val coroutineScope = rememberCoroutineScope()
 
     BackHandler(

@@ -12,7 +12,7 @@ import androidx.compose.material3.SheetState
 import androidx.compose.material3.SheetValue
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -37,13 +37,13 @@ fun LibraryMyLocalItemScreen(
     isLocalSearchActive: Boolean = false,
     onCloseLocalSearch: () -> Unit = {}
 ) {
-    val recoverableDeleteException by libraryMyLocalItemViewModel.recoverableDeleteEvent.collectAsState()
+    val recoverableDeleteException by libraryMyLocalItemViewModel.recoverableDeleteEvent.collectAsStateWithLifecycle()
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
 
     var isShowingPlaylistDialog by remember { mutableStateOf(false) }
     var selectedLocalFile by remember { mutableStateOf<LocalFileData?>(null) }
-    val myPlaylists by libraryMyLocalItemViewModel.myPlaylists.collectAsState()
+    val myPlaylists by libraryMyLocalItemViewModel.myPlaylists.collectAsStateWithLifecycle()
 
     // "권한 다이얼로그"를 띄우는 런처
     val launcher = rememberLauncherForActivityResult(
@@ -69,8 +69,8 @@ fun LibraryMyLocalItemScreen(
             )
         }
     }
-    val audioFiles by libraryMyLocalItemViewModel.audioFiles.collectAsState()
-    val videoFiles by libraryMyLocalItemViewModel.videoFiles.collectAsState()
+    val audioFiles by libraryMyLocalItemViewModel.audioFiles.collectAsStateWithLifecycle()
+    val videoFiles by libraryMyLocalItemViewModel.videoFiles.collectAsStateWithLifecycle()
 
     val filteredAudioFiles = remember(audioFiles, localSearchQuery) {
         if (localSearchQuery.isBlank()) audioFiles
@@ -108,7 +108,10 @@ fun LibraryMyLocalItemScreen(
         when (type) {
             "audio" -> {
                 LazyColumn {
-                    items(filteredAudioFiles.size) { index ->
+                    items(
+                        count = filteredAudioFiles.size,
+                        key = { filteredAudioFiles[it].id }
+                    ) { index ->
                         val item = filteredAudioFiles[index]
                         LocalFileDataItem(
                             item = item,
@@ -133,7 +136,10 @@ fun LibraryMyLocalItemScreen(
 
             "video" -> {
                 LazyColumn {
-                    items(filteredVideoFiles.size) { index ->
+                    items(
+                        count = filteredVideoFiles.size,
+                        key = { filteredVideoFiles[it].id }
+                    ) { index ->
                         val item = filteredVideoFiles[index]
                         LocalFileDataItem(
                             item = item,
