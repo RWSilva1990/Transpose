@@ -15,8 +15,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.SheetState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -26,7 +24,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.trace
-import com.example.main.MainViewModel
 import com.example.main.R
 import com.example.main.components.bottomsheet.GraphicsLayerConstants.PEEK_HEIGHT
 import com.example.util.constants.AppColors
@@ -37,15 +34,13 @@ import kotlinx.coroutines.launch
 fun PlayerBottomSheetHeader(
     bottomSheetOffset: () -> Float,
     bottomSheetState: SheetState,
-    mainViewModel: MainViewModel,
+    isPlaying: Boolean,
+    displayTitle: String,
+    onPlayPause: () -> Unit,
+    onStop: () -> Unit,
 ) {
 
     val coroutineScope = rememberCoroutineScope()
-
-    val isPlaying by mainViewModel.isPlaying.collectAsState()
-    val currentItem by mainViewModel.currentItem.collectAsState()
-
-    val displayTitle = currentItem?.title ?: ""
 
     trace("PlayerBottomSheetHeader") {
         Row(
@@ -74,7 +69,7 @@ fun PlayerBottomSheetHeader(
             )
 
             IconButton(
-                onClick = { mainViewModel.playPause() },
+                onClick = onPlayPause,
                 modifier = Modifier
                     .padding(end = 5.dp)
                     .graphicsLayer {
@@ -90,7 +85,7 @@ fun PlayerBottomSheetHeader(
 
             IconButton(
                 onClick = {
-                    mainViewModel.stopPlayback()
+                    onStop()
                     coroutineScope.launch { bottomSheetState.hide() }
                 },
                 modifier = Modifier

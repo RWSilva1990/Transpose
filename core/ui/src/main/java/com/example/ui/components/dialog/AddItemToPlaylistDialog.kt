@@ -21,7 +21,10 @@ fun AddItemToPlaylistDialog(
         title = { Text(stringResource(id = R.string.video_pop_up_menu_add_playlist_text)) },
         text = {
             LazyColumn {
-                items(playlists.size) { index ->
+                items(
+                    count = playlists.size,
+                    key = { playlists[it].playlistId }
+                ) { index ->
                     val item = playlists[index]
                     MyPlaylistItem(
                         title = item.name,

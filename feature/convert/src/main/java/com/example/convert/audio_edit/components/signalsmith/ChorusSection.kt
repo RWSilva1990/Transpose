@@ -9,7 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -34,11 +34,11 @@ fun ChorusSection(
     convertAudioEditViewModel: ConvertAudioEditViewModel,
     onExpandChanged: (Boolean) -> Unit = {}
 ) {
-    val isEnabled by convertAudioEditViewModel.isChorusEnabled.collectAsState()
-    val mix by convertAudioEditViewModel.chorusMix.collectAsState()
-    val depthMs by convertAudioEditViewModel.chorusDepthMs.collectAsState()
-    val detune by convertAudioEditViewModel.chorusDetune.collectAsState()
-    val stereo by convertAudioEditViewModel.chorusStereo.collectAsState()
+    val isEnabled by convertAudioEditViewModel.isChorusEnabled.collectAsStateWithLifecycle()
+    val mix by convertAudioEditViewModel.chorusMix.collectAsStateWithLifecycle()
+    val depthMs by convertAudioEditViewModel.chorusDepthMs.collectAsStateWithLifecycle()
+    val detune by convertAudioEditViewModel.chorusDetune.collectAsStateWithLifecycle()
+    val stereo by convertAudioEditViewModel.chorusStereo.collectAsStateWithLifecycle()
     var isExpanded by rememberSaveable { mutableStateOf(false) }
     var selectedPresetIndex by rememberSaveable { mutableIntStateOf(-1) }
 

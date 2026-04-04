@@ -1,12 +1,8 @@
 package com.example.main.components.bottomsheet
 
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.dp
 import com.example.main.MainViewModel
 
 @Composable
@@ -15,11 +11,22 @@ fun PlaylistModalBottomSheetContainer(
     mainViewModel: MainViewModel,
     playerViewHeight: Int,
 ) {
+    val currentPlaylist by mainViewModel.currentPlaylist.collectAsStateWithLifecycle()
+    val currentPlaylistIndex by mainViewModel.currentPlaylistIndex.collectAsStateWithLifecycle()
+    val currentPlaylistInfo by mainViewModel.currentPlaylistInfo.collectAsStateWithLifecycle()
+    val repeatMode by mainViewModel.repeatMode.collectAsStateWithLifecycle()
+    val shuffleMode by mainViewModel.shuffleMode.collectAsStateWithLifecycle()
 
     PlaylistModalBottomSheet(
         onDismiss = onDismiss,
-        mainViewModel = mainViewModel,
+        currentPlaylist = currentPlaylist,
+        currentPlaylistIndex = currentPlaylistIndex,
+        currentPlaylistInfo = currentPlaylistInfo,
+        repeatMode = repeatMode,
+        shuffleMode = shuffleMode,
+        onPlayPlaylistItems = mainViewModel::playPlaylistItems,
+        onToggleRepeatMode = mainViewModel::toggleRepeatMode,
+        onToggleShuffleMode = mainViewModel::toggleShuffleMode,
         playerViewHeight = playerViewHeight
     )
-
 }

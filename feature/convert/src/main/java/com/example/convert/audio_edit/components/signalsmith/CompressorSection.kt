@@ -9,7 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -34,12 +34,12 @@ fun CompressorSection(
     convertAudioEditViewModel: ConvertAudioEditViewModel,
     onExpandChanged: (Boolean) -> Unit = {}
 ) {
-    val isEnabled by convertAudioEditViewModel.isCompressorEnabled.collectAsState()
-    val thresholdDb by convertAudioEditViewModel.compThresholdDb.collectAsState()
-    val ratio by convertAudioEditViewModel.compRatio.collectAsState()
-    val attackMs by convertAudioEditViewModel.compAttackMs.collectAsState()
-    val releaseMs by convertAudioEditViewModel.compReleaseMs.collectAsState()
-    val makeupGainDb by convertAudioEditViewModel.compMakeupGainDb.collectAsState()
+    val isEnabled by convertAudioEditViewModel.isCompressorEnabled.collectAsStateWithLifecycle()
+    val thresholdDb by convertAudioEditViewModel.compThresholdDb.collectAsStateWithLifecycle()
+    val ratio by convertAudioEditViewModel.compRatio.collectAsStateWithLifecycle()
+    val attackMs by convertAudioEditViewModel.compAttackMs.collectAsStateWithLifecycle()
+    val releaseMs by convertAudioEditViewModel.compReleaseMs.collectAsStateWithLifecycle()
+    val makeupGainDb by convertAudioEditViewModel.compMakeupGainDb.collectAsStateWithLifecycle()
     var isExpanded by rememberSaveable { mutableStateOf(false) }
     var selectedPresetIndex by rememberSaveable { mutableIntStateOf(-1) }
 

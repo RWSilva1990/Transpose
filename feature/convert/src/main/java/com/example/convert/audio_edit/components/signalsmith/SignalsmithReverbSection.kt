@@ -17,7 +17,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -44,12 +44,12 @@ fun SignalsmithReverbSection(
     convertAudioEditViewModel: ConvertAudioEditViewModel,
     onExpandChanged: (Boolean) -> Unit = {}
 ) {
-    val isEnabled by convertAudioEditViewModel.isSignalsmithReverbEnabled.collectAsState()
-    val currentPreset by convertAudioEditViewModel.signalsmithReverbPreset.collectAsState()
-    val dry by convertAudioEditViewModel.signalsmithReverbDry.collectAsState()
-    val wet by convertAudioEditViewModel.signalsmithReverbWet.collectAsState()
-    val roomMs by convertAudioEditViewModel.signalsmithReverbRoomMs.collectAsState()
-    val decaySec by convertAudioEditViewModel.signalsmithReverbDecaySec.collectAsState()
+    val isEnabled by convertAudioEditViewModel.isSignalsmithReverbEnabled.collectAsStateWithLifecycle()
+    val currentPreset by convertAudioEditViewModel.signalsmithReverbPreset.collectAsStateWithLifecycle()
+    val dry by convertAudioEditViewModel.signalsmithReverbDry.collectAsStateWithLifecycle()
+    val wet by convertAudioEditViewModel.signalsmithReverbWet.collectAsStateWithLifecycle()
+    val roomMs by convertAudioEditViewModel.signalsmithReverbRoomMs.collectAsStateWithLifecycle()
+    val decaySec by convertAudioEditViewModel.signalsmithReverbDecaySec.collectAsStateWithLifecycle()
     var isExpanded by rememberSaveable { mutableStateOf(false) }
 
     val isKorean = LocalConfiguration.current.locales[0].language == "ko"

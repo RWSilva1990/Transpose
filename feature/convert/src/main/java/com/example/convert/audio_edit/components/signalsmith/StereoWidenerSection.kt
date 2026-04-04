@@ -9,7 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -34,8 +34,8 @@ fun StereoWidenerSection(
     convertAudioEditViewModel: ConvertAudioEditViewModel,
     onExpandChanged: (Boolean) -> Unit = {}
 ) {
-    val isEnabled by convertAudioEditViewModel.isStereoWidenerEnabled.collectAsState()
-    val width by convertAudioEditViewModel.stereoWidenerWidth.collectAsState()
+    val isEnabled by convertAudioEditViewModel.isStereoWidenerEnabled.collectAsStateWithLifecycle()
+    val width by convertAudioEditViewModel.stereoWidenerWidth.collectAsStateWithLifecycle()
     var isExpanded by rememberSaveable { mutableStateOf(false) }
     var selectedPresetIndex by rememberSaveable { mutableIntStateOf(-1) }
 
