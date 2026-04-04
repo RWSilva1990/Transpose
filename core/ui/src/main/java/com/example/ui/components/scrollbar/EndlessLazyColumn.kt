@@ -42,7 +42,7 @@ fun <H, T> EndlessLazyColumn(
                 headerContent(headerData)
             }
         }
-        items(items.size){ index ->
+        items(count = items.size, key = { itemKey(items[it]) }){ index ->
             val item = items[index]
             itemContent(index, item)
             if (index == items.size - 1 && hasMoreItems)
