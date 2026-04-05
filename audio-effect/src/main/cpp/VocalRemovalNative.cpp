@@ -34,7 +34,8 @@ struct VocalRemovalStftEngine {
     std::vector<float> freqReal;
     std::vector<float> freqImag;
 
-    // Reused buffers for iSTFT to avoid per-call allocations.
+    std::vector<float> deinterleavedChannel;
+
     std::vector<float> outputInterleaved;
     std::vector<float> channelOutput;
     std::vector<float> normalization;
@@ -142,15 +143,23 @@ Java_com_example_media_audio_VocalRemovalProcessor_nativeComputeStft(
         return 0;
     }
 
+    const size_t totalSamplesPerChannel = static_cast<size_t>(numSamples);
+    if (engine->deinterleavedChannel.size() < totalSamplesPerChannel) {
+        engine->deinterleavedChannel.resize(totalSamplesPerChannel);
+    }
+
     for (int channel = 0; channel < channelCount; ++channel) {
+        for (int s = 0; s < numSamples; ++s) {
+            engine->deinterleavedChannel[static_cast<size_t>(s)] =
+                pcm16ToFloat(pcmPtr[s * channelCount + channel]);
+        }
+
         for (int t = 0; t < frames; ++t) {
             const int frameOffset = t * engine->hopLength;
             for (int i = 0; i < engine->nFft; ++i) {
-                const int sampleIndex = frameOffset + i;
-                const int interleavedIndex = sampleIndex * channelCount + channel;
-                const float sample = pcm16ToFloat(pcmPtr[interleavedIndex]);
                 engine->timeDomainFrame[static_cast<size_t>(i)] =
-                    sample * engine->analysisWindow[static_cast<size_t>(i)];
+                    engine->deinterleavedChannel[static_cast<size_t>(frameOffset + i)]
+                    * engine->analysisWindow[static_cast<size_t>(i)];
             }
 
             engine->fft.fft(
