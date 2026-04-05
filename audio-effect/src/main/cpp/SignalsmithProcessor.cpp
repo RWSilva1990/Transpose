@@ -21,7 +21,6 @@
 
 namespace {
 const int PROCESS_BLOCK_FRAMES = 512;
-const float EFFECT_FADE_ALPHA = 0.002f;
 }
 
 class SignalsmithProcessor {
@@ -211,44 +210,26 @@ private:
         float* effectInPtrs[2] = {effectsBufferLeft_.data(), effectsBufferRight_.data()};
         float* effectOutPtrs[2] = {effectOutputL_.data(), effectOutputR_.data()};
 
-        {
-            const float chorusTarget = chorusEnabled_.load(std::memory_order_relaxed) ? 1.0f : 0.0f;
-            const bool needChorus = chorusTarget > 0.0f || chorusEnableGain_ > 0.001f;
+        if (chorusEnabled_.load(std::memory_order_relaxed) && chorusEffect_) {
+            chorusEffect_->mix = chorusMix_.load(std::memory_order_relaxed);
+            chorusEffect_->depthMs = chorusDepthMs_.load(std::memory_order_relaxed);
+            chorusEffect_->detune = chorusDetune_.load(std::memory_order_relaxed);
+            chorusEffect_->stereo = chorusStereo_.load(std::memory_order_relaxed);
 
-            if (needChorus && chorusEffect_) {
-                chorusEffect_->mix = chorusMix_.load(std::memory_order_relaxed);
-                chorusEffect_->depthMs = chorusDepthMs_.load(std::memory_order_relaxed);
-                chorusEffect_->detune = chorusDetune_.load(std::memory_order_relaxed);
-                chorusEffect_->stereo = chorusStereo_.load(std::memory_order_relaxed);
-
-                chorusEffect_->process(effectInPtrs, effectOutPtrs, frames);
-
-                for (int i = 0; i < frames; i++) {
-                    chorusEnableGain_ += (chorusTarget - chorusEnableGain_) * EFFECT_FADE_ALPHA;
-                    effectsBufferLeft_[i] = effectsBufferLeft_[i] * (1.0f - chorusEnableGain_) + effectOutputL_[i] * chorusEnableGain_;
-                    effectsBufferRight_[i] = effectsBufferRight_[i] * (1.0f - chorusEnableGain_) + effectOutputR_[i] * chorusEnableGain_;
-                }
-            }
+            chorusEffect_->process(effectInPtrs, effectOutPtrs, frames);
+            std::memcpy(effectsBufferLeft_.data(), effectOutputL_.data(), static_cast<size_t>(frames) * sizeof(float));
+            std::memcpy(effectsBufferRight_.data(), effectOutputR_.data(), static_cast<size_t>(frames) * sizeof(float));
         }
 
-        {
-            const float reverbTarget = reverbEnabled_.load(std::memory_order_relaxed) ? 1.0f : 0.0f;
-            const bool needReverb = reverbTarget > 0.0f || reverbEnableGain_ > 0.001f;
+        if (reverbEnabled_.load(std::memory_order_relaxed) && reverbEffect_) {
+            reverbEffect_->dry = reverbDry_.load(std::memory_order_relaxed);
+            reverbEffect_->wet = reverbWet_.load(std::memory_order_relaxed);
+            reverbEffect_->roomMs = reverbRoomMs_.load(std::memory_order_relaxed);
+            reverbEffect_->rt20 = reverbDecaySec_.load(std::memory_order_relaxed);
 
-            if (needReverb && reverbEffect_) {
-                reverbEffect_->dry = reverbDry_.load(std::memory_order_relaxed);
-                reverbEffect_->wet = reverbWet_.load(std::memory_order_relaxed);
-                reverbEffect_->roomMs = reverbRoomMs_.load(std::memory_order_relaxed);
-                reverbEffect_->rt20 = reverbDecaySec_.load(std::memory_order_relaxed);
-
-                reverbEffect_->process(effectInPtrs, effectOutPtrs, frames);
-
-                for (int i = 0; i < frames; i++) {
-                    reverbEnableGain_ += (reverbTarget - reverbEnableGain_) * EFFECT_FADE_ALPHA;
-                    effectsBufferLeft_[i] = effectsBufferLeft_[i] * (1.0f - reverbEnableGain_) + effectOutputL_[i] * reverbEnableGain_;
-                    effectsBufferRight_[i] = effectsBufferRight_[i] * (1.0f - reverbEnableGain_) + effectOutputR_[i] * reverbEnableGain_;
-                }
-            }
+            reverbEffect_->process(effectInPtrs, effectOutPtrs, frames);
+            std::memcpy(effectsBufferLeft_.data(), effectOutputL_.data(), static_cast<size_t>(frames) * sizeof(float));
+            std::memcpy(effectsBufferRight_.data(), effectOutputR_.data(), static_cast<size_t>(frames) * sizeof(float));
         }
 
         if (toneFilterEnabled_.load(std::memory_order_relaxed)) {
@@ -374,8 +355,6 @@ private:
     std::vector<float> effectOutputR_;
 
     std::unique_ptr<signalsmith::basics::ChorusFloat> chorusEffect_;
-    float chorusEnableGain_ = 0.0f;
-    float reverbEnableGain_ = 0.0f;
     std::unique_ptr<signalsmith::basics::ReverbFloat> reverbEffect_;
 
     std::atomic<bool> chorusEnabled_;
