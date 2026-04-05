@@ -113,7 +113,8 @@ class VocalRemovalProcessor @Inject constructor(
     private var outputBuffer: ByteBuffer = AudioProcessor.EMPTY_BUFFER
     private var inputEnded = false
 
-    private val modelExecutor = Executors.newSingleThreadExecutor()
+    private val modelLoadExecutor = Executors.newSingleThreadExecutor()
+    private val modelProcessExecutor = Executors.newSingleThreadExecutor()
     private val idleScheduler: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor()
     private var sessionReleaseTask: ScheduledFuture<*>? = null
     @Volatile private var modelLoading = false
@@ -430,6 +431,7 @@ class VocalRemovalProcessor @Inject constructor(
     }
 
     override fun flush() {
+        processingGeneration.incrementAndGet()
         awaitProcessingStopped()
         inputEnded = false
         outputBuffer = AudioProcessor.EMPTY_BUFFER
@@ -573,7 +575,7 @@ class VocalRemovalProcessor @Inject constructor(
             starvedTransitions > 0 -> PREBUFFER_MAX_X100
             ratio <= 0.50f -> 110
             ratio <= 0.65f -> 120
-            ratio <= 0.80f -> PREBUFFER_DEFAULT_X100
+            ratio <= 0.80f -> 125
             else -> PREBUFFER_MAX_X100
         }
         val newPreBuffer = (processIntervalBytes * multiplierX100 + 99) / 100
@@ -718,7 +720,7 @@ class VocalRemovalProcessor @Inject constructor(
     private fun ensureModelLoadingAsync() {
         if (ortSession != null || modelLoading) return
         modelLoading = true
-        modelExecutor.execute {
+        modelLoadExecutor.execute {
             try {
                 ensureModelLoaded()
             } catch (t: Throwable) {
@@ -823,7 +825,7 @@ class VocalRemovalProcessor @Inject constructor(
         processingScheduled = true
         shouldStopProcessing = false
         val gen = processingGeneration.get()
-        modelExecutor.execute { processChunksInBackground(gen) }
+        modelProcessExecutor.execute { processChunksInBackground(gen) }
     }
 
     private fun processChunksInBackground(gen: Long) {
