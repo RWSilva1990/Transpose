@@ -2,6 +2,7 @@ package com.example.media.manager
 
 import com.example.media.audio.SignalsmithAudioProcessor
 import com.example.media.audio_effect.data.eq.SignalsmithEqPresets
+import com.example.media.audio_effect.data.filter.ToneFilterPresets
 import com.example.media.audio_effect.data.reverb.SignalsmithReverbPresets
 import dagger.Lazy
 import kotlinx.coroutines.CoroutineScope
@@ -134,50 +135,6 @@ class AudioEffectsManager @Inject constructor(
 
 
     // =========================
-    // Signalsmith Limiter
-    // =========================
-
-    private val _isLimiterEnabled = MutableStateFlow(false)
-    val isLimiterEnabled: StateFlow<Boolean> = _isLimiterEnabled.asStateFlow()
-
-    private val _limiterInputGainDb = MutableStateFlow(0f)
-    val limiterInputGainDb: StateFlow<Float> = _limiterInputGainDb.asStateFlow()
-
-    private val _limiterLimitDb = MutableStateFlow(-3f)
-    val limiterLimitDb: StateFlow<Float> = _limiterLimitDb.asStateFlow()
-
-    private val _limiterAttackMs = MutableStateFlow(10f)
-    val limiterAttackMs: StateFlow<Float> = _limiterAttackMs.asStateFlow()
-
-    private val _limiterReleaseMs = MutableStateFlow(100f)
-    val limiterReleaseMs: StateFlow<Float> = _limiterReleaseMs.asStateFlow()
-
-    fun updateIsLimiterEnabled() {
-        _isLimiterEnabled.value = !_isLimiterEnabled.value
-        signalsmithAudioProcessor.setLimiterEnabled(_isLimiterEnabled.value)
-    }
-
-    fun updateLimiterInputGainDb(value: Float) { _limiterInputGainDb.value = value }
-    fun updateLimiterLimitDb(value: Float) { _limiterLimitDb.value = value }
-    fun updateLimiterAttackMs(value: Float) { _limiterAttackMs.value = value }
-    fun updateLimiterReleaseMs(value: Float) { _limiterReleaseMs.value = value }
-
-    fun setLimiterParams() {
-        signalsmithAudioProcessor.setLimiterParams(
-            _limiterInputGainDb.value, _limiterLimitDb.value, _limiterAttackMs.value, _limiterReleaseMs.value
-        )
-    }
-
-    fun initLimiterValues() {
-        _limiterInputGainDb.value = 0f
-        _limiterLimitDb.value = -3f
-        _limiterAttackMs.value = 10f
-        _limiterReleaseMs.value = 100f
-        setLimiterParams()
-    }
-
-
-    // =========================
     // Signalsmith Reverb
     // =========================
 
@@ -246,6 +203,80 @@ class AudioEffectsManager @Inject constructor(
         _signalsmithReverbRoomMs.value = preset.roomMs
         _signalsmithReverbDecaySec.value = preset.decaySec
         setSignalsmithReverbParams()
+    }
+
+
+    // =========================
+    // Tone Filter
+    // =========================
+
+    private val _isToneFilterEnabled = MutableStateFlow(false)
+    val isToneFilterEnabled: StateFlow<Boolean> = _isToneFilterEnabled.asStateFlow()
+
+    private val _toneFilterPreset = MutableStateFlow(ToneFilterPresets.PRESET_FLAT)
+    val toneFilterPreset: StateFlow<Int> = _toneFilterPreset.asStateFlow()
+
+    private val _toneFilterLowCutHz = MutableStateFlow(80f)
+    val toneFilterLowCutHz: StateFlow<Float> = _toneFilterLowCutHz.asStateFlow()
+
+    private val _toneFilterHighCutHz = MutableStateFlow(12000f)
+    val toneFilterHighCutHz: StateFlow<Float> = _toneFilterHighCutHz.asStateFlow()
+
+    private val _toneFilterLowShelfDb = MutableStateFlow(0f)
+    val toneFilterLowShelfDb: StateFlow<Float> = _toneFilterLowShelfDb.asStateFlow()
+
+    private val _toneFilterHighShelfDb = MutableStateFlow(0f)
+    val toneFilterHighShelfDb: StateFlow<Float> = _toneFilterHighShelfDb.asStateFlow()
+
+    fun updateIsToneFilterEnabled() {
+        _isToneFilterEnabled.value = !_isToneFilterEnabled.value
+        signalsmithAudioProcessor.setToneFilterEnabled(_isToneFilterEnabled.value)
+    }
+
+    fun updateToneFilterPreset(presetIndex: Int) {
+        _toneFilterPreset.value = presetIndex
+        val preset = ToneFilterPresets.getPreset(presetIndex)
+        _toneFilterLowCutHz.value = preset.lowCutHz
+        _toneFilterHighCutHz.value = preset.highCutHz
+        _toneFilterLowShelfDb.value = preset.lowShelfDb
+        _toneFilterHighShelfDb.value = preset.highShelfDb
+        setToneFilterParams()
+    }
+
+    fun updateToneFilterLowCutHz(value: Float) {
+        _toneFilterLowCutHz.value = value
+        _toneFilterPreset.value = -1
+    }
+    fun updateToneFilterHighCutHz(value: Float) {
+        _toneFilterHighCutHz.value = value
+        _toneFilterPreset.value = -1
+    }
+    fun updateToneFilterLowShelfDb(value: Float) {
+        _toneFilterLowShelfDb.value = value
+        _toneFilterPreset.value = -1
+    }
+    fun updateToneFilterHighShelfDb(value: Float) {
+        _toneFilterHighShelfDb.value = value
+        _toneFilterPreset.value = -1
+    }
+
+    fun setToneFilterParams() {
+        signalsmithAudioProcessor.setToneFilterParams(
+            _toneFilterLowCutHz.value,
+            _toneFilterHighCutHz.value,
+            _toneFilterLowShelfDb.value,
+            _toneFilterHighShelfDb.value
+        )
+    }
+
+    fun initToneFilterValues() {
+        _toneFilterPreset.value = ToneFilterPresets.PRESET_FLAT
+        val preset = ToneFilterPresets.getPreset(ToneFilterPresets.PRESET_FLAT)
+        _toneFilterLowCutHz.value = preset.lowCutHz
+        _toneFilterHighCutHz.value = preset.highCutHz
+        _toneFilterLowShelfDb.value = preset.lowShelfDb
+        _toneFilterHighShelfDb.value = preset.highShelfDb
+        setToneFilterParams()
     }
 
 
@@ -339,138 +370,6 @@ class AudioEffectsManager @Inject constructor(
     }
 
 
-    // =========================
-    // Signalsmith Compressor
-    // =========================
-
-    private val _isCompressorEnabled = MutableStateFlow(false)
-    val isCompressorEnabled: StateFlow<Boolean> = _isCompressorEnabled.asStateFlow()
-
-    private val _compThresholdDb = MutableStateFlow(-20f)
-    val compThresholdDb: StateFlow<Float> = _compThresholdDb.asStateFlow()
-
-    private val _compRatio = MutableStateFlow(4f)
-    val compRatio: StateFlow<Float> = _compRatio.asStateFlow()
-
-    private val _compAttackMs = MutableStateFlow(10f)
-    val compAttackMs: StateFlow<Float> = _compAttackMs.asStateFlow()
-
-    private val _compReleaseMs = MutableStateFlow(100f)
-    val compReleaseMs: StateFlow<Float> = _compReleaseMs.asStateFlow()
-
-    private val _compMakeupGainDb = MutableStateFlow(0f)
-    val compMakeupGainDb: StateFlow<Float> = _compMakeupGainDb.asStateFlow()
-
-    fun updateIsCompressorEnabled() {
-        _isCompressorEnabled.value = !_isCompressorEnabled.value
-        signalsmithAudioProcessor.setCompressorEnabled(_isCompressorEnabled.value)
-    }
-
-    fun updateCompThresholdDb(value: Float) { _compThresholdDb.value = value }
-    fun updateCompRatio(value: Float) { _compRatio.value = value }
-    fun updateCompAttackMs(value: Float) { _compAttackMs.value = value }
-    fun updateCompReleaseMs(value: Float) { _compReleaseMs.value = value }
-    fun updateCompMakeupGainDb(value: Float) { _compMakeupGainDb.value = value }
-
-    fun setCompressorParams() {
-        signalsmithAudioProcessor.setCompressorParams(
-            _compThresholdDb.value, _compRatio.value, _compAttackMs.value,
-            _compReleaseMs.value, _compMakeupGainDb.value
-        )
-    }
-
-    fun initCompressorValues() {
-        _compThresholdDb.value = -20f
-        _compRatio.value = 4f
-        _compAttackMs.value = 10f
-        _compReleaseMs.value = 100f
-        _compMakeupGainDb.value = 0f
-        setCompressorParams()
-    }
-
-
-    // =========================
-    // Signalsmith Pitch Detection
-    // =========================
-
-    private val _isPitchDetectionEnabled = MutableStateFlow(false)
-    val isPitchDetectionEnabled: StateFlow<Boolean> = _isPitchDetectionEnabled.asStateFlow()
-
-    fun updateIsPitchDetectionEnabled() {
-        _isPitchDetectionEnabled.value = !_isPitchDetectionEnabled.value
-        signalsmithAudioProcessor.setPitchDetectionEnabled(_isPitchDetectionEnabled.value)
-    }
-
-    fun getDetectedPitch(): Float = signalsmithAudioProcessor.getDetectedPitch()
-
-
-    // =========================
-    // Signalsmith HRTF
-    // =========================
-
-    private val _isHrtfEnabled = MutableStateFlow(false)
-    val isHrtfEnabled: StateFlow<Boolean> = _isHrtfEnabled.asStateFlow()
-
-    private val _hrtfIntensity = MutableStateFlow(1.0f)
-    val hrtfIntensity: StateFlow<Float> = _hrtfIntensity.asStateFlow()
-
-    private val _hrtfAzimuth = MutableStateFlow(0)
-    val hrtfAzimuth: StateFlow<Int> = _hrtfAzimuth.asStateFlow()
-
-    fun updateIsHrtfEnabled() {
-        _isHrtfEnabled.value = !_isHrtfEnabled.value
-        signalsmithAudioProcessor.setHrtfEnabled(_isHrtfEnabled.value)
-    }
-
-    fun updateHrtfIntensity(value: Float) {
-        _hrtfIntensity.value = value
-        setHrtfParams()
-    }
-
-    fun updateHrtfAzimuth(azimuth: Int) {
-        _hrtfAzimuth.value = azimuth
-        setHrtfParams()
-    }
-
-    fun setHrtfParams() {
-        signalsmithAudioProcessor.setHrtfParams(_hrtfIntensity.value, _hrtfAzimuth.value)
-    }
-
-    fun initHrtfValues() {
-        _hrtfIntensity.value = 1.0f
-        _hrtfAzimuth.value = 0
-        setHrtfParams()
-    }
-
-
-    // =========================
-    // Stereo Widener
-    // =========================
-
-    private val _isStereoWidenerEnabled = MutableStateFlow(false)
-    val isStereoWidenerEnabled: StateFlow<Boolean> = _isStereoWidenerEnabled.asStateFlow()
-
-    private val _stereoWidenerWidth = MutableStateFlow(1.0f)
-    val stereoWidenerWidth: StateFlow<Float> = _stereoWidenerWidth.asStateFlow()
-
-    fun updateIsStereoWidenerEnabled() {
-        _isStereoWidenerEnabled.value = !_isStereoWidenerEnabled.value
-        signalsmithAudioProcessor.setStereoWidenerEnabled(_isStereoWidenerEnabled.value)
-    }
-
-    fun updateStereoWidenerWidth(value: Float) { _stereoWidenerWidth.value = value }
-
-    fun setStereoWidenerParams() {
-        signalsmithAudioProcessor.setStereoWidenerParams(_stereoWidenerWidth.value)
-    }
-
-    fun initStereoWidenerValues() {
-        _stereoWidenerWidth.value = 1.0f
-        setStereoWidenerParams()
-    }
-
-
     fun release() {
-        // No resources to release currently
     }
 }

@@ -20,7 +20,7 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
 
     companion object {
         private const val TAG = "SignalsmithProcessor"
-        
+
         init {
             System.loadLibrary("signalsmith_audio")
         }
@@ -30,21 +30,19 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
     private var outputAudioFormat: AudioFormat = AudioFormat.NOT_SET
 
     private var inputEnded = false
-    
+
     private var inputBuffer: ByteBuffer = AudioProcessor.EMPTY_BUFFER
     private var outputBuffer: ByteBuffer = AudioProcessor.EMPTY_BUFFER
     private var processingBuffer: ByteBuffer? = null
     private var scratchInputBuffer: ByteBuffer? = null
     private var pendingOutputBuffer: ByteBuffer? = null
-    
+
     @Volatile
     private var nativeHandle: Long = 0
 
-    // Pitch StateFlow (Single Source of Truth)
     private val _pitchSemitones = MutableStateFlow(0f)
     val pitchSemitonesFlow: StateFlow<Float> = _pitchSemitones.asStateFlow()
 
-    // Tempo StateFlow (Single Source of Truth) - stored as semitones for consistency
     private val _tempoSemitones = MutableStateFlow(0f)
     val tempoSemitonesFlow: StateFlow<Float> = _tempoSemitones.asStateFlow()
 
@@ -56,12 +54,6 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
     private var chorusDepthMs: Float = 10.0f
     private var chorusDetune: Float = 10.0f
     private var chorusStereo: Float = 0.5f
-
-    private var limiterEnabled: Boolean = false
-    private var limiterInputGainDb: Float = 0.0f
-    private var limiterLimitDb: Float = -3.0f
-    private var limiterAttackMs: Float = 10.0f
-    private var limiterReleaseMs: Float = 100.0f
 
     private var reverbEnabled: Boolean = false
     private var reverbDry: Float = 1.0f
@@ -81,21 +73,11 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
     private var eqBand5Freq: Float = 12000.0f
     private var eqBand5Gain: Float = 0.0f
 
-    private var compressorEnabled: Boolean = false
-    private var compThresholdDb: Float = -20.0f
-    private var compRatio: Float = 4.0f
-    private var compAttackMs: Float = 10.0f
-    private var compReleaseMs: Float = 100.0f
-    private var compMakeupGainDb: Float = 0.0f
-
-    private var pitchDetectionEnabled: Boolean = false
-
-    private var hrtfEnabled: Boolean = false
-    private var hrtfIntensity: Float = 1.0f
-    private var hrtfAzimuth: Int = 0  // 0 = Front, negative = Left, positive = Right
-
-    private var stereoWidenerEnabled: Boolean = false
-    private var stereoWidenerWidth: Float = 1.0f  // 0.0-2.0, 1.0 = original
+    private var isToneFilterActive: Boolean = false
+    private var toneFilterLowCutHz: Float = 20f
+    private var toneFilterHighCutHz: Float = 20000f
+    private var toneFilterLowShelfDb: Float = 0f
+    private var toneFilterHighShelfDb: Float = 0f
 
     fun setPitchSemitones(semitones: Float) {
         _pitchSemitones.value = semitones.coerceIn(-24f, 24f)
@@ -163,23 +145,6 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
         }
     }
 
-    fun setLimiterEnabled(enabled: Boolean) {
-        limiterEnabled = enabled
-        if (nativeHandle != 0L) {
-            nativeSetLimiterEnabled(nativeHandle, enabled)
-        }
-    }
-
-    fun setLimiterParams(inputGainDb: Float, limitDb: Float, attackMs: Float, releaseMs: Float) {
-        limiterInputGainDb = inputGainDb
-        limiterLimitDb = limitDb
-        limiterAttackMs = attackMs
-        limiterReleaseMs = releaseMs
-        if (nativeHandle != 0L) {
-            nativeSetLimiterParams(nativeHandle, inputGainDb, limitDb, attackMs, releaseMs)
-        }
-    }
-
     fun setReverbEnabled(enabled: Boolean) {
         reverbEnabled = enabled
         if (nativeHandle != 0L) {
@@ -233,69 +198,20 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
         }
     }
 
-    fun setCompressorEnabled(enabled: Boolean) {
-        compressorEnabled = enabled
+    fun setToneFilterEnabled(enabled: Boolean) {
+        isToneFilterActive = enabled
         if (nativeHandle != 0L) {
-            nativeSetCompressorEnabled(nativeHandle, enabled)
+            nativeSetToneFilterEnabled(nativeHandle, enabled)
         }
     }
 
-    fun setCompressorParams(
-        thresholdDb: Float,
-        ratio: Float,
-        attackMs: Float,
-        releaseMs: Float,
-        makeupGainDb: Float
-    ) {
-        compThresholdDb = thresholdDb
-        compRatio = ratio
-        compAttackMs = attackMs
-        compReleaseMs = releaseMs
-        compMakeupGainDb = makeupGainDb
-
+    fun setToneFilterParams(lowCutHz: Float, highCutHz: Float, lowShelfDb: Float, highShelfDb: Float) {
+        toneFilterLowCutHz = lowCutHz
+        toneFilterHighCutHz = highCutHz
+        toneFilterLowShelfDb = lowShelfDb
+        toneFilterHighShelfDb = highShelfDb
         if (nativeHandle != 0L) {
-            nativeSetCompressorParams(nativeHandle, thresholdDb, ratio, attackMs, releaseMs, makeupGainDb)
-        }
-    }
-
-    fun setPitchDetectionEnabled(enabled: Boolean) {
-        pitchDetectionEnabled = enabled
-        if (nativeHandle != 0L) {
-            nativeSetPitchDetectionEnabled(nativeHandle, enabled)
-        }
-    }
-
-    fun getDetectedPitch(): Float {
-        if (nativeHandle == 0L) return 0f
-        return nativeGetDetectedPitch(nativeHandle)
-    }
-
-    fun setHrtfEnabled(enabled: Boolean) {
-        hrtfEnabled = enabled
-        if (nativeHandle != 0L) {
-            nativeSetHrtfEnabled(nativeHandle, enabled)
-        }
-    }
-
-    fun setHrtfParams(intensity: Float, azimuth: Int) {
-        hrtfIntensity = intensity
-        hrtfAzimuth = azimuth
-        if (nativeHandle != 0L) {
-            nativeSetHrtfParams(nativeHandle, intensity, azimuth)
-        }
-    }
-
-    fun setStereoWidenerEnabled(enabled: Boolean) {
-        stereoWidenerEnabled = enabled
-        if (nativeHandle != 0L) {
-            nativeSetStereoWidenerEnabled(nativeHandle, enabled)
-        }
-    }
-
-    fun setStereoWidenerParams(width: Float) {
-        stereoWidenerWidth = width
-        if (nativeHandle != 0L) {
-            nativeSetStereoWidenerParams(nativeHandle, width)
+            nativeSetToneFilterParams(nativeHandle, lowCutHz, highCutHz, lowShelfDb, highShelfDb)
         }
     }
 
@@ -321,16 +237,13 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
             inputAudioFormat.sampleRate,
             inputAudioFormat.channelCount
         )
-        
+
         if (nativeHandle != 0L) {
             nativeSetPitchSemitones(nativeHandle, _pitchSemitones.value)
             nativeSetTempoRate(nativeHandle, tempoRate)
 
             nativeSetChorusEnabled(nativeHandle, chorusEnabled)
             nativeSetChorusParams(nativeHandle, chorusMix, chorusDepthMs, chorusDetune, chorusStereo)
-
-            nativeSetLimiterEnabled(nativeHandle, limiterEnabled)
-            nativeSetLimiterParams(nativeHandle, limiterInputGainDb, limiterLimitDb, limiterAttackMs, limiterReleaseMs)
 
             nativeSetReverbEnabled(nativeHandle, reverbEnabled)
             nativeSetReverbParams(nativeHandle, reverbDry, reverbWet, reverbRoomMs, reverbDecaySec)
@@ -342,16 +255,8 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
             nativeSetEqBand(nativeHandle, 3, eqBand4Freq, eqBand4Gain)
             nativeSetEqBand(nativeHandle, 4, eqBand5Freq, eqBand5Gain)
 
-            nativeSetCompressorEnabled(nativeHandle, compressorEnabled)
-            nativeSetCompressorParams(nativeHandle, compThresholdDb, compRatio, compAttackMs, compReleaseMs, compMakeupGainDb)
-
-            nativeSetPitchDetectionEnabled(nativeHandle, pitchDetectionEnabled)
-
-            nativeSetHrtfEnabled(nativeHandle, hrtfEnabled)
-            nativeSetHrtfParams(nativeHandle, hrtfIntensity, hrtfAzimuth)
-
-            nativeSetStereoWidenerEnabled(nativeHandle, stereoWidenerEnabled)
-            nativeSetStereoWidenerParams(nativeHandle, stereoWidenerWidth)
+            if (isToneFilterActive) nativeSetToneFilterEnabled(nativeHandle, true)
+            nativeSetToneFilterParams(nativeHandle, toneFilterLowCutHz, toneFilterHighCutHz, toneFilterLowShelfDb, toneFilterHighShelfDb)
         }
 
         Log.d(TAG, "configure: nativeHandle=$nativeHandle")
@@ -446,20 +351,20 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
 
     override fun queueEndOfStream() {
         inputEnded = true
-        
+
         if (nativeHandle != 0L) {
             val bytesPerFrame = inputAudioFormat.channelCount * 2
             val maxRemainingFrames = 4096
             val maxRemainingBytes = maxRemainingFrames * bytesPerFrame
-            
+
             if (processingBuffer == null || processingBuffer!!.capacity() < maxRemainingBytes) {
                 processingBuffer = ByteBuffer.allocateDirect(maxRemainingBytes)
                     .order(ByteOrder.nativeOrder())
             }
             processingBuffer!!.clear()
-            
+
             val remainingFrames = nativeFlushAndGetRemaining(nativeHandle, processingBuffer!!, maxRemainingFrames)
-            
+
             if (remainingFrames > 0) {
                 val remainingBytes = remainingFrames * bytesPerFrame
                 processingBuffer!!.position(0)
@@ -475,15 +380,15 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
             pendingOutputBuffer = null
             return output
         }
-        
+
         val output = outputBuffer
         outputBuffer = AudioProcessor.EMPTY_BUFFER
         return output
     }
 
     override fun isEnded(): Boolean {
-        return inputEnded && 
-               outputBuffer === AudioProcessor.EMPTY_BUFFER && 
+        return inputEnded &&
+               outputBuffer === AudioProcessor.EMPTY_BUFFER &&
                (pendingOutputBuffer == null || !pendingOutputBuffer!!.hasRemaining())
     }
 
@@ -493,7 +398,7 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
         outputBuffer = AudioProcessor.EMPTY_BUFFER
         pendingOutputBuffer = null
         inputEnded = false
-        
+
         if (nativeHandle != 0L) {
             nativeFlush(nativeHandle)
         }
@@ -502,19 +407,19 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
     override fun reset() {
         Log.d(TAG, "reset")
         flush()
-        
+
         if (nativeHandle != 0L) {
             nativeRelease(nativeHandle)
             nativeHandle = 0
         }
-        
+
         inputAudioFormat = AudioFormat.NOT_SET
         outputAudioFormat = AudioFormat.NOT_SET
         processingBuffer = null
     }
 
     private external fun nativeInit(sampleRate: Int, channelCount: Int): Long
-    
+
     private external fun nativeProcess(
         handle: Long,
         inputBuffer: ByteBuffer,
@@ -522,9 +427,9 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
         outputBuffer: ByteBuffer,
         maxOutputFrames: Int
     ): Int
-    
+
     private external fun nativeSetPitchSemitones(handle: Long, semitones: Float)
-    
+
     private external fun nativeSetTempoRate(handle: Long, rate: Float)
 
     private external fun nativeSetChorusEnabled(handle: Long, enabled: Boolean)
@@ -535,16 +440,6 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
         depthMs: Float,
         detune: Float,
         stereo: Float
-    )
-
-    private external fun nativeSetLimiterEnabled(handle: Long, enabled: Boolean)
-
-    private external fun nativeSetLimiterParams(
-        handle: Long,
-        inputGainDb: Float,
-        limitDb: Float,
-        attackMs: Float,
-        releaseMs: Float
     )
 
     private external fun nativeSetReverbEnabled(handle: Long, enabled: Boolean)
@@ -566,40 +461,17 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
         gainDb: Float
     )
 
-    private external fun nativeSetCompressorEnabled(handle: Long, enabled: Boolean)
+    private external fun nativeSetToneFilterEnabled(handle: Long, enabled: Boolean)
 
-    private external fun nativeSetCompressorParams(
-        handle: Long,
-        thresholdDb: Float,
-        ratio: Float,
-        attackMs: Float,
-        releaseMs: Float,
-        makeupGainDb: Float
-    )
-
-    private external fun nativeSetPitchDetectionEnabled(handle: Long, enabled: Boolean)
-
-    private external fun nativeGetDetectedPitch(handle: Long): Float
-
-    private external fun nativeSetHrtfEnabled(handle: Long, enabled: Boolean)
-
-    private external fun nativeSetHrtfParams(
-        handle: Long,
-        intensity: Float,
-        azimuth: Int
-    )
-
-    private external fun nativeSetStereoWidenerEnabled(handle: Long, enabled: Boolean)
-
-    private external fun nativeSetStereoWidenerParams(handle: Long, width: Float)
+    private external fun nativeSetToneFilterParams(handle: Long, lowCutHz: Float, highCutHz: Float, lowShelfDb: Float, highShelfDb: Float)
 
     private external fun nativeFlush(handle: Long)
-    
+
     private external fun nativeFlushAndGetRemaining(
         handle: Long,
         outputBuffer: ByteBuffer,
         maxOutputFrames: Int
     ): Int
-    
+
     private external fun nativeRelease(handle: Long)
 }
