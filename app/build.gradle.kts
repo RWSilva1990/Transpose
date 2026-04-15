@@ -58,6 +58,8 @@ dependencies {
     implementation(libs.androidx.profileinstaller)
     "baselineProfile"(project(":baselineprofile"))
     implementation("androidx.compose.runtime:runtime-tracing:1.0.0-beta01")
+    implementation(libs.coil)
+    implementation(libs.coil.compose)
 
 }
 
