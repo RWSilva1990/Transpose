@@ -20,6 +20,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
@@ -118,7 +119,11 @@ fun PlayerBottomSheetScaffold(
         sheetContainerColor = Color.White,
         scaffoldState = scaffoldState,
         modifier = Modifier
-            .drawBehind { updateIsSheetLayoutComplete(true) }
+            .onGloballyPositioned { coordinates ->
+                if (coordinates.size.height > 0) {
+                    updateIsSheetLayoutComplete(true)
+                }
+            }
             .padding(bottom = scaffoldBottomPadding),
         sheetContent = {
             PlayerBottomSheet(

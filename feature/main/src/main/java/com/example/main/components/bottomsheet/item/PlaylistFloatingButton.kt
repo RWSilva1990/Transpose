@@ -17,7 +17,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
@@ -45,13 +44,13 @@ fun PlaylistFloatingButton(
 
         Surface(
             modifier = modifier
-                .shadow(elevation = 6.dp, shape = RoundedCornerShape(16.dp))
-                .clickable(onClick = onClick)
                 .graphicsLayer {
                     alpha = if (bottomSheetOffset() >= 0.95f) 1f else 0f
-                },
+                }
+                .clickable(onClick = onClick),
             shape = RoundedCornerShape(16.dp),
-            color = backgroundColor
+            color = backgroundColor,
+            shadowElevation = 6.dp
         ) {
             Row(
                 modifier = Modifier
