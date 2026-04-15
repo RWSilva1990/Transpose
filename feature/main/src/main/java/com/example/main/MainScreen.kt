@@ -11,8 +11,6 @@ import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.ui.layout.layout
-import com.example.main.components.bottomsheet.GraphicsLayerConstants
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.TopAppBarDefaults
@@ -20,8 +18,6 @@ import androidx.compose.material3.rememberStandardBottomSheetState
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.SideEffect
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -36,13 +32,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.unit.Velocity
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.convert.navigation.ConvertNavHost
@@ -56,13 +54,12 @@ import com.example.main.components.appbar.SearchBarState
 import com.example.main.components.bottom_navigation.BottomNavigationBar
 import com.example.main.components.bottom_navigation.MainTab
 import com.example.main.components.bottomsheet.PlayerBottomSheetScaffold
+import com.example.ui.theme.blendColors
 import com.example.util.Logger
 import com.example.util.ToastUtil
-import com.example.ui.theme.blendColors
 import com.example.util.constants.AppColors
 import com.google.accompanist.systemuicontroller.rememberSystemUiController
 import kotlinx.coroutines.launch
-import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -93,6 +90,10 @@ fun MainScreen(
                 launcher.launch(perms)
             }
         }
+    }
+
+    LaunchedEffect(Unit) {
+        mainViewModel.start()
     }
 
     // Toast event observer
@@ -166,7 +167,11 @@ fun MainScreen(
                 available: Offset,
                 source: NestedScrollSource
             ): Offset {
-                return scrollBehavior.nestedScrollConnection.onPostScroll(consumed, available, source)
+                return scrollBehavior.nestedScrollConnection.onPostScroll(
+                    consumed,
+                    available,
+                    source
+                )
             }
 
             override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
@@ -190,7 +195,8 @@ fun MainScreen(
                     // parentScaffoldHeightPx의 값은 keyboardInfo.height 값이 계산되어 적용되어 계산됨. 까먹지 말자!!
                     // 부모 scaffold의 높이를 기준으로 pratiallyExpandedOffset 기준값을 설정!!
                     // isLocalSearchActive가 true일 때도 SearchBarState.OPENED처럼 처리
-                    val isSearchActive = searchBarState == SearchBarState.OPENED || isLocalSearchActive
+                    val isSearchActive =
+                        searchBarState == SearchBarState.OPENED || isLocalSearchActive
                     val partiallyExpandedOffset = if (!isSearchActive) {
                         parentScaffoldHeightPx - with(density) {
                             (scaffoldInnerPaddingBottomPadding + 56.dp).toPx()
@@ -328,8 +334,7 @@ fun MainScreen(
             },
             isLocalSearchActive = isLocalSearchActive,
             onStopPlayback = mainViewModel::stopPlayback,
-            ) { playerBottomSheetScaffoldPadding ->
-            val miniPlayerHeightPx = with(density) { GraphicsLayerConstants.PEEK_HEIGHT.roundToPx() }
+        ) { playerBottomSheetScaffoldPadding ->
             val bottomNavHeightPx = with(density) { 56.dp.roundToPx() }
 
             when (selectedTab) {
@@ -341,7 +346,6 @@ fun MainScreen(
                             .background(Color.White)
                             .nestedScroll(nestedScrollConnection)
                             .dynamicBottomPadding(
-                                miniPlayerHeightPx = miniPlayerHeightPx,
                                 bottomNavHeightPx = bottomNavHeightPx,
                                 bottomSheetOffset = { bottomSheetOffset },
                                 isBottomNavHidden = isLocalSearchActive
@@ -360,7 +364,6 @@ fun MainScreen(
                             .background(Color.White)
                             .nestedScroll(nestedScrollConnection)
                             .dynamicBottomPadding(
-                                miniPlayerHeightPx = miniPlayerHeightPx,
                                 bottomNavHeightPx = bottomNavHeightPx,
                                 bottomSheetOffset = { bottomSheetOffset },
                                 isBottomNavHidden = isLocalSearchActive
@@ -383,7 +386,6 @@ fun MainScreen(
                             .background(Color.White)
                             .nestedScroll(nestedScrollConnection)
                             .dynamicBottomPadding(
-                                miniPlayerHeightPx = miniPlayerHeightPx,
                                 bottomNavHeightPx = bottomNavHeightPx,
                                 bottomSheetOffset = { bottomSheetOffset },
                                 isBottomNavHidden = isLocalSearchActive
@@ -454,7 +456,6 @@ fun MainScreen(
 }
 
 
-
 private fun calculateDragProgress(
     currentOffset: Float,
     partiallyExpandedOffset: Float,
@@ -510,51 +511,18 @@ private fun channelRouteFor(tab: MainTab, channelId: String) = when (tab) {
 }
 
 /**
- * BottomSheet offset에 따라 동적으로 bottom padding을 조절하는 Modifier
- *
- * bottomSheetOffset 값:
- * - 1.0 ~ 0.0: Expanded → PartiallyExpanded (mini player 높이만큼 하단 패딩)
- * - 0.0 ~ -1.0: PartiallyExpanded → Hidden (점진적으로 패딩 감소)
- *
- * BottomNavigation 패딩:
- * - offset <= 0: BottomNav가 완전히 보임 → 전체 높이 패딩
- * - offset >= 1: BottomNav가 숨겨짐 → 0 패딩
- * - 0 < offset < 1: 선형 보간
- *
- * isBottomNavHidden: Local Search 등으로 BottomNav가 숨겨진 경우 true
+BottomSheet이 확장/축소될 때마다 Scaffold의 콘텐츠가 BottomNavigationBar에 가려지는 문제 해결을 위한 Modifier
+- bottomNavHeightPx: BottomNavigationBar의 높이 (px 단위)
+- isBottomNavHidden: Local Search가 활성화되어 BottomNavigationBar가 숨겨진 상태인지 여부
  */
 private fun Modifier.dynamicBottomPadding(
-    miniPlayerHeightPx: Int,
     bottomNavHeightPx: Int,
     bottomSheetOffset: () -> Float,
     isBottomNavHidden: Boolean = false
 ): Modifier = this.layout { measurable, constraints ->
-    val offset = bottomSheetOffset()
 
-    // Mini player 패딩: offset >= 0일 때 전체, offset이 -1로 갈수록 0으로 감소
-    val miniPlayerPadding = when {
-        offset >= 0f -> miniPlayerHeightPx
-        else -> {
-            val progress = (offset + 1f).coerceIn(0f, 1f)
-            (miniPlayerHeightPx * progress).toInt()
-        }
-    }
+    val additionalPadding = if (isBottomNavHidden) 0 else bottomNavHeightPx
 
-    // BottomNav 패딩 계산
-    // - isBottomNavHidden: Local Search 등으로 BottomNav가 숨겨진 경우 BottomNav 패딩 제외
-    // - offset >= 0: Mini player가 BottomNav를 덮으므로 BottomNav 패딩 불필요
-    // - offset < 0: Mini player가 사라지면서 BottomNav가 노출됨
-    val additionalPadding = when {
-        offset >= 0f -> miniPlayerPadding  // Mini player가 BottomNav를 덮음
-        isBottomNavHidden -> miniPlayerPadding  // BottomNav가 숨겨져 있으므로 mini player 패딩만
-        else -> {
-            // Mini player가 사라지면서 BottomNav가 드러남
-            // 둘 중 큰 값을 사용하여 컨텐츠가 가려지지 않도록 함
-            maxOf(miniPlayerPadding, bottomNavHeightPx)
-        }
-    }
-
-    // 하단 패딩을 위해 높이를 줄여서 측정
     val newMaxHeight = (constraints.maxHeight - additionalPadding).coerceAtLeast(0)
     val newMinHeight = (constraints.minHeight - additionalPadding).coerceIn(0, newMaxHeight)
     val adjustedConstraints = constraints.copy(
@@ -563,8 +531,7 @@ private fun Modifier.dynamicBottomPadding(
     )
     val placeable = measurable.measure(adjustedConstraints)
 
-    // 전체 높이는 컨텐츠 + 하단 패딩
     layout(placeable.width, placeable.height + additionalPadding) {
-        placeable.placeRelative(0, 0)  // 컨텐츠는 상단에 고정
+        placeable.placeRelative(0, 0)
     }
 }

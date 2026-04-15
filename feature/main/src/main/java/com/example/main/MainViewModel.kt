@@ -296,8 +296,6 @@ class MainViewModel @Inject constructor(
 
     init {
         Logger.d("MainViewModel init START")
-        checkPermissions()
-        checkForUpdate()
         viewModelScope.launch {
             Logger.d("MainViewModel - currentVideo observer started")
             nowPlayingStateHolder.currentVideo
@@ -341,6 +339,11 @@ class MainViewModel @Inject constructor(
                 _playbackErrorMessage.value = errorMessage
             }
         }
+    }
+
+    fun start() {
+        checkPermissions()
+        checkForUpdate()
     }
 
     fun setVideoQuality(quality: VideoQuality) {
