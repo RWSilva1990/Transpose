@@ -16,6 +16,7 @@ import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -78,6 +79,10 @@ fun PlayerBottomSheet(
     val mediaController by mainViewModel.mediaControllerFlow.collectAsStateWithLifecycle()
     val isPlaying by mainViewModel.isPlaying.collectAsStateWithLifecycle()
     val currentItem by mainViewModel.currentItem.collectAsStateWithLifecycle()
+
+    if (currentItem == null && bottomSheetState.currentValue == SheetValue.Hidden) {
+        return@trace
+    }
     val videoDetailUiState by mainViewModel.videoDetailUiState.collectAsStateWithLifecycle()
     val pitchValue by mainViewModel.pitchValue.collectAsStateWithLifecycle()
     val tempoValue by mainViewModel.tempoValue.collectAsStateWithLifecycle()
@@ -90,6 +95,10 @@ fun PlayerBottomSheet(
     var showPlaylistModal by remember { mutableStateOf(false) }
     var showQualityModal by remember { mutableStateOf(false) }
     var isControllerVisible by remember { mutableStateOf(false) }
+
+    val isSheetExpanded by remember(bottomSheetState) {
+        derivedStateOf { bottomSheetState.currentValue == SheetValue.Expanded }
+    }
 
     var playerViewHeight by remember { mutableIntStateOf(0) }
 
@@ -188,9 +197,8 @@ fun PlayerBottomSheet(
                             if (view.player != controller) {
                                 view.player = controller
                             }
-                            val shouldShowController = bottomSheetState.currentValue == SheetValue.Expanded
-                            if (view.useController != shouldShowController) {
-                                view.useController = shouldShowController
+                            if (view.useController != isSheetExpanded) {
+                                view.useController = isSheetExpanded
                             }
                         }, modifier = Modifier.fillMaxSize()
                     )
@@ -210,7 +218,7 @@ fun PlayerBottomSheet(
                         modifier = Modifier.align(Alignment.Center)
                     )
                 }
-                if (isControllerVisible && bottomSheetState.currentValue == SheetValue.Expanded) {
+                if (isControllerVisible && isSheetExpanded) {
                     QualityIndicatorButton(
                         videoQuality = videoQuality,
                         onClick = { showQualityModal = true },
