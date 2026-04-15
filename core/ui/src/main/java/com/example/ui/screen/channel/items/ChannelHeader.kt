@@ -150,7 +150,7 @@ fun ChannelHeader(
                     if (tabPositions.isNotEmpty() && selectedTabIndex < tabPositions.size) {
                         TabRowDefaults.Indicator(
                             modifier = Modifier.tabIndicatorOffset(tabPositions[selectedTabIndex]),
-                            color = Color.Black,
+                            color = MaterialTheme.colorScheme.onSurface,
                             height = 3.dp
                         )
                     }

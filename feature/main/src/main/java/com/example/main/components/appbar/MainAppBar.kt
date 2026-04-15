@@ -25,6 +25,7 @@ import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SearchBar
 import androidx.compose.material3.SearchBarDefaults
 import androidx.compose.material3.Text
@@ -157,7 +158,7 @@ fun LocalSearchAppBar(
                     singleLine = true,
                     textStyle = androidx.compose.ui.text.TextStyle(
                         fontSize = 16.sp,
-                        color = Color.Black
+                        color = MaterialTheme.colorScheme.onSurface
                     ),
                     decorationBox = { innerTextField ->
                         Box {
@@ -248,8 +249,14 @@ fun CustomSearchAppBar(
         },
         shape = SearchBarDefaults.dockedShape,
         colors = SearchBarDefaults.colors(
-            containerColor = Color.White,
-            dividerColor = Color.Black,
+            containerColor = MaterialTheme.colorScheme.surface,
+            dividerColor = MaterialTheme.colorScheme.outline,
+            inputFieldColors = SearchBarDefaults.inputFieldColors(
+                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                focusedPlaceholderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                unfocusedPlaceholderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            ),
         ),
         onActiveChange = { isActive ->
             if (!isActive) {

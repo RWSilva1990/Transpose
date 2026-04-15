@@ -124,22 +124,27 @@ fun ChannelScreen(
             }
         } else {
             channelDetailData?.let { channel ->
-                val allTabTitles = context.resources.getStringArray(R.array.tab_titles)
+                val tabTitles = remember(context) {
+                    val allTabTitles = context.resources.getStringArray(R.array.tab_titles)
+                    val usedTabIndices = listOf(1, 2, 4)
+                    usedTabIndices.map { allTabTitles[it] }.toTypedArray()
+                }
 
-                val usedTabIndices = listOf(1, 2, 4)
-                val tabTitles = usedTabIndices.map { allTabTitles[it] }.toTypedArray()
+                val contentTypeMap = remember {
+                    mapOf(
+                        1 to "videos",
+                        2 to "shorts",
+                        4 to "playlists"
+                    )
+                }
 
-                val contentTypeMap = mapOf(
-                    1 to "videos",
-                    2 to "shorts",
-                    4 to "playlists"
-                )
-
-                val actualToResourceIndex = mapOf(
-                    0 to 1,
-                    1 to 2,
-                    2 to 4
-                )
+                val actualToResourceIndex = remember {
+                    mapOf(
+                        0 to 1,
+                        1 to 2,
+                        2 to 4
+                    )
+                }
 
                 val resourceTabIndex = actualToResourceIndex[selectedTabIndex] ?: 1
 
@@ -157,7 +162,7 @@ fun ChannelScreen(
                                 if (tabPositions.isNotEmpty() && selectedTabIndex < tabPositions.size) {
                                     TabRowDefaults.Indicator(
                                         modifier = Modifier.tabIndicatorOffset(tabPositions[selectedTabIndex]),
-                                        color = Color.Black,
+                                        color = MaterialTheme.colorScheme.onSurface,
                                         height = 3.dp
                                     )
                                 }
