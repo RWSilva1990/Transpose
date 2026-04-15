@@ -183,15 +183,6 @@
     <string name="chorus_detune">디튠 양 (Detune)</string>
     <string name="chorus_stereo">스테레오 확장 (Stereo Width)</string>
 
-    <string name="limiter_text">리미터 · 피크 제어</string>
-    <string name="limiter_input_gain">프리 부스트 (Input Gain)</string>
-    <string name="limiter_limit">천장 레벨 (Limit)</string>
-    <string name="limiter_attack">포착 속도 (Attack)</string>
-    <string name="limiter_release">복구 시간 (Release)</string>
-
-    <string name="stereo_widener_text">스테레오 확장 · 공간감 조절</string>
-    <string name="stereo_widener_width">스테레오 폭</string>
-
     <string name="signalsmith_reverb_text">리버브 Pro · 공간 설계</string>
     <string name="reverb_dry">원음 비율 (Dry)</string>
     <string name="reverb_wet">잔향 양 (Wet)</string>
@@ -204,20 +195,6 @@
     <string name="eq_band_1khz">1 kHz · 보컬 존재감</string>
     <string name="eq_band_4khz">4 kHz · 선명도</string>
     <string name="eq_band_12khz">12 kHz · 에어 (High Shelf)</string>
-
-    <string name="compressor_title">컴프레서 · 레벨 유지</string>
-    <string name="comp_threshold">작동 레벨 (Threshold)</string>
-    <string name="comp_ratio">압축 강도 (Ratio)</string>
-    <string name="comp_attack">반응 속도 (Attack)</string>
-    <string name="comp_release">복귀 시간 (Release)</string>
-    <string name="comp_makeup_gain">출력 게인 (Makeup Gain)</string>
-
-    <string name="hrtf_virtualizer_title">3D 서라운드</string>
-    <string name="hrtf_intensity">3D 효과 강도</string>
-    <string name="hrtf_azimuth">소리 방향</string>
-    <string name="hrtf_direction_left">왼쪽</string>
-    <string name="hrtf_direction_front">정면</string>
-    <string name="hrtf_direction_right">오른쪽</string>
 
     <string name="phaser_title">페이저 · 소용돌이 스윕</string>
     <string name="phaser_lfo_freq">스윕 속도 (LFO Rate)</string>
@@ -244,4 +221,11 @@
     <string name="decimator_title">비트크러셔 · 레트로 디지털</string>
     <string name="decimator_bitcrush">비트 깊이 (Bit Crush)</string>
     <string name="decimator_downsample">샘플 레이트 (Downsample)</string>
+
+    <string name="tone_filter_title">톤 필터</string>
+    <string name="tone_filter_description">로우컷/하이컷과 셸프 필터로 전체적인 톤을 조절합니다</string>
+    <string name="tone_filter_low_cut">로우 컷</string>
+    <string name="tone_filter_high_cut">하이 컷</string>
+    <string name="tone_filter_low_shelf">로우 셸프</string>
+    <string name="tone_filter_high_shelf">하이 셸프</string>
 </resources>

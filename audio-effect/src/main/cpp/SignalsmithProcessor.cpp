@@ -12,12 +12,8 @@
 #include "signalsmith/signalsmith-stretch.h"
 
 #include "signalsmith-basics/chorus.h"
-#include "signalsmith-basics/limiter.h"
 #include "signalsmith-basics/reverb.h"
 #include "signalsmith/basics/modules/dsp/filters.h"
-
-#include "mit_hrtf_lib.h"
-#include "FFTConvolver.h"
 
 #define LOG_TAG "SignalsmithProc"
 #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
@@ -25,10 +21,6 @@
 
 namespace {
 const int PROCESS_BLOCK_FRAMES = 512;
-const int HRTF_SAMPLE_RATE = 44100;
-const int HRTF_ELEVATION = 0;
-const int HRTF_SUBJECT = 1;
-const float HRTF_GAIN_COMPENSATION = 1.0f;
 }
 
 class SignalsmithProcessor {
@@ -39,26 +31,12 @@ public:
         , pitchSemitones_(0.0f)
         , tempoRate_(1.0f)
         , chorusEnabled_(false)
-        , limiterEnabled_(false)
         , reverbEnabled_(false)
         , eqEnabled_(false)
-        , compressorEnabled_(false)
-        , pitchDetectionEnabled_(false)
-        , hrtfEnabled_(false)
-        , hrtfActiveBuffer_(0)
-        , hrtfPendingBuffer_(-1)
-        , hrtfCrossfadeProgress_(1.0f)
-        , hrtfCrossfading_(false)
-        , stereoWidenerEnabled_(false)
-        , stereoWidenerWidth_(1.0f)
         , chorusMix_(0.5f)
         , chorusDepthMs_(10.0f)
         , chorusDetune_(10.0f)
         , chorusStereo_(0.5f)
-        , limiterInputGainDb_(0.0f)
-        , limiterLimitDb_(-3.0f)
-        , limiterAttackMs_(10.0f)
-        , limiterReleaseMs_(100.0f)
         , reverbDry_(1.0f)
         , reverbWet_(0.3f)
         , reverbRoomMs_(50.0f)
@@ -73,17 +51,7 @@ public:
         , eqBand4Gain_(0.0f)
         , eqBand5Freq_(12000.0f)
         , eqBand5Gain_(0.0f)
-        , compThresholdDb_(-20.0f)
-        , compRatio_(4.0f)
-        , compAttackMs_(10.0f)
-        , compReleaseMs_(100.0f)
-        , compMakeupGainDb_(0.0f)
-        , detectedPitch_(0.0f)
-        , hrtfIntensity_(1.0f)
-        , hrtfAzimuth_(0)
 {
-        initPresenceBoostFilter();
-
         stretch_.presetDefault(channelCount_, sampleRate_);
 
         inputLeft_.resize(PROCESS_BLOCK_FRAMES);
@@ -96,24 +64,9 @@ public:
         effectOutputL_.resize(PROCESS_BLOCK_FRAMES);
         effectOutputR_.resize(PROCESS_BLOCK_FRAMES);
 
-        hrtfTempBufferL_.resize(PROCESS_BLOCK_FRAMES);
-        hrtfTempBufferR_.resize(PROCESS_BLOCK_FRAMES);
-        hrtfTempBufferL2_.resize(PROCESS_BLOCK_FRAMES);
-        hrtfTempBufferR2_.resize(PROCESS_BLOCK_FRAMES);
-        hrtfMonoBuffer_.resize(PROCESS_BLOCK_FRAMES);
-
-        hrtfPendingTempBufferL_.resize(PROCESS_BLOCK_FRAMES);
-        hrtfPendingTempBufferR_.resize(PROCESS_BLOCK_FRAMES);
-        hrtfPendingTempBufferL2_.resize(PROCESS_BLOCK_FRAMES);
-        hrtfPendingTempBufferR2_.resize(PROCESS_BLOCK_FRAMES);
-
         chorusEffect_ = std::make_unique<signalsmith::basics::ChorusFloat>(50.0f);
         chorusEffect_->configure(sampleRate_, PROCESS_BLOCK_FRAMES, channelCount_);
         chorusEffect_->reset();
-
-        limiterEffect_ = std::make_unique<signalsmith::basics::LimiterFloat>(100.0f);
-        limiterEffect_->configure(sampleRate_, PROCESS_BLOCK_FRAMES, channelCount_);
-        limiterEffect_->reset();
 
         reverbEffect_ = std::make_unique<signalsmith::basics::ReverbFloat>(200.0f, 2.0f);
         reverbEffect_->configure(sampleRate_, PROCESS_BLOCK_FRAMES, channelCount_ == 2 ? 2 : 1);
@@ -121,10 +74,6 @@ public:
 
         LOGD("Created: sampleRate=%d, channels=%d, inputLatency=%d, outputLatency=%d",
              sampleRate_, channelCount_, stretch_.inputLatency(), stretch_.outputLatency());
-
-        if (sampleRate_ != HRTF_SAMPLE_RATE) {
-            LOGE("Sample rate mismatch: Audio=%dHz, HRTF=%dHz", sampleRate_, HRTF_SAMPLE_RATE);
-        }
     }
 
     int process(const short* input, int inputBytes, short* output, int maxOutputFrames) {
@@ -134,15 +83,6 @@ public:
 
         const int framesToProcess = std::min(inputFrames, maxOutputFrames);
         if (framesToProcess <= 0) return 0;
-
-        if (shouldBypass()) {
-            std::memcpy(
-                output,
-                input,
-                static_cast<size_t>(framesToProcess) * static_cast<size_t>(channelCount_) * sizeof(short)
-            );
-            return framesToProcess;
-        }
 
         const int samplesPerFrame = channelCount_;
         int processed = 0;
@@ -191,14 +131,6 @@ public:
         chorusStereo_.store(stereo, std::memory_order_relaxed);
     }
 
-    void setLimiterEnabled(bool enabled) { limiterEnabled_.store(enabled, std::memory_order_relaxed); }
-    void setLimiterParams(float inputGainDb, float limitDb, float attackMs, float releaseMs) {
-        limiterInputGainDb_.store(inputGainDb, std::memory_order_relaxed);
-        limiterLimitDb_.store(limitDb, std::memory_order_relaxed);
-        limiterAttackMs_.store(attackMs, std::memory_order_relaxed);
-        limiterReleaseMs_.store(releaseMs, std::memory_order_relaxed);
-    }
-
     void setReverbEnabled(bool enabled) { reverbEnabled_.store(enabled, std::memory_order_relaxed); }
     void setReverbParams(float dry, float wet, float roomMs, float decaySec) {
         reverbDry_.store(dry, std::memory_order_relaxed);
@@ -226,68 +158,32 @@ public:
         }
     }
 
-    void setCompressorEnabled(bool enabled) {
-        compressorEnabled_.store(enabled, std::memory_order_relaxed);
+    void setToneFilterEnabled(bool enabled) {
+        toneFilterEnabled_.store(enabled, std::memory_order_relaxed);
         if (!enabled) {
-            compEnvelope_ = 0.0f;
+            for (auto& f : toneFiltersL_) f.reset();
+            for (auto& f : toneFiltersR_) f.reset();
         }
     }
 
-    void setCompressorParams(float thresholdDb, float ratio, float attackMs, float releaseMs, float makeupGainDb) {
-        compThresholdDb_.store(thresholdDb, std::memory_order_relaxed);
-        compRatio_.store(ratio, std::memory_order_relaxed);
-        compAttackMs_.store(attackMs, std::memory_order_relaxed);
-        compReleaseMs_.store(releaseMs, std::memory_order_relaxed);
-        compMakeupGainDb_.store(makeupGainDb, std::memory_order_relaxed);
-    }
-
-    void setPitchDetectionEnabled(bool enabled) { pitchDetectionEnabled_.store(enabled, std::memory_order_relaxed); }
-    float getDetectedPitch() const { return detectedPitch_.load(std::memory_order_relaxed); }
-
-    void setHrtfEnabled(bool enabled) {
-        hrtfEnabled_.store(enabled, std::memory_order_relaxed);
-        if (!enabled) {
-            // Reset old double-buffer system (legacy mono)
-            hrtfInitialized_[0] = false;
-            hrtfInitialized_[1] = false;
-            hrtfCrossfading_ = false;
-            hrtfCrossfadeProgress_ = 1.0f;
-            // Reset binaural stereo double-buffer system
-            hrtfBinauralInitialized_[0] = false;
-            hrtfBinauralInitialized_[1] = false;
-            hrtfBinauralActiveIndex_ = 0;
-            hrtfBinauralPendingIndex_ = 1;
-            hrtfBinauralCrossfading_ = false;
-            hrtfBinauralCrossfadeProgress_ = 0.0f;
-        }
-    }
-
-    void setHrtfParams(float intensity, int azimuth) {
-        hrtfIntensity_.store(intensity, std::memory_order_relaxed);
-        hrtfAzimuth_.store(azimuth, std::memory_order_relaxed);
-    }
-
-    void setStereoWidenerEnabled(bool enabled) { stereoWidenerEnabled_.store(enabled, std::memory_order_relaxed); }
-    void setStereoWidenerParams(float width) {
-        stereoWidenerWidth_.store(width, std::memory_order_relaxed);
+    void setToneFilterParams(float lowCutHz, float highCutHz, float lowShelfDb, float highShelfDb) {
+        float safeHighCut = std::max(highCutHz, lowCutHz + 20.0f);
+        toneFilterLowCutHz_.store(lowCutHz, std::memory_order_relaxed);
+        toneFilterHighCutHz_.store(safeHighCut, std::memory_order_relaxed);
+        toneFilterLowShelfDb_.store(lowShelfDb, std::memory_order_relaxed);
+        toneFilterHighShelfDb_.store(highShelfDb, std::memory_order_relaxed);
     }
 
 private:
     using BiquadFilter = signalsmith::filters::BiquadStatic<float>;
 
-    void initPresenceBoostFilter() {
-    }
-
     bool shouldBypass() const {
         if (pitchSemitones_.load(std::memory_order_relaxed) != 0.0f) return false;
 
         if (chorusEnabled_.load(std::memory_order_relaxed)) return false;
-        if (limiterEnabled_.load(std::memory_order_relaxed)) return false;
         if (reverbEnabled_.load(std::memory_order_relaxed)) return false;
+        if (toneFilterEnabled_.load(std::memory_order_relaxed)) return false;
         if (eqEnabled_.load(std::memory_order_relaxed)) return false;
-        if (compressorEnabled_.load(std::memory_order_relaxed)) return false;
-        if (hrtfEnabled_.load(std::memory_order_relaxed)) return false;
-        if (stereoWidenerEnabled_.load(std::memory_order_relaxed)) return false;
 
         return true;
     }
@@ -296,21 +192,14 @@ private:
         shortToFloatDeinterleaved(input, frames);
 
         const float pitch = pitchSemitones_.load(std::memory_order_relaxed);
-        const bool needPitch = pitch != 0.0f;
+        stretch_.setTransposeSemitones(pitch);
 
-        if (needPitch) {
-            stretch_.setTransposeSemitones(pitch);
+        float* inputPtrs[2] = {inputLeft_.data(), inputRight_.data()};
+        float* outputPtrs[2] = {outputLeft_.data(), outputRight_.data()};
+        stretch_.process(inputPtrs, frames, outputPtrs, frames);
 
-            float* inputPtrs[2] = {inputLeft_.data(), inputRight_.data()};
-            float* outputPtrs[2] = {outputLeft_.data(), outputRight_.data()};
-            stretch_.process(inputPtrs, frames, outputPtrs, frames);
-
-            std::memcpy(effectsBufferLeft_.data(), outputLeft_.data(), static_cast<size_t>(frames) * sizeof(float));
-            std::memcpy(effectsBufferRight_.data(), outputRight_.data(), static_cast<size_t>(frames) * sizeof(float));
-        } else {
-            std::memcpy(effectsBufferLeft_.data(), inputLeft_.data(), static_cast<size_t>(frames) * sizeof(float));
-            std::memcpy(effectsBufferRight_.data(), inputRight_.data(), static_cast<size_t>(frames) * sizeof(float));
-        }
+        std::memcpy(effectsBufferLeft_.data(), outputLeft_.data(), static_cast<size_t>(frames) * sizeof(float));
+        std::memcpy(effectsBufferRight_.data(), outputRight_.data(), static_cast<size_t>(frames) * sizeof(float));
 
         applyEffects(frames);
 
@@ -332,18 +221,6 @@ private:
             std::memcpy(effectsBufferRight_.data(), effectOutputR_.data(), static_cast<size_t>(frames) * sizeof(float));
         }
 
-        if (limiterEnabled_.load(std::memory_order_relaxed) && limiterEffect_) {
-            const float gainDb = limiterInputGainDb_.load(std::memory_order_relaxed);
-            limiterEffect_->inputGain = std::pow(10.0f, gainDb / 20.0f);
-            limiterEffect_->outputLimit = std::pow(10.0f, limiterLimitDb_.load(std::memory_order_relaxed) / 20.0f);
-            limiterEffect_->attackMs = limiterAttackMs_.load(std::memory_order_relaxed);
-            limiterEffect_->releaseMs = limiterReleaseMs_.load(std::memory_order_relaxed);
-
-            limiterEffect_->process(effectInPtrs, effectOutPtrs, frames);
-            std::memcpy(effectsBufferLeft_.data(), effectOutputL_.data(), static_cast<size_t>(frames) * sizeof(float));
-            std::memcpy(effectsBufferRight_.data(), effectOutputR_.data(), static_cast<size_t>(frames) * sizeof(float));
-        }
-
         if (reverbEnabled_.load(std::memory_order_relaxed) && reverbEffect_) {
             reverbEffect_->dry = reverbDry_.load(std::memory_order_relaxed);
             reverbEffect_->wet = reverbWet_.load(std::memory_order_relaxed);
@@ -353,6 +230,37 @@ private:
             reverbEffect_->process(effectInPtrs, effectOutPtrs, frames);
             std::memcpy(effectsBufferLeft_.data(), effectOutputL_.data(), static_cast<size_t>(frames) * sizeof(float));
             std::memcpy(effectsBufferRight_.data(), effectOutputR_.data(), static_cast<size_t>(frames) * sizeof(float));
+        }
+
+        if (toneFilterEnabled_.load(std::memory_order_relaxed)) {
+            const float invSr = 1.0f / static_cast<float>(sampleRate_);
+            const float lowCut = toneFilterLowCutHz_.load(std::memory_order_relaxed);
+            const float highCut = toneFilterHighCutHz_.load(std::memory_order_relaxed);
+            const float lowShelfDb = toneFilterLowShelfDb_.load(std::memory_order_relaxed);
+            const float highShelfDb = toneFilterHighShelfDb_.load(std::memory_order_relaxed);
+
+            const float lowShelfFreq = std::min(200.0f, highCut * 0.5f);
+            const float highShelfFreq = std::max(1000.0f, lowCut * 2.0f);
+
+            toneFiltersL_[0].highpass(lowCut * invSr, 1.9);
+            toneFiltersR_[0].highpass(lowCut * invSr, 1.9);
+            toneFiltersL_[1].lowpass(highCut * invSr, 1.9);
+            toneFiltersR_[1].lowpass(highCut * invSr, 1.9);
+            toneFiltersL_[2].lowShelfDb(lowShelfFreq * invSr, lowShelfDb);
+            toneFiltersR_[2].lowShelfDb(lowShelfFreq * invSr, lowShelfDb);
+            toneFiltersL_[3].highShelfDb(highShelfFreq * invSr, highShelfDb);
+            toneFiltersR_[3].highShelfDb(highShelfFreq * invSr, highShelfDb);
+
+            for (int i = 0; i < frames; i++) {
+                float sL = effectsBufferLeft_[i];
+                float sR = effectsBufferRight_[i];
+                for (int f = 0; f < 4; f++) {
+                    sL = toneFiltersL_[f](sL);
+                    sR = toneFiltersR_[f](sR);
+                }
+                effectsBufferLeft_[i] = sL;
+                effectsBufferRight_[i] = sR;
+            }
         }
 
         if (eqEnabled_.load(std::memory_order_relaxed)) {
@@ -392,242 +300,6 @@ private:
                 effectsBufferRight_[i] = sampleR;
             }
         }
-
-        if (compressorEnabled_.load(std::memory_order_relaxed)) {
-            const float threshold = std::pow(10.0f, compThresholdDb_.load(std::memory_order_relaxed) / 20.0f);
-            const float ratio = compRatio_.load(std::memory_order_relaxed);
-            const float attackCoef = std::exp(-1.0f / (compAttackMs_.load(std::memory_order_relaxed) * 0.001f * static_cast<float>(sampleRate_)));
-            const float releaseCoef = std::exp(-1.0f / (compReleaseMs_.load(std::memory_order_relaxed) * 0.001f * static_cast<float>(sampleRate_)));
-            const float makeupGain = std::pow(10.0f, compMakeupGainDb_.load(std::memory_order_relaxed) / 20.0f);
-
-            for (int i = 0; i < frames; i++) {
-                const float inputL = std::fabs(effectsBufferLeft_[i]);
-                const float inputR = std::fabs(effectsBufferRight_[i]);
-                const float inputPeak = std::max(inputL, inputR);
-
-                const float targetEnv = inputPeak;
-                const float coef = (targetEnv > compEnvelope_) ? attackCoef : releaseCoef;
-                compEnvelope_ = coef * compEnvelope_ + (1.0f - coef) * targetEnv;
-
-                float gainReduction = 1.0f;
-                if (compEnvelope_ > threshold) {
-                    const float overDb = 20.0f * std::log10(compEnvelope_ / threshold);
-                    const float reducedDb = overDb * (1.0f - 1.0f / ratio);
-                    gainReduction = std::pow(10.0f, -reducedDb / 20.0f);
-                }
-
-                effectsBufferLeft_[i] *= gainReduction * makeupGain;
-                effectsBufferRight_[i] *= gainReduction * makeupGain;
-            }
-        }
-
-        if (hrtfEnabled_.load(std::memory_order_relaxed)) {
-            const int azimuth = hrtfAzimuth_.load(std::memory_order_relaxed);
-            const float rawIntensity = hrtfIntensity_.load(std::memory_order_relaxed);
-            const float intensity = std::max(0.0f, std::min(1.0f, rawIntensity));
-
-            const int stereoSpread = 30;
-            int leftSpeakerAzimuth = azimuth - stereoSpread;
-            int rightSpeakerAzimuth = azimuth + stereoSpread;
-
-            if (leftSpeakerAzimuth < -180) leftSpeakerAzimuth += 360;
-            if (leftSpeakerAzimuth > 180) leftSpeakerAzimuth -= 360;
-            if (rightSpeakerAzimuth < -180) rightSpeakerAzimuth += 360;
-            if (rightSpeakerAzimuth > 180) rightSpeakerAzimuth -= 360;
-
-            maybeInitBinauralHrtf(leftSpeakerAzimuth, rightSpeakerAzimuth);
-
-            const int active = hrtfBinauralActiveIndex_;
-            const int pending = hrtfBinauralPendingIndex_;
-
-            if (hrtfBinauralInitialized_[active]) {
-                hrtfLeftSpeakerConvolverL_[active].process(effectsBufferLeft_.data(), hrtfTempBufferL_.data(), frames);
-                hrtfLeftSpeakerConvolverR_[active].process(effectsBufferLeft_.data(), hrtfTempBufferR_.data(), frames);
-
-                hrtfRightSpeakerConvolverL_[active].process(effectsBufferRight_.data(), hrtfTempBufferL2_.data(), frames);
-                hrtfRightSpeakerConvolverR_[active].process(effectsBufferRight_.data(), hrtfTempBufferR2_.data(), frames);
-
-                if (hrtfBinauralCrossfading_ && hrtfBinauralInitialized_[pending]) {
-                    hrtfLeftSpeakerConvolverL_[pending].process(effectsBufferLeft_.data(), hrtfPendingTempBufferL_.data(), frames);
-                    hrtfLeftSpeakerConvolverR_[pending].process(effectsBufferLeft_.data(), hrtfPendingTempBufferR_.data(), frames);
-                    hrtfRightSpeakerConvolverL_[pending].process(effectsBufferRight_.data(), hrtfPendingTempBufferL2_.data(), frames);
-                    hrtfRightSpeakerConvolverR_[pending].process(effectsBufferRight_.data(), hrtfPendingTempBufferR2_.data(), frames);
-
-                    const float crossfadeStep = 1.0f / static_cast<float>(frames);
-                    for (int i = 0; i < frames; i++) {
-                        float fadeProgress = hrtfBinauralCrossfadeProgress_ + crossfadeStep * static_cast<float>(i);
-                        fadeProgress = std::min(1.0f, fadeProgress);
-
-                        float activeL = hrtfTempBufferL_[i] + hrtfTempBufferL2_[i];
-                        float activeR = hrtfTempBufferR_[i] + hrtfTempBufferR2_[i];
-
-                        float pendingL = hrtfPendingTempBufferL_[i] + hrtfPendingTempBufferL2_[i];
-                        float pendingR = hrtfPendingTempBufferR_[i] + hrtfPendingTempBufferR2_[i];
-
-                        float binauralL = activeL * (1.0f - fadeProgress) + pendingL * fadeProgress;
-                        float binauralR = activeR * (1.0f - fadeProgress) + pendingR * fadeProgress;
-
-                        effectsBufferLeft_[i] = effectsBufferLeft_[i] * (1.0f - intensity) + binauralL * intensity;
-                        effectsBufferRight_[i] = effectsBufferRight_[i] * (1.0f - intensity) + binauralR * intensity;
-                    }
-
-                    hrtfBinauralCrossfadeProgress_ += 1.0f;
-
-                    if (hrtfBinauralCrossfadeProgress_ >= 1.0f) {
-                        hrtfBinauralActiveIndex_ = pending;
-                        hrtfBinauralPendingIndex_ = active;
-
-                        hrtfBinauralCrossfading_ = false;
-                        hrtfBinauralCrossfadeProgress_ = 0.0f;
-                    }
-                } else {
-                    for (int i = 0; i < frames; i++) {
-                        float binauralL = hrtfTempBufferL_[i] + hrtfTempBufferL2_[i];
-                        float binauralR = hrtfTempBufferR_[i] + hrtfTempBufferR2_[i];
-
-                        effectsBufferLeft_[i] = effectsBufferLeft_[i] * (1.0f - intensity) + binauralL * intensity;
-                        effectsBufferRight_[i] = effectsBufferRight_[i] * (1.0f - intensity) + binauralR * intensity;
-                    }
-                }
-            }
-        }
-
-        if (stereoWidenerEnabled_.load(std::memory_order_relaxed)) {
-            const float targetWidth = stereoWidenerWidth_.load(std::memory_order_relaxed);
-            const float smoothingCoef = 0.001f;
-
-            for (int i = 0; i < frames; i++) {
-                stereoWidenerWidthSmoothed_ += (targetWidth - stereoWidenerWidthSmoothed_) * smoothingCoef;
-
-                const float left = effectsBufferLeft_[i];
-                const float right = effectsBufferRight_[i];
-
-                const float mid = (left + right) * 0.5f;
-                const float side = (left - right) * 0.5f;
-
-                const float wideSide = side * stereoWidenerWidthSmoothed_;
-
-                float outL = mid + wideSide;
-                float outR = mid - wideSide;
-
-                outL = std::tanh(outL);
-                outR = std::tanh(outR);
-
-                effectsBufferLeft_[i] = outL;
-                effectsBufferRight_[i] = outR;
-            }
-        }
-    }
-
-    void prepareHrtfFilter(int azimuth, int bufferIndex) {
-        const unsigned int taps = mit_hrtf_availability(azimuth, HRTF_ELEVATION, HRTF_SAMPLE_RATE, HRTF_SUBJECT);
-        if (taps == 0) {
-            hrtfInitialized_[bufferIndex] = false;
-            return;
-        }
-
-        int actualAzimuth = azimuth;
-        int actualElevation = HRTF_ELEVATION;
-        std::vector<short> hrtfL(taps);
-        std::vector<short> hrtfR(taps);
-        mit_hrtf_get(&actualAzimuth, &actualElevation, HRTF_SAMPLE_RATE, HRTF_SUBJECT, hrtfL.data(), hrtfR.data());
-
-        std::vector<float> irL(taps);
-        std::vector<float> irR(taps);
-        for (unsigned int i = 0; i < taps; i++) {
-            irL[i] = hrtfL[i] / 32768.0f;
-            irR[i] = hrtfR[i] / 32768.0f;
-        }
-
-        hrtfConvolverL_[bufferIndex].init(PROCESS_BLOCK_FRAMES, irL.data(), taps);
-        hrtfConvolverR_[bufferIndex].init(PROCESS_BLOCK_FRAMES, irR.data(), taps);
-
-        hrtfCurrentAzimuth_[bufferIndex] = azimuth;
-        hrtfInitialized_[bufferIndex] = true;
-    }
-
-    void maybeInitHrtf(int azimuth) {
-        if (!hrtfInitialized_[hrtfActiveBuffer_]) {
-            prepareHrtfFilter(azimuth, hrtfActiveBuffer_);
-            return;
-        }
-
-        if (hrtfCurrentAzimuth_[hrtfActiveBuffer_] != azimuth && !hrtfCrossfading_) {
-            int inactiveBuffer = 1 - hrtfActiveBuffer_;
-            prepareHrtfFilter(azimuth, inactiveBuffer);
-
-            if (hrtfInitialized_[inactiveBuffer]) {
-                hrtfPendingBuffer_ = inactiveBuffer;
-                hrtfCrossfading_ = true;
-                hrtfCrossfadeProgress_ = 0.0f;
-            }
-        }
-    }
-
-    void maybeInitBinauralHrtf(int leftAzimuth, int rightAzimuth) {
-        const int active = hrtfBinauralActiveIndex_;
-
-        if (!hrtfBinauralInitialized_[active]) {
-            initBinauralHrtfToBuffer(leftAzimuth, rightAzimuth, active);
-            return;
-        }
-
-        bool needsUpdate = (hrtfBinauralLeftAzimuth_[active] != leftAzimuth) ||
-                          (hrtfBinauralRightAzimuth_[active] != rightAzimuth);
-
-        if (needsUpdate && !hrtfBinauralCrossfading_) {
-            const int pending = hrtfBinauralPendingIndex_;
-
-            if (initBinauralHrtfToBuffer(leftAzimuth, rightAzimuth, pending)) {
-                hrtfBinauralCrossfading_ = true;
-                hrtfBinauralCrossfadeProgress_ = 0.0f;
-            }
-        }
-    }
-
-    bool initBinauralHrtfToBuffer(int leftAzimuth, int rightAzimuth, int bufferIndex) {
-        bool success = true;
-
-        const unsigned int tapsL = mit_hrtf_availability(leftAzimuth, HRTF_ELEVATION, HRTF_SAMPLE_RATE, HRTF_SUBJECT);
-        if (tapsL > 0) {
-            int actualAz = leftAzimuth, actualEl = HRTF_ELEVATION;
-            std::vector<short> hL(tapsL), hR(tapsL);
-            mit_hrtf_get(&actualAz, &actualEl, HRTF_SAMPLE_RATE, HRTF_SUBJECT, hL.data(), hR.data());
-            std::vector<float> irL(tapsL), irR(tapsL);
-            for (unsigned int i = 0; i < tapsL; i++) {
-                irL[i] = hL[i] / 32768.0f;
-                irR[i] = hR[i] / 32768.0f;
-            }
-            hrtfLeftSpeakerConvolverL_[bufferIndex].init(PROCESS_BLOCK_FRAMES, irL.data(), tapsL);
-            hrtfLeftSpeakerConvolverR_[bufferIndex].init(PROCESS_BLOCK_FRAMES, irR.data(), tapsL);
-        } else {
-            success = false;
-        }
-
-        // Right speaker
-        const unsigned int tapsR = mit_hrtf_availability(rightAzimuth, HRTF_ELEVATION, HRTF_SAMPLE_RATE, HRTF_SUBJECT);
-        if (tapsR > 0) {
-            int actualAz = rightAzimuth, actualEl = HRTF_ELEVATION;
-            std::vector<short> hL(tapsR), hR(tapsR);
-            mit_hrtf_get(&actualAz, &actualEl, HRTF_SAMPLE_RATE, HRTF_SUBJECT, hL.data(), hR.data());
-            std::vector<float> irL(tapsR), irR(tapsR);
-            for (unsigned int i = 0; i < tapsR; i++) {
-                irL[i] = hL[i] / 32768.0f;
-                irR[i] = hR[i] / 32768.0f;
-            }
-            hrtfRightSpeakerConvolverL_[bufferIndex].init(PROCESS_BLOCK_FRAMES, irL.data(), tapsR);
-            hrtfRightSpeakerConvolverR_[bufferIndex].init(PROCESS_BLOCK_FRAMES, irR.data(), tapsR);
-        } else {
-            success = false;
-        }
-
-        if (success) {
-            hrtfBinauralLeftAzimuth_[bufferIndex] = leftAzimuth;
-            hrtfBinauralRightAzimuth_[bufferIndex] = rightAzimuth;
-            hrtfBinauralInitialized_[bufferIndex] = true;
-        }
-
-        return success;
     }
 
     void shortToFloatDeinterleaved(const short* input, int frames) {
@@ -683,77 +355,17 @@ private:
     std::vector<float> effectOutputR_;
 
     std::unique_ptr<signalsmith::basics::ChorusFloat> chorusEffect_;
-    std::unique_ptr<signalsmith::basics::LimiterFloat> limiterEffect_;
     std::unique_ptr<signalsmith::basics::ReverbFloat> reverbEffect_;
 
     std::atomic<bool> chorusEnabled_;
-    std::atomic<bool> limiterEnabled_;
     std::atomic<bool> reverbEnabled_;
 
     std::atomic<bool> eqEnabled_;
-    std::atomic<bool> compressorEnabled_;
-
-    std::atomic<bool> pitchDetectionEnabled_;
-    std::atomic<float> detectedPitch_;
-
-    std::atomic<bool> hrtfEnabled_;
-    std::atomic<float> hrtfIntensity_;
-    std::atomic<int> hrtfAzimuth_;
-
-    fftconvolver::FFTConvolver hrtfConvolverL_[2];
-    fftconvolver::FFTConvolver hrtfConvolverR_[2];
-    int hrtfActiveBuffer_ = 0;
-    int hrtfPendingBuffer_ = -1;
-    bool hrtfInitialized_[2] = {false, false};
-    int hrtfCurrentAzimuth_[2] = {0, 0};
-
-    float hrtfCrossfadeProgress_ = 1.0f;
-    static constexpr float HRTF_CROSSFADE_RATE = 0.02f;
-    bool hrtfCrossfading_ = false;
-
-    std::vector<float> hrtfTempBufferL_;
-    std::vector<float> hrtfTempBufferR_;
-    std::vector<float> hrtfTempBufferL2_;
-    std::vector<float> hrtfTempBufferR2_;
-    std::vector<float> hrtfMonoBuffer_;
-
-    std::vector<float> hrtfPendingTempBufferL_;
-    std::vector<float> hrtfPendingTempBufferR_;
-    std::vector<float> hrtfPendingTempBufferL2_;
-    std::vector<float> hrtfPendingTempBufferR2_;
-
-    BiquadFilter hrtfPresenceFilterL_;
-    BiquadFilter hrtfPresenceFilterR_;
-    BiquadFilter hrtfPresenceFilterL2_;
-    BiquadFilter hrtfPresenceFilterR2_;
-
-    fftconvolver::FFTConvolver hrtfLeftSpeakerConvolverL_[2];
-    fftconvolver::FFTConvolver hrtfLeftSpeakerConvolverR_[2];
-    fftconvolver::FFTConvolver hrtfRightSpeakerConvolverL_[2];
-    fftconvolver::FFTConvolver hrtfRightSpeakerConvolverR_[2];
-
-    int hrtfBinauralActiveIndex_ = 0;
-    int hrtfBinauralPendingIndex_ = 1;
-    bool hrtfBinauralInitialized_[2] = {false, false};
-    int hrtfBinauralLeftAzimuth_[2] = {0, 0};
-    int hrtfBinauralRightAzimuth_[2] = {0, 0};
-
-    bool hrtfBinauralCrossfading_ = false;
-    float hrtfBinauralCrossfadeProgress_ = 0.0f;
-
-    std::atomic<bool> stereoWidenerEnabled_;
-    std::atomic<float> stereoWidenerWidth_;
-    float stereoWidenerWidthSmoothed_ = 1.0f;
 
     std::atomic<float> chorusMix_;
     std::atomic<float> chorusDepthMs_;
     std::atomic<float> chorusDetune_;
     std::atomic<float> chorusStereo_;
-
-    std::atomic<float> limiterInputGainDb_;
-    std::atomic<float> limiterLimitDb_;
-    std::atomic<float> limiterAttackMs_;
-    std::atomic<float> limiterReleaseMs_;
 
     std::atomic<float> reverbDry_;
     std::atomic<float> reverbWet_;
@@ -774,12 +386,13 @@ private:
     std::array<BiquadFilter, 5> eqFiltersL_;
     std::array<BiquadFilter, 5> eqFiltersR_;
 
-    std::atomic<float> compThresholdDb_;
-    std::atomic<float> compRatio_;
-    std::atomic<float> compAttackMs_;
-    std::atomic<float> compReleaseMs_;
-    std::atomic<float> compMakeupGainDb_;
-    float compEnvelope_ = 0.0f;
+    std::atomic<bool> toneFilterEnabled_{false};
+    std::atomic<float> toneFilterLowCutHz_{80.0f};
+    std::atomic<float> toneFilterHighCutHz_{12000.0f};
+    std::atomic<float> toneFilterLowShelfDb_{0.0f};
+    std::atomic<float> toneFilterHighShelfDb_{0.0f};
+    std::array<BiquadFilter, 4> toneFiltersL_;
+    std::array<BiquadFilter, 4> toneFiltersR_;
 };
 
 extern "C" {
@@ -917,33 +530,6 @@ Java_com_example_media_audio_SignalsmithAudioProcessor_nativeSetChorusParams(
 }
 
 JNIEXPORT void JNICALL
-Java_com_example_media_audio_SignalsmithAudioProcessor_nativeSetLimiterEnabled(
-        JNIEnv*,
-        jobject,
-        jlong handle,
-        jboolean enabled) {
-
-    if (handle == 0) return;
-    auto* processor = reinterpret_cast<SignalsmithProcessor*>(handle);
-    processor->setLimiterEnabled(enabled);
-}
-
-JNIEXPORT void JNICALL
-Java_com_example_media_audio_SignalsmithAudioProcessor_nativeSetLimiterParams(
-        JNIEnv*,
-        jobject,
-        jlong handle,
-        jfloat inputGainDb,
-        jfloat limitDb,
-        jfloat attackMs,
-        jfloat releaseMs) {
-
-    if (handle == 0) return;
-    auto* processor = reinterpret_cast<SignalsmithProcessor*>(handle);
-    processor->setLimiterParams(inputGainDb, limitDb, attackMs, releaseMs);
-}
-
-JNIEXPORT void JNICALL
 Java_com_example_media_audio_SignalsmithAudioProcessor_nativeSetReverbEnabled(
         JNIEnv*,
         jobject,
@@ -997,7 +583,7 @@ Java_com_example_media_audio_SignalsmithAudioProcessor_nativeSetEqBand(
 }
 
 JNIEXPORT void JNICALL
-Java_com_example_media_audio_SignalsmithAudioProcessor_nativeSetCompressorEnabled(
+Java_com_example_media_audio_SignalsmithAudioProcessor_nativeSetToneFilterEnabled(
         JNIEnv*,
         jobject,
         jlong handle,
@@ -1005,95 +591,22 @@ Java_com_example_media_audio_SignalsmithAudioProcessor_nativeSetCompressorEnable
 
     if (handle == 0) return;
     auto* processor = reinterpret_cast<SignalsmithProcessor*>(handle);
-    processor->setCompressorEnabled(enabled);
+    processor->setToneFilterEnabled(enabled);
 }
 
 JNIEXPORT void JNICALL
-Java_com_example_media_audio_SignalsmithAudioProcessor_nativeSetCompressorParams(
+Java_com_example_media_audio_SignalsmithAudioProcessor_nativeSetToneFilterParams(
         JNIEnv*,
         jobject,
         jlong handle,
-        jfloat thresholdDb,
-        jfloat ratio,
-        jfloat attackMs,
-        jfloat releaseMs,
-        jfloat makeupGainDb) {
+        jfloat lowCutHz,
+        jfloat highCutHz,
+        jfloat lowShelfDb,
+        jfloat highShelfDb) {
 
     if (handle == 0) return;
     auto* processor = reinterpret_cast<SignalsmithProcessor*>(handle);
-    processor->setCompressorParams(thresholdDb, ratio, attackMs, releaseMs, makeupGainDb);
-}
-
-JNIEXPORT void JNICALL
-Java_com_example_media_audio_SignalsmithAudioProcessor_nativeSetPitchDetectionEnabled(
-        JNIEnv*,
-        jobject,
-        jlong handle,
-        jboolean enabled) {
-
-    if (handle == 0) return;
-    auto* processor = reinterpret_cast<SignalsmithProcessor*>(handle);
-    processor->setPitchDetectionEnabled(enabled);
-}
-
-JNIEXPORT jfloat JNICALL
-Java_com_example_media_audio_SignalsmithAudioProcessor_nativeGetDetectedPitch(
-        JNIEnv*,
-        jobject,
-        jlong handle) {
-
-    if (handle == 0) return 0.0f;
-    auto* processor = reinterpret_cast<SignalsmithProcessor*>(handle);
-    return processor->getDetectedPitch();
-}
-
-JNIEXPORT void JNICALL
-Java_com_example_media_audio_SignalsmithAudioProcessor_nativeSetHrtfEnabled(
-        JNIEnv*,
-        jobject,
-        jlong handle,
-        jboolean enabled) {
-
-    if (handle == 0) return;
-    auto* processor = reinterpret_cast<SignalsmithProcessor*>(handle);
-    processor->setHrtfEnabled(enabled);
-}
-
-JNIEXPORT void JNICALL
-Java_com_example_media_audio_SignalsmithAudioProcessor_nativeSetHrtfParams(
-        JNIEnv*,
-        jobject,
-        jlong handle,
-        jfloat intensity,
-        jint azimuth) {
-
-    if (handle == 0) return;
-    auto* processor = reinterpret_cast<SignalsmithProcessor*>(handle);
-    processor->setHrtfParams(intensity, azimuth);
-}
-
-JNIEXPORT void JNICALL
-Java_com_example_media_audio_SignalsmithAudioProcessor_nativeSetStereoWidenerEnabled(
-        JNIEnv*,
-        jobject,
-        jlong handle,
-        jboolean enabled) {
-
-    if (handle == 0) return;
-    auto* processor = reinterpret_cast<SignalsmithProcessor*>(handle);
-    processor->setStereoWidenerEnabled(enabled);
-}
-
-JNIEXPORT void JNICALL
-Java_com_example_media_audio_SignalsmithAudioProcessor_nativeSetStereoWidenerParams(
-        JNIEnv*,
-        jobject,
-        jlong handle,
-        jfloat width) {
-
-    if (handle == 0) return;
-    auto* processor = reinterpret_cast<SignalsmithProcessor*>(handle);
-    processor->setStereoWidenerParams(width);
+    processor->setToneFilterParams(lowCutHz, highCutHz, lowShelfDb, highShelfDb);
 }
 
 }
