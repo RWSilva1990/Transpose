@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -23,8 +22,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
 import com.example.domain.model.youtube.search.SearchResult
+import com.example.ui.components.image.ThumbnailImage
 import com.example.util.ToastUtil
 import com.example.util.constants.AppColors
 
@@ -45,13 +44,13 @@ fun SearchResultPlaylistItem(
                 .fillMaxWidth()
                 .aspectRatio(16f / 9f)
         ) {
-            AsyncImage(
-                model = playlist.playlist.thumbnailUrl,
+            ThumbnailImage(
+                url = playlist.playlist.thumbnailUrl,
                 contentDescription = "Playlist Thumbnail",
-                contentScale = ContentScale.Crop,
+                width = 330.dp,
+                height = 186.dp,
                 modifier = Modifier
-                    .fillMaxSize()
-                    .clip(RoundedCornerShape(8.dp))
+                    .clip(RoundedCornerShape(8.dp)),
             )
             Box(
                 modifier = Modifier
