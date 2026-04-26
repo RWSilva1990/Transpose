@@ -10,6 +10,7 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SheetValue
@@ -342,7 +343,7 @@ fun MainScreen(
                     HomeNavHost(
                         navController = homeNavController,
                         modifier = Modifier
-                            .fillMaxSize()
+                            .fillMaxWidth()
                             .background(Color.White)
                             .nestedScroll(nestedScrollConnection)
                             .dynamicBottomPadding(
@@ -360,7 +361,7 @@ fun MainScreen(
                     LibraryNavHost(
                         navController = libraryNavController,
                         modifier = Modifier
-                            .fillMaxSize()
+                            .fillMaxWidth()
                             .background(Color.White)
                             .nestedScroll(nestedScrollConnection)
                             .dynamicBottomPadding(
@@ -382,7 +383,7 @@ fun MainScreen(
                     ConvertNavHost(
                         navController = convertNavController,
                         modifier = Modifier
-                            .fillMaxSize()
+                            .fillMaxWidth()
                             .background(Color.White)
                             .nestedScroll(nestedScrollConnection)
                             .dynamicBottomPadding(

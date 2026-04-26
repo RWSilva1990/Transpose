@@ -12,6 +12,7 @@
 #include "signalsmith/signalsmith-stretch.h"
 
 #include "signalsmith-basics/chorus.h"
+#include "signalsmith-basics/limiter.h"
 #include "signalsmith-basics/reverb.h"
 #include "signalsmith/basics/modules/dsp/filters.h"
 
@@ -41,10 +42,16 @@ public:
         , reverbWet_(0.3f)
         , reverbRoomMs_(50.0f)
         , reverbDecaySec_(2.0f)
+        , reverbEarly_(1.5f)
+        , reverbDetune_(2.0f)
+        , reverbLowCutHz_(80.0f)
+        , reverbHighCutHz_(12000.0f)
+        , reverbLowDampRate_(1.5f)
+        , reverbHighDampRate_(2.5f)
         , eqBand1Freq_(60.0f)
-        , eqBand1Gain_(0.0f)
+        , eqBand1Gain_(6.0f)
         , eqBand2Freq_(250.0f)
-        , eqBand2Gain_(0.0f)
+        , eqBand2Gain_(4.0f)
         , eqBand3Freq_(1000.0f)
         , eqBand3Gain_(0.0f)
         , eqBand4Freq_(4000.0f)
@@ -71,6 +78,14 @@ public:
         reverbEffect_ = std::make_unique<signalsmith::basics::ReverbFloat>(200.0f, 2.0f);
         reverbEffect_->configure(sampleRate_, PROCESS_BLOCK_FRAMES, channelCount_ == 2 ? 2 : 1);
         reverbEffect_->reset();
+
+        outputLimiter_ = std::make_unique<signalsmith::basics::LimiterFloat>(50.0f);
+        outputLimiter_->configure(sampleRate_, PROCESS_BLOCK_FRAMES, channelCount_);
+        outputLimiter_->reset();
+        outputLimiter_->inputGain = 1.0f;
+        outputLimiter_->outputLimit = 0.95f;
+        outputLimiter_->attackMs = 10.0f;
+        outputLimiter_->releaseMs = 50.0f;
 
         LOGD("Created: sampleRate=%d, channels=%d, inputLatency=%d, outputLatency=%d",
              sampleRate_, channelCount_, stretch_.inputLatency(), stretch_.outputLatency());
@@ -132,11 +147,22 @@ public:
     }
 
     void setReverbEnabled(bool enabled) { reverbEnabled_.store(enabled, std::memory_order_relaxed); }
-    void setReverbParams(float dry, float wet, float roomMs, float decaySec) {
-        reverbDry_.store(dry, std::memory_order_relaxed);
-        reverbWet_.store(wet, std::memory_order_relaxed);
-        reverbRoomMs_.store(roomMs, std::memory_order_relaxed);
-        reverbDecaySec_.store(decaySec, std::memory_order_relaxed);
+    void setReverbParams(
+        float dry, float wet, float roomMs, float decaySec,
+        float early, float detune,
+        float lowCutHz, float highCutHz,
+        float lowDampRate, float highDampRate
+    ) {
+        reverbDry_.store(std::max(0.0f, dry), std::memory_order_relaxed);
+        reverbWet_.store(std::max(0.0f, wet), std::memory_order_relaxed);
+        reverbRoomMs_.store(std::max(0.0f, roomMs), std::memory_order_relaxed);
+        reverbDecaySec_.store(std::max(0.0f, decaySec), std::memory_order_relaxed);
+        reverbEarly_.store(std::max(0.0f, early), std::memory_order_relaxed);
+        reverbDetune_.store(std::max(0.0f, detune), std::memory_order_relaxed);
+        reverbLowCutHz_.store(std::clamp(lowCutHz, 10.0f, 500.0f), std::memory_order_relaxed);
+        reverbHighCutHz_.store(std::clamp(highCutHz, 1000.0f, 20000.0f), std::memory_order_relaxed);
+        reverbLowDampRate_.store(std::max(0.0f, lowDampRate), std::memory_order_relaxed);
+        reverbHighDampRate_.store(std::max(0.0f, highDampRate), std::memory_order_relaxed);
     }
 
     void setEqEnabled(bool enabled) {
@@ -226,6 +252,12 @@ private:
             reverbEffect_->wet = reverbWet_.load(std::memory_order_relaxed);
             reverbEffect_->roomMs = reverbRoomMs_.load(std::memory_order_relaxed);
             reverbEffect_->rt20 = reverbDecaySec_.load(std::memory_order_relaxed);
+            reverbEffect_->early = reverbEarly_.load(std::memory_order_relaxed);
+            reverbEffect_->detune = reverbDetune_.load(std::memory_order_relaxed);
+            reverbEffect_->lowCutHz = reverbLowCutHz_.load(std::memory_order_relaxed);
+            reverbEffect_->highCutHz = reverbHighCutHz_.load(std::memory_order_relaxed);
+            reverbEffect_->lowDampRate = reverbLowDampRate_.load(std::memory_order_relaxed);
+            reverbEffect_->highDampRate = reverbHighDampRate_.load(std::memory_order_relaxed);
 
             reverbEffect_->process(effectInPtrs, effectOutPtrs, frames);
             std::memcpy(effectsBufferLeft_.data(), effectOutputL_.data(), static_cast<size_t>(frames) * sizeof(float));
@@ -300,6 +332,12 @@ private:
                 effectsBufferRight_[i] = sampleR;
             }
         }
+
+        if (outputLimiter_) {
+            outputLimiter_->process(effectInPtrs, effectOutPtrs, frames);
+            std::memcpy(effectsBufferLeft_.data(), effectOutputL_.data(), static_cast<size_t>(frames) * sizeof(float));
+            std::memcpy(effectsBufferRight_.data(), effectOutputR_.data(), static_cast<size_t>(frames) * sizeof(float));
+        }
     }
 
     void shortToFloatDeinterleaved(const short* input, int frames) {
@@ -356,6 +394,7 @@ private:
 
     std::unique_ptr<signalsmith::basics::ChorusFloat> chorusEffect_;
     std::unique_ptr<signalsmith::basics::ReverbFloat> reverbEffect_;
+    std::unique_ptr<signalsmith::basics::LimiterFloat> outputLimiter_;
 
     std::atomic<bool> chorusEnabled_;
     std::atomic<bool> reverbEnabled_;
@@ -369,6 +408,12 @@ private:
 
     std::atomic<float> reverbDry_;
     std::atomic<float> reverbWet_;
+    std::atomic<float> reverbEarly_;
+    std::atomic<float> reverbDetune_;
+    std::atomic<float> reverbLowCutHz_;
+    std::atomic<float> reverbHighCutHz_;
+    std::atomic<float> reverbLowDampRate_;
+    std::atomic<float> reverbHighDampRate_;
     std::atomic<float> reverbRoomMs_;
     std::atomic<float> reverbDecaySec_;
 
@@ -387,10 +432,10 @@ private:
     std::array<BiquadFilter, 5> eqFiltersR_;
 
     std::atomic<bool> toneFilterEnabled_{false};
-    std::atomic<float> toneFilterLowCutHz_{80.0f};
+    std::atomic<float> toneFilterLowCutHz_{700.0f};
     std::atomic<float> toneFilterHighCutHz_{12000.0f};
-    std::atomic<float> toneFilterLowShelfDb_{0.0f};
-    std::atomic<float> toneFilterHighShelfDb_{0.0f};
+    std::atomic<float> toneFilterLowShelfDb_{2.5f};
+    std::atomic<float> toneFilterHighShelfDb_{-2.5f};
     std::array<BiquadFilter, 4> toneFiltersL_;
     std::array<BiquadFilter, 4> toneFiltersR_;
 };
@@ -549,11 +594,17 @@ Java_com_example_media_audio_SignalsmithAudioProcessor_nativeSetReverbParams(
         jfloat dry,
         jfloat wet,
         jfloat roomMs,
-        jfloat decaySec) {
+        jfloat decaySec,
+        jfloat early,
+        jfloat detune,
+        jfloat lowCutHz,
+        jfloat highCutHz,
+        jfloat lowDampRate,
+        jfloat highDampRate) {
 
     if (handle == 0) return;
     auto* processor = reinterpret_cast<SignalsmithProcessor*>(handle);
-    processor->setReverbParams(dry, wet, roomMs, decaySec);
+    processor->setReverbParams(dry, wet, roomMs, decaySec, early, detune, lowCutHz, highCutHz, lowDampRate, highDampRate);
 }
 
 JNIEXPORT void JNICALL

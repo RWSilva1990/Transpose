@@ -31,6 +31,12 @@ private val DarkColorScheme = darkColorScheme(
     surfaceVariant = AppColors.CharcoalGray,
     onSurfaceVariant = AppColors.DrawerLine,
 
+    surfaceContainerLowest = Color(0xFF0F1729),
+    surfaceContainerLow = Color(0xFF141B30),
+    surfaceContainer = Color(0xFF182039),
+    surfaceContainerHigh = Color(0xFF1A2238),
+    surfaceContainerHighest = Color(0xFF222B45),
+
     outline = AppColors.DrawerLine,
     outlineVariant = AppColors.CharcoalGray,
 
@@ -60,6 +66,12 @@ private val LightColorScheme = lightColorScheme(
 
     surfaceVariant = AppColors.OutsideBackground,
     onSurfaceVariant = AppColors.DescriptionColor,
+
+    surfaceContainerLowest = Color(0xFFFFFFFF),
+    surfaceContainerLow = Color(0xFFF5F8FC),
+    surfaceContainer = Color(0xFFEFF3F9),
+    surfaceContainerHigh = Color(0xFFE8EEF7),
+    surfaceContainerHighest = Color(0xFFE0E8F4),
 
     outline = AppColors.DrawerLine,
     outlineVariant = AppColors.LightGray,

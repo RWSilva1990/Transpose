@@ -1,9 +1,10 @@
 package com.example.convert.audio_edit
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -20,8 +21,8 @@ import com.example.convert.audio_edit.components.signalsmith.EqSection
 import com.example.convert.audio_edit.components.signalsmith.SignalsmithReverbSection
 import com.example.convert.audio_edit.components.signalsmith.ToneFilterSection
 import com.example.convert.audio_edit.components.tempo.TempoSection
-import com.example.transpose.core.ui.R as CoreUiR
 import kotlinx.coroutines.launch
+import com.example.transpose.core.ui.R as CoreUiR
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -43,7 +44,9 @@ fun ConvertAudioEditScreen(
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        state = lazyListState
+        state = lazyListState,
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         item(key = "pitch") {
             PitchSection(
@@ -53,17 +56,6 @@ fun ConvertAudioEditScreen(
 
         item(key = "tempo") {
             TempoSection(
-                convertAudioEditViewModel = convertAudioEditViewModel
-            )
-        }
-
-        item(key = "spacer1") {
-            Spacer(modifier = Modifier.height(10.dp))
-        }
-
-        item(key = "chorus") {
-            ChorusSection(
-                title = stringResource(id = CoreUiR.string.chorus_text),
                 convertAudioEditViewModel = convertAudioEditViewModel
             )
         }
@@ -82,10 +74,6 @@ fun ConvertAudioEditScreen(
             )
         }
 
-        item(key = "spacer4") {
-            Spacer(modifier = Modifier.height(10.dp))
-        }
-
         item(key = "eq") {
             EqSection(
                 title = stringResource(id = CoreUiR.string.eq_title),
@@ -93,8 +81,12 @@ fun ConvertAudioEditScreen(
             )
         }
 
-        item(key = "spacer6") {
-            Spacer(modifier = Modifier.height(10.dp))
+        item(key = "chorus") {
+            ChorusSection(
+                title = stringResource(id = CoreUiR.string.chorus_text),
+                convertAudioEditViewModel = convertAudioEditViewModel
+            )
         }
     }
 }
+

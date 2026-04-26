@@ -1,14 +1,11 @@
 package com.example.convert.audio_edit.components.signalsmith
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -32,7 +29,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.convert.audio_edit.ConvertAudioEditViewModel
-import com.example.convert.audio_edit.components.ExpandableSectionTitle
+import com.example.convert.audio_edit.components.common.EffectCard
+import com.example.convert.audio_edit.components.common.EffectCardHeader
 import com.example.media.audio_effect.data.filter.ToneFilterPresets
 import com.example.transpose.core.ui.R
 
@@ -49,64 +47,90 @@ fun ToneFilterSection(
     val highCutHz by convertAudioEditViewModel.toneFilterHighCutHz.collectAsStateWithLifecycle()
     val lowShelfDb by convertAudioEditViewModel.toneFilterLowShelfDb.collectAsStateWithLifecycle()
     val highShelfDb by convertAudioEditViewModel.toneFilterHighShelfDb.collectAsStateWithLifecycle()
-    var isExpanded by rememberSaveable { mutableStateOf(false) }
 
+    ToneFilterSectionContent(
+        title = title,
+        isEnabled = isEnabled,
+        currentPreset = currentPreset,
+        lowCutHz = lowCutHz,
+        highCutHz = highCutHz,
+        lowShelfDb = lowShelfDb,
+        highShelfDb = highShelfDb,
+        onToggleEnable = { convertAudioEditViewModel.updateIsToneFilterEnabled() },
+        onResetAll = { convertAudioEditViewModel.initToneFilterValues() },
+        onPresetSelected = { convertAudioEditViewModel.updateToneFilterPreset(it) },
+        onLowCutChange = { convertAudioEditViewModel.updateToneFilterLowCutHz(it) },
+        onHighCutChange = { convertAudioEditViewModel.updateToneFilterHighCutHz(it) },
+        onLowShelfChange = { convertAudioEditViewModel.updateToneFilterLowShelfDb(it) },
+        onHighShelfChange = { convertAudioEditViewModel.updateToneFilterHighShelfDb(it) },
+        onCommitParams = { convertAudioEditViewModel.setToneFilterParams() },
+        onExpandChanged = onExpandChanged,
+        modifier = modifier,
+    )
+}
+
+@Composable
+private fun ToneFilterSectionContent(
+    title: String,
+    isEnabled: Boolean,
+    currentPreset: Int,
+    lowCutHz: Float,
+    highCutHz: Float,
+    lowShelfDb: Float,
+    highShelfDb: Float,
+    onToggleEnable: () -> Unit,
+    onResetAll: () -> Unit,
+    onPresetSelected: (Int) -> Unit,
+    onLowCutChange: (Float) -> Unit,
+    onHighCutChange: (Float) -> Unit,
+    onLowShelfChange: (Float) -> Unit,
+    onHighShelfChange: (Float) -> Unit,
+    onCommitParams: () -> Unit,
+    onExpandChanged: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var isExpanded by rememberSaveable { mutableStateOf(false) }
     val isKorean = LocalConfiguration.current.locales[0].language == "ko"
 
-    Column(
-        modifier = modifier
-            .clickable {
-                isExpanded = !isExpanded
-                onExpandChanged(isExpanded)
-            }
-            .fillMaxWidth()
-    ) {
-        ExpandableSectionTitle(
-            isExpanded = isExpanded,
-            title = title,
-            isEnabled = isEnabled,
-            onSwitchChange = { convertAudioEditViewModel.updateIsToneFilterEnabled() },
-            onInitButton = { convertAudioEditViewModel.initToneFilterValues() }
-        )
+    val activePreset = ToneFilterPresets.getPreset(currentPreset)
+    val presetName = if (isKorean) activePreset.nameKo else activePreset.name
+    val toggle = {
+        isExpanded = !isExpanded
+        onExpandChanged(isExpanded)
+    }
 
-        AnimatedVisibility(
-            modifier = Modifier
-                .background(Color.White)
-                .fillMaxSize(),
-            visible = isExpanded,
-        ) {
-            Column(modifier = Modifier.fillMaxWidth()) {
+    EffectCard(modifier = modifier, onClick = toggle) {
+        EffectCardHeader(
+            title = title,
+            presetName = presetName,
+            isExpanded = isExpanded,
+            isEnabled = isEnabled,
+            onToggleExpand = toggle,
+            onToggleEnable = { onToggleEnable() },
+            onReset = onResetAll,
+        )
+        if (isExpanded) {
+            Column(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
+                Text(
+                    text = if (isKorean) activePreset.descriptionKo else activePreset.description,
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                )
                 ToneFilterPresetSection(
                     currentPreset = currentPreset,
                     isKorean = isKorean,
-                    onPresetSelected = { convertAudioEditViewModel.updateToneFilterPreset(it) }
+                    onPresetSelected = onPresetSelected
                 )
-
-                if (currentPreset >= 0) {
-                    val preset = ToneFilterPresets.getPreset(currentPreset)
-                    Text(
-                        text = if (isKorean) "현재: ${preset.nameKo}" else "Current: ${preset.name}",
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-                    )
-                } else {
-                    Text(
-                        text = if (isKorean) "현재: 사용자 정의" else "Current: Custom",
-                        fontSize = 12.sp,
-                        color = Color.Gray,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-                    )
-                }
 
                 FloatSliderSection(
                     title = stringResource(id = R.string.tone_filter_low_cut),
                     displayValueText = String.format("%.0f Hz", lowCutHz),
-                    onValueChange = { convertAudioEditViewModel.updateToneFilterLowCutHz(it) },
-                    onValueChangeFinished = { convertAudioEditViewModel.setToneFilterParams() },
+                    onValueChange = onLowCutChange,
+                    onValueChangeFinished = onCommitParams,
                     onReset = {
-                        convertAudioEditViewModel.updateToneFilterLowCutHz(20f)
-                        convertAudioEditViewModel.setToneFilterParams()
+                        onLowCutChange(activePreset.lowCutHz)
+                        onCommitParams()
                     },
                     currentValue = lowCutHz,
                     valueRange = 20f..1200f
@@ -115,11 +139,11 @@ fun ToneFilterSection(
                 FloatSliderSection(
                     title = stringResource(id = R.string.tone_filter_high_cut),
                     displayValueText = String.format("%.0f Hz", highCutHz),
-                    onValueChange = { convertAudioEditViewModel.updateToneFilterHighCutHz(it) },
-                    onValueChangeFinished = { convertAudioEditViewModel.setToneFilterParams() },
+                    onValueChange = onHighCutChange,
+                    onValueChangeFinished = onCommitParams,
                     onReset = {
-                        convertAudioEditViewModel.updateToneFilterHighCutHz(20000f)
-                        convertAudioEditViewModel.setToneFilterParams()
+                        onHighCutChange(activePreset.highCutHz)
+                        onCommitParams()
                     },
                     currentValue = highCutHz,
                     valueRange = 200f..20000f
@@ -128,11 +152,11 @@ fun ToneFilterSection(
                 FloatSliderSection(
                     title = stringResource(id = R.string.tone_filter_low_shelf),
                     displayValueText = String.format("%.1f dB", lowShelfDb),
-                    onValueChange = { convertAudioEditViewModel.updateToneFilterLowShelfDb(it) },
-                    onValueChangeFinished = { convertAudioEditViewModel.setToneFilterParams() },
+                    onValueChange = onLowShelfChange,
+                    onValueChangeFinished = onCommitParams,
                     onReset = {
-                        convertAudioEditViewModel.updateToneFilterLowShelfDb(0f)
-                        convertAudioEditViewModel.setToneFilterParams()
+                        onLowShelfChange(activePreset.lowShelfDb)
+                        onCommitParams()
                     },
                     currentValue = lowShelfDb,
                     valueRange = -12f..12f
@@ -141,11 +165,11 @@ fun ToneFilterSection(
                 FloatSliderSection(
                     title = stringResource(id = R.string.tone_filter_high_shelf),
                     displayValueText = String.format("%.1f dB", highShelfDb),
-                    onValueChange = { convertAudioEditViewModel.updateToneFilterHighShelfDb(it) },
-                    onValueChangeFinished = { convertAudioEditViewModel.setToneFilterParams() },
+                    onValueChange = onHighShelfChange,
+                    onValueChangeFinished = onCommitParams,
                     onReset = {
-                        convertAudioEditViewModel.updateToneFilterHighShelfDb(0f)
-                        convertAudioEditViewModel.setToneFilterParams()
+                        onHighShelfChange(activePreset.highShelfDb)
+                        onCommitParams()
                     },
                     currentValue = highShelfDb,
                     valueRange = -12f..12f

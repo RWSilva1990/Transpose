@@ -209,17 +209,23 @@
     <string name="settings_permission_message">Please allow storage access permission in settings.</string>
     <string name="go_to_settings_button">Go to Settings</string>
 
-    <string name="chorus_text">Chorus · Dreamy Layers</string>
+    <string name="chorus_text">Chorus</string>
     <string name="chorus_mix">Layer Blend (Mix)</string>
     <string name="chorus_depth">Wobble Depth (Depth)</string>
     <string name="chorus_detune">Detune Amount (Detune)</string>
     <string name="chorus_stereo">Stereo Spread (Stereo Width)</string>
 
-    <string name="signalsmith_reverb_text">Reverb Pro · Space Designer</string>
+    <string name="signalsmith_reverb_text">Reverb</string>
     <string name="reverb_dry">Direct Signal (Dry)</string>
     <string name="reverb_wet">Echo Level (Wet)</string>
     <string name="reverb_room_size">Space Size (Room Size)</string>
     <string name="reverb_decay">Tail Length (Decay)</string>
+    <string name="reverb_early">Early Reflections</string>
+    <string name="reverb_detune">Detune</string>
+    <string name="reverb_low_cut">Low Cut (Hz)</string>
+    <string name="reverb_high_cut">High Cut (Hz)</string>
+    <string name="reverb_low_damp">Low Damp Rate</string>
+    <string name="reverb_high_damp">High Damp Rate</string>
 
     <!-- Video Quality -->
     <string name="video_quality_auto">Auto</string>
@@ -257,7 +263,7 @@
     <string name="patch_description_5">The issue with infinite loading on the YouTube page has been successfully resolved. \n\nNow, all functionalities work smoothly without the need to disable the video preview settings. \n\nAdditionally, videos can be played easily through the preview feature without having to click on them directly.</string>
     <string name="patch_description_6">Resolved an issue causing infinite loading \nwhen returning to the YouTube page from another page or home screen.</string>
 
-    <string name="eq_title">5-Band EQ · Sculpt Tone</string>
+    <string name="eq_title">EQ</string>
     <string name="eq_band_60hz">60 Hz · Bass Lift (Low Shelf)</string>
     <string name="eq_band_250hz">250 Hz · Warmth</string>
     <string name="eq_band_1khz">1 kHz · Vocal Presence</string>
@@ -289,7 +295,7 @@
     <string name="decimator_bitcrush">Bit Depth (Bit Crush)</string>
     <string name="decimator_downsample">Sample Rate (Downsample)</string>
 
-    <string name="tone_filter_title">Tone Filter</string>
+    <string name="tone_filter_title">Filter</string>
     <string name="tone_filter_description">Shape overall tonal character with low/high cut and shelf filters</string>
     <string name="tone_filter_low_cut">Low Cut</string>
     <string name="tone_filter_high_cut">High Cut</string>

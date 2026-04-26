@@ -57,15 +57,21 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
 
     private var reverbEnabled: Boolean = false
     private var reverbDry: Float = 1.0f
-    private var reverbWet: Float = 0.3f
-    private var reverbRoomMs: Float = 50.0f
-    private var reverbDecaySec: Float = 2.0f
+    private var reverbWet: Float = 0.35f
+    private var reverbRoomMs: Float = 80.0f
+    private var reverbDecaySec: Float = 1.0f
+    private var reverbEarly: Float = 1.0f
+    private var reverbDetune: Float = 2.0f
+    private var reverbLowCutHz: Float = 80f
+    private var reverbHighCutHz: Float = 12000f
+    private var reverbLowDampRate: Float = 1.6f
+    private var reverbHighDampRate: Float = 2.5f
 
     private var eqEnabled: Boolean = false
     private var eqBand1Freq: Float = 60.0f
-    private var eqBand1Gain: Float = 0.0f
+    private var eqBand1Gain: Float = 6.0f
     private var eqBand2Freq: Float = 250.0f
-    private var eqBand2Gain: Float = 0.0f
+    private var eqBand2Gain: Float = 4.0f
     private var eqBand3Freq: Float = 1000.0f
     private var eqBand3Gain: Float = 0.0f
     private var eqBand4Freq: Float = 4000.0f
@@ -74,10 +80,10 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
     private var eqBand5Gain: Float = 0.0f
 
     private var isToneFilterActive: Boolean = false
-    private var toneFilterLowCutHz: Float = 20f
-    private var toneFilterHighCutHz: Float = 20000f
-    private var toneFilterLowShelfDb: Float = 0f
-    private var toneFilterHighShelfDb: Float = 0f
+    private var toneFilterLowCutHz: Float = 700f
+    private var toneFilterHighCutHz: Float = 12000f
+    private var toneFilterLowShelfDb: Float = 2.5f
+    private var toneFilterHighShelfDb: Float = -2.5f
 
     fun setPitchSemitones(semitones: Float) {
         _pitchSemitones.value = semitones.coerceIn(-24f, 24f)
@@ -152,14 +158,29 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
         }
     }
 
-    fun setReverbParams(dry: Float, wet: Float, roomMs: Float, decaySec: Float) {
+    fun setReverbParams(
+        dry: Float, wet: Float, roomMs: Float, decaySec: Float,
+        early: Float, detune: Float,
+        lowCutHz: Float, highCutHz: Float,
+        lowDampRate: Float, highDampRate: Float
+    ) {
+        if (nativeHandle != 0L) {
+            nativeSetReverbParams(
+                nativeHandle,
+                dry, wet, roomMs, decaySec,
+                early, detune, lowCutHz, highCutHz, lowDampRate, highDampRate
+            )
+        }
         reverbDry = dry
         reverbWet = wet
         reverbRoomMs = roomMs
         reverbDecaySec = decaySec
-        if (nativeHandle != 0L) {
-            nativeSetReverbParams(nativeHandle, dry, wet, roomMs, decaySec)
-        }
+        reverbEarly = early
+        reverbDetune = detune
+        reverbLowCutHz = lowCutHz
+        reverbHighCutHz = highCutHz
+        reverbLowDampRate = lowDampRate
+        reverbHighDampRate = highDampRate
     }
 
     fun setEqEnabled(enabled: Boolean) {
@@ -246,7 +267,12 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
             nativeSetChorusParams(nativeHandle, chorusMix, chorusDepthMs, chorusDetune, chorusStereo)
 
             nativeSetReverbEnabled(nativeHandle, reverbEnabled)
-            nativeSetReverbParams(nativeHandle, reverbDry, reverbWet, reverbRoomMs, reverbDecaySec)
+            nativeSetReverbParams(
+                nativeHandle,
+                reverbDry, reverbWet, reverbRoomMs, reverbDecaySec,
+                reverbEarly, reverbDetune, reverbLowCutHz, reverbHighCutHz,
+                reverbLowDampRate, reverbHighDampRate
+            )
 
             nativeSetEqEnabled(nativeHandle, eqEnabled)
             nativeSetEqBand(nativeHandle, 0, eqBand1Freq, eqBand1Gain)
@@ -446,10 +472,10 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
 
     private external fun nativeSetReverbParams(
         handle: Long,
-        dry: Float,
-        wet: Float,
-        roomMs: Float,
-        decaySec: Float
+        dry: Float, wet: Float, roomMs: Float, decaySec: Float,
+        early: Float, detune: Float,
+        lowCutHz: Float, highCutHz: Float,
+        lowDampRate: Float, highDampRate: Float
     )
 
     private external fun nativeSetEqEnabled(handle: Long, enabled: Boolean)

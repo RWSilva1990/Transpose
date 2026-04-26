@@ -53,12 +53,24 @@ class ConvertAudioEditViewModel @Inject constructor(
     val signalsmithReverbWet = audioEffectsManager.signalsmithReverbWet
     val signalsmithReverbRoomMs = audioEffectsManager.signalsmithReverbRoomMs
     val signalsmithReverbDecaySec = audioEffectsManager.signalsmithReverbDecaySec
+    val signalsmithReverbEarly = audioEffectsManager.signalsmithReverbEarly
+    val signalsmithReverbDetune = audioEffectsManager.signalsmithReverbDetune
+    val signalsmithReverbLowCutHz = audioEffectsManager.signalsmithReverbLowCutHz
+    val signalsmithReverbHighCutHz = audioEffectsManager.signalsmithReverbHighCutHz
+    val signalsmithReverbLowDampRate = audioEffectsManager.signalsmithReverbLowDampRate
+    val signalsmithReverbHighDampRate = audioEffectsManager.signalsmithReverbHighDampRate
     fun updateIsSignalsmithReverbEnabled() = audioEffectsManager.updateIsSignalsmithReverbEnabled()
     fun updateSignalsmithReverbPreset(presetIndex: Int) = audioEffectsManager.updateSignalsmithReverbPreset(presetIndex)
     fun updateSignalsmithReverbDry(value: Float) = audioEffectsManager.updateSignalsmithReverbDry(value)
     fun updateSignalsmithReverbWet(value: Float) = audioEffectsManager.updateSignalsmithReverbWet(value)
     fun updateSignalsmithReverbRoomMs(value: Float) = audioEffectsManager.updateSignalsmithReverbRoomMs(value)
     fun updateSignalsmithReverbDecaySec(value: Float) = audioEffectsManager.updateSignalsmithReverbDecaySec(value)
+    fun updateSignalsmithReverbEarly(value: Float) = audioEffectsManager.updateSignalsmithReverbEarly(value)
+    fun updateSignalsmithReverbDetune(value: Float) = audioEffectsManager.updateSignalsmithReverbDetune(value)
+    fun updateSignalsmithReverbLowCutHz(value: Float) = audioEffectsManager.updateSignalsmithReverbLowCutHz(value)
+    fun updateSignalsmithReverbHighCutHz(value: Float) = audioEffectsManager.updateSignalsmithReverbHighCutHz(value)
+    fun updateSignalsmithReverbLowDampRate(value: Float) = audioEffectsManager.updateSignalsmithReverbLowDampRate(value)
+    fun updateSignalsmithReverbHighDampRate(value: Float) = audioEffectsManager.updateSignalsmithReverbHighDampRate(value)
     fun setSignalsmithReverbParams() = audioEffectsManager.setSignalsmithReverbParams()
     fun initSignalsmithReverbValues() = audioEffectsManager.initSignalsmithReverbValues()
 
