@@ -1,9 +1,9 @@
 package com.example.convert.audio_edit
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -17,12 +17,12 @@ import androidx.compose.ui.unit.dp
 import com.example.convert.audio_edit.components.pitch.PitchSection
 import com.example.convert.audio_edit.components.signalsmith.ChorusSection
 import com.example.convert.audio_edit.components.signalsmith.EqSection
-import com.example.convert.audio_edit.components.signalsmith.LimiterSection
 import com.example.convert.audio_edit.components.signalsmith.SignalsmithReverbSection
+import com.example.convert.audio_edit.components.signalsmith.ToneFilterSection
 import com.example.convert.audio_edit.components.signalsmith.VocalRemovalSection
 import com.example.convert.audio_edit.components.tempo.TempoSection
-import com.example.transpose.core.ui.R as CoreUiR
 import kotlinx.coroutines.launch
+import com.example.transpose.core.ui.R as CoreUiR
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -44,9 +44,10 @@ fun ConvertAudioEditScreen(
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        state = lazyListState
+        state = lazyListState,
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        // Pitch & Tempo (always visible, no expand)
         item(key = "pitch") {
             PitchSection(
                 convertAudioEditViewModel = convertAudioEditViewModel
@@ -59,33 +60,9 @@ fun ConvertAudioEditScreen(
             )
         }
 
-        item(key = "spacer1") {
-            Spacer(modifier = Modifier.height(10.dp))
-        }
-
-        // Vocal Removal (AI)
         item(key = "vocal_removal") {
             VocalRemovalSection(
                 title = stringResource(id = CoreUiR.string.vocal_removal_text),
-                convertAudioEditViewModel = convertAudioEditViewModel
-            )
-        }
-
-        item(key = "spacer_vocal") {
-            Spacer(modifier = Modifier.height(10.dp))
-        }
-
-        // Signalsmith Effects - Group 1
-        item(key = "chorus") {
-            ChorusSection(
-                title = stringResource(id = CoreUiR.string.chorus_text),
-                convertAudioEditViewModel = convertAudioEditViewModel
-            )
-        }
-
-        item(key = "limiter") {
-            LimiterSection(
-                title = stringResource(id = CoreUiR.string.limiter_text),
                 convertAudioEditViewModel = convertAudioEditViewModel
             )
         }
@@ -97,11 +74,13 @@ fun ConvertAudioEditScreen(
             )
         }
 
-        item(key = "spacer4") {
-            Spacer(modifier = Modifier.height(10.dp))
+        item(key = "tone_filter") {
+            ToneFilterSection(
+                title = stringResource(id = CoreUiR.string.tone_filter_title),
+                convertAudioEditViewModel = convertAudioEditViewModel
+            )
         }
 
-        // Signalsmith Effects - Group 2
         item(key = "eq") {
             EqSection(
                 title = stringResource(id = CoreUiR.string.eq_title),
@@ -109,13 +88,11 @@ fun ConvertAudioEditScreen(
             )
         }
 
-        item(key = "spacer5") {
-            Spacer(modifier = Modifier.height(10.dp))
-        }
-
-        // Bottom padding for BottomNavigation
-        item(key = "spacer6") {
-            Spacer(modifier = Modifier.height(10.dp))
+        item(key = "chorus") {
+            ChorusSection(
+                title = stringResource(id = CoreUiR.string.chorus_text),
+                convertAudioEditViewModel = convertAudioEditViewModel
+            )
         }
     }
 }

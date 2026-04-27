@@ -10,9 +10,8 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.ui.layout.layout
-import com.example.main.components.bottomsheet.GraphicsLayerConstants
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.TopAppBarDefaults
@@ -20,8 +19,6 @@ import androidx.compose.material3.rememberStandardBottomSheetState
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.SideEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -36,14 +33,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.unit.Velocity
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.util.trace
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.convert.navigation.ConvertNavHost
@@ -57,13 +55,12 @@ import com.example.main.components.appbar.SearchBarState
 import com.example.main.components.bottom_navigation.BottomNavigationBar
 import com.example.main.components.bottom_navigation.MainTab
 import com.example.main.components.bottomsheet.PlayerBottomSheetScaffold
+import com.example.ui.theme.blendColors
 import com.example.util.Logger
 import com.example.util.ToastUtil
-import com.example.ui.theme.blendColors
 import com.example.util.constants.AppColors
 import com.google.accompanist.systemuicontroller.rememberSystemUiController
 import kotlinx.coroutines.launch
-import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -73,11 +70,13 @@ fun MainScreen(
 
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
-    val updateDialogState by mainViewModel.updateDialogState.collectAsState()
-    val localSearchQuery by mainViewModel.localSearchQuery.collectAsState()
-    val isLocalSearchActive by mainViewModel.isLocalSearchActive.collectAsState()
+    val updateDialogState by mainViewModel.updateDialogState.collectAsStateWithLifecycle()
+    val localSearchQuery by mainViewModel.localSearchQuery.collectAsStateWithLifecycle()
+    val isLocalSearchActive by mainViewModel.isLocalSearchActive.collectAsStateWithLifecycle()
+    val searchQuery by mainViewModel.searchQuery.collectAsStateWithLifecycle()
+    val suggestionKeywords by mainViewModel.suggestionKeywords.collectAsStateWithLifecycle()
 
-    val permissionGranted by mainViewModel.permissionGranted.collectAsState()
+    val permissionGranted by mainViewModel.permissionGranted.collectAsStateWithLifecycle()
 
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
@@ -92,6 +91,10 @@ fun MainScreen(
                 launcher.launch(perms)
             }
         }
+    }
+
+    LaunchedEffect(Unit) {
+        mainViewModel.start()
     }
 
     // Toast event observer
@@ -165,7 +168,11 @@ fun MainScreen(
                 available: Offset,
                 source: NestedScrollSource
             ): Offset {
-                return scrollBehavior.nestedScrollConnection.onPostScroll(consumed, available, source)
+                return scrollBehavior.nestedScrollConnection.onPostScroll(
+                    consumed,
+                    available,
+                    source
+                )
             }
 
             override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
@@ -185,44 +192,52 @@ fun MainScreen(
 
         snapshotFlow { sheetState.requireOffset() }
             .collect { currentOffset ->
-                trace("MainScreen.bottomSheetOffset.collect") {
-                    try {
-                        // parentScaffoldHeightPx의 값은 keyboardInfo.height 값이 계산되어 적용되어 계산됨. 까먹지 말자!!
-                        // 부모 scaffold의 높이를 기준으로 pratiallyExpandedOffset 기준값을 설정!!
-                        // isLocalSearchActive가 true일 때도 SearchBarState.OPENED처럼 처리
-                        val isSearchActive = searchBarState == SearchBarState.OPENED || isLocalSearchActive
-                        val partiallyExpandedOffset = if (!isSearchActive) {
-                            parentScaffoldHeightPx - with(density) {
-                                (scaffoldInnerPaddingBottomPadding + 56.dp).toPx()
-                            }
-                        } else {
-                            parentScaffoldHeightPx - with(density) {
-                                scaffoldInnerPaddingBottomPadding.toPx()
-                            }
+                try {
+                    // parentScaffoldHeightPx의 값은 keyboardInfo.height 값이 계산되어 적용되어 계산됨. 까먹지 말자!!
+                    // 부모 scaffold의 높이를 기준으로 pratiallyExpandedOffset 기준값을 설정!!
+                    // isLocalSearchActive가 true일 때도 SearchBarState.OPENED처럼 처리
+                    val isSearchActive =
+                        searchBarState == SearchBarState.OPENED || isLocalSearchActive
+                    val partiallyExpandedOffset = if (!isSearchActive) {
+                        parentScaffoldHeightPx - with(density) {
+                            (scaffoldInnerPaddingBottomPadding + 56.dp).toPx()
                         }
-
-                        val finalProgress =
-                            calculateDragProgress(
-                                currentOffset,
-                                partiallyExpandedOffset,
-                                parentScaffoldHeightPx
-                            )
-
-                        bottomSheetOffset = finalProgress
-                    } catch (e: Exception) {
-                        if (BuildConfig.DEBUG) {
-                            Logger.d("BottomSheet error: ${e.message}")
+                    } else {
+                        parentScaffoldHeightPx - with(density) {
+                            scaffoldInnerPaddingBottomPadding.toPx()
                         }
+                    }
+
+                    val finalProgress =
+                        calculateDragProgress(
+                            currentOffset,
+                            partiallyExpandedOffset,
+                            parentScaffoldHeightPx
+                        )
+
+                    bottomSheetOffset = finalProgress
+                } catch (e: Exception) {
+                    if (BuildConfig.DEBUG) {
+                        Logger.d("BottomSheet error: ${e.message}")
                     }
                 }
             }
     }
 
-    val blendRatio = bottomSheetOffset.coerceIn(0f, 1f)
-    val statusBarColor = blendColors(AppColors.StatusBarBackground, AppColors.CharcoalGray, blendRatio)
-    val navigationBarColor = blendColors(AppColors.BlueBackground, AppColors.CharcoalGray, blendRatio)
+    val statusBarColor by remember {
+        derivedStateOf {
+            val ratio = bottomSheetOffset.coerceIn(0f, 1f)
+            blendColors(AppColors.StatusBarBackground, AppColors.CharcoalGray, ratio)
+        }
+    }
+    val navigationBarColor by remember {
+        derivedStateOf {
+            val ratio = bottomSheetOffset.coerceIn(0f, 1f)
+            blendColors(AppColors.BlueBackground, AppColors.CharcoalGray, ratio)
+        }
+    }
 
-    SideEffect {
+    LaunchedEffect(statusBarColor, navigationBarColor) {
         systemUiController.setStatusBarColor(color = statusBarColor)
         systemUiController.setNavigationBarColor(color = navigationBarColor)
     }
@@ -293,13 +308,20 @@ fun MainScreen(
                         activeNavController.navigate(searchRouteFor(selectedTab, it))
                         searchBarState = SearchBarState.CLOSED
                     },
-                    mainViewModel = mainViewModel,
                     searchBarState = searchBarState,
                     updateSearchBarState = {
                         searchBarState = it
                     },
                     scrollBehavior = scrollBehavior,
                     isOnLocalFilesScreen = isOnLocalFilesScreen,
+                    isLocalSearchActive = isLocalSearchActive,
+                    localSearchQuery = localSearchQuery,
+                    searchQuery = searchQuery,
+                    suggestionKeywords = suggestionKeywords,
+                    onUpdateLocalSearchQuery = mainViewModel::updateLocalSearchQuery,
+                    onSetLocalSearchActive = mainViewModel::setLocalSearchActive,
+                    onUpdateSearchQuery = mainViewModel::updateSearchQuery,
+                    onClearSearchQuery = mainViewModel::clearSearchQuery,
                 )
             },
             mainViewModel = mainViewModel,
@@ -311,8 +333,8 @@ fun MainScreen(
                 activeNavController.navigate(channelRouteFor(selectedTab, channelId))
             },
             isLocalSearchActive = isLocalSearchActive,
-            ) { playerBottomSheetScaffoldPadding ->
-            val miniPlayerHeightPx = with(density) { GraphicsLayerConstants.PEEK_HEIGHT.roundToPx() }
+            onStopPlayback = mainViewModel::stopPlayback,
+        ) { playerBottomSheetScaffoldPadding ->
             val bottomNavHeightPx = with(density) { 56.dp.roundToPx() }
 
             when (selectedTab) {
@@ -320,11 +342,10 @@ fun MainScreen(
                     HomeNavHost(
                         navController = homeNavController,
                         modifier = Modifier
-                            .fillMaxSize()
+                            .fillMaxWidth()
                             .background(Color.White)
                             .nestedScroll(nestedScrollConnection)
                             .dynamicBottomPadding(
-                                miniPlayerHeightPx = miniPlayerHeightPx,
                                 bottomNavHeightPx = bottomNavHeightPx,
                                 bottomSheetOffset = { bottomSheetOffset },
                                 isBottomNavHidden = isLocalSearchActive
@@ -339,11 +360,10 @@ fun MainScreen(
                     LibraryNavHost(
                         navController = libraryNavController,
                         modifier = Modifier
-                            .fillMaxSize()
+                            .fillMaxWidth()
                             .background(Color.White)
                             .nestedScroll(nestedScrollConnection)
                             .dynamicBottomPadding(
-                                miniPlayerHeightPx = miniPlayerHeightPx,
                                 bottomNavHeightPx = bottomNavHeightPx,
                                 bottomSheetOffset = { bottomSheetOffset },
                                 isBottomNavHidden = isLocalSearchActive
@@ -362,11 +382,10 @@ fun MainScreen(
                     ConvertNavHost(
                         navController = convertNavController,
                         modifier = Modifier
-                            .fillMaxSize()
+                            .fillMaxWidth()
                             .background(Color.White)
                             .nestedScroll(nestedScrollConnection)
                             .dynamicBottomPadding(
-                                miniPlayerHeightPx = miniPlayerHeightPx,
                                 bottomNavHeightPx = bottomNavHeightPx,
                                 bottomSheetOffset = { bottomSheetOffset },
                                 isBottomNavHidden = isLocalSearchActive
@@ -437,7 +456,6 @@ fun MainScreen(
 }
 
 
-
 private fun calculateDragProgress(
     currentOffset: Float,
     partiallyExpandedOffset: Float,
@@ -493,54 +511,27 @@ private fun channelRouteFor(tab: MainTab, channelId: String) = when (tab) {
 }
 
 /**
- * BottomSheet offset에 따라 동적으로 bottom padding을 조절하는 Modifier
- *
- * bottomSheetOffset 값:
- * - 1.0 ~ 0.0: Expanded → PartiallyExpanded (mini player 높이만큼 하단 패딩)
- * - 0.0 ~ -1.0: PartiallyExpanded → Hidden (점진적으로 패딩 감소)
- *
- * BottomNavigation 패딩:
- * - offset <= 0: BottomNav가 완전히 보임 → 전체 높이 패딩
- * - offset >= 1: BottomNav가 숨겨짐 → 0 패딩
- * - 0 < offset < 1: 선형 보간
- *
- * isBottomNavHidden: Local Search 등으로 BottomNav가 숨겨진 경우 true
+BottomSheet이 확장/축소될 때마다 Scaffold의 콘텐츠가 BottomNavigationBar에 가려지는 문제 해결을 위한 Modifier
+- bottomNavHeightPx: BottomNavigationBar의 높이 (px 단위)
+- isBottomNavHidden: Local Search가 활성화되어 BottomNavigationBar가 숨겨진 상태인지 여부
  */
 private fun Modifier.dynamicBottomPadding(
-    miniPlayerHeightPx: Int,
     bottomNavHeightPx: Int,
     bottomSheetOffset: () -> Float,
     isBottomNavHidden: Boolean = false
 ): Modifier = this.layout { measurable, constraints ->
-    trace("MainScreen.dynamicBottomPadding.measure") {
-        val offset = bottomSheetOffset()
 
-        val miniPlayerPadding = when {
-            offset >= 0f -> miniPlayerHeightPx
-            else -> {
-                val progress = (offset + 1f).coerceIn(0f, 1f)
-                (miniPlayerHeightPx * progress).toInt()
-            }
-        }
+    val additionalPadding = if (isBottomNavHidden) 0 else bottomNavHeightPx
 
-        val additionalPadding = when {
-            offset >= 0f -> miniPlayerPadding
-            isBottomNavHidden -> miniPlayerPadding
-            else -> {
-                maxOf(miniPlayerPadding, bottomNavHeightPx)
-            }
-        }
+    val newMaxHeight = (constraints.maxHeight - additionalPadding).coerceAtLeast(0)
+    val newMinHeight = (constraints.minHeight - additionalPadding).coerceIn(0, newMaxHeight)
+    val adjustedConstraints = constraints.copy(
+        minHeight = newMinHeight,
+        maxHeight = newMaxHeight
+    )
+    val placeable = measurable.measure(adjustedConstraints)
 
-        val newMaxHeight = (constraints.maxHeight - additionalPadding).coerceAtLeast(0)
-        val newMinHeight = (constraints.minHeight - additionalPadding).coerceIn(0, newMaxHeight)
-        val adjustedConstraints = constraints.copy(
-            minHeight = newMinHeight,
-            maxHeight = newMaxHeight
-        )
-        val placeable = measurable.measure(adjustedConstraints)
-
-        layout(placeable.width, placeable.height + additionalPadding) {
-            placeable.placeRelative(0, 0)
-        }
+    layout(placeable.width, placeable.height + additionalPadding) {
+        placeable.placeRelative(0, 0)
     }
 }

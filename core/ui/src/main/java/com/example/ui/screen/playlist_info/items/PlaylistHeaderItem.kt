@@ -31,9 +31,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
 import com.example.domain.model.youtube.playlist.Playlist
 import com.example.transpose.core.ui.R
+import com.example.ui.components.image.ThumbnailImage
 
 @Composable
 fun PlaylistHeaderItem(playlistData: Playlist?) {
@@ -53,11 +53,12 @@ fun PlaylistHeaderItem(playlistData: Playlist?) {
                         .fillMaxWidth()
                         .aspectRatio(16f / 9f)
                 ) {
-                    AsyncImage(
-                        model = playlist.thumbnailUrl,
+                    ThumbnailImage(
+                        url = playlist.thumbnailUrl,
                         contentDescription = "플레이리스트 썸네일",
-                        modifier = Modifier.fillMaxWidth(),
-                        contentScale = ContentScale.Crop
+                        width = 330.dp,
+                        height = 186.dp,
+                        modifier = Modifier,
                     )
 
                     Box(

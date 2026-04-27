@@ -15,19 +15,15 @@ import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.main.MainViewModel
+import com.example.domain.model.playable.PlayableItem
 import com.example.main.R
 import com.example.ui.theme.blendColors
 import com.example.util.constants.AppColors
@@ -35,28 +31,26 @@ import com.example.util.constants.AppColors
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlaylistFloatingButton(
-    mainViewModel: MainViewModel,
+    currentPlaylist: List<PlayableItem>,
+    playlistTitle: String?,
     bottomSheetState: SheetState,
     onClick: () -> Unit,
     bottomSheetOffset: () -> Float,
     modifier: Modifier = Modifier
 ) {
-    val currentPlaylist by mainViewModel.currentPlaylist.collectAsState()
-    val currentPlaylistInfo by mainViewModel.currentPlaylistInfo.collectAsState()
-
     if (currentPlaylist.isNotEmpty() && bottomSheetState.currentValue == SheetValue.Expanded) {
         val offset = bottomSheetOffset().coerceIn(0f, 1f)
         val backgroundColor = blendColors(AppColors.StatusBarBackground, AppColors.CharcoalGray, offset)
 
         Surface(
             modifier = modifier
-                .shadow(elevation = 6.dp, shape = RoundedCornerShape(16.dp))
-                .clickable(onClick = onClick)
                 .graphicsLayer {
                     alpha = if (bottomSheetOffset() >= 0.95f) 1f else 0f
-                },
+                }
+                .clickable(onClick = onClick),
             shape = RoundedCornerShape(16.dp),
-            color = backgroundColor
+            color = backgroundColor,
+            shadowElevation = 6.dp
         ) {
             Row(
                 modifier = Modifier
@@ -71,7 +65,7 @@ fun PlaylistFloatingButton(
                 )
 
                 Text(
-                    text = currentPlaylistInfo?.title
+                    text = playlistTitle
                         ?: stringResource(id = R.string.main_playlist_title),
                     modifier = Modifier.padding(horizontal = 8.dp),
                     fontWeight = FontWeight.Medium,

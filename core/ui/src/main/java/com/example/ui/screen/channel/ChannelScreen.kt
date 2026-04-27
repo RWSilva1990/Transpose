@@ -20,7 +20,7 @@ import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -59,13 +59,13 @@ fun ChannelScreen(
     bottomSheetState: SheetState,
     onNavigateToPlaylistInfoScreen: (String) -> Unit
 ) {
-    val channelDetailData by channelViewModel.channelDetail.collectAsState()
-    val isChannelDetailLoading by channelViewModel.isChannelDetailDataLoading.collectAsState()
+    val channelDetailData by channelViewModel.channelDetail.collectAsStateWithLifecycle()
+    val isChannelDetailLoading by channelViewModel.isChannelDetailDataLoading.collectAsStateWithLifecycle()
 
     // 각 탭의 상태 가져오기
-    val videosState by channelViewModel.channelTabVideos.collectAsState()
-    val shortsState by channelViewModel.channelTabShorts.collectAsState()
-    val playlistsState by channelViewModel.channelTabPlaylists.collectAsState()
+    val videosState by channelViewModel.channelTabVideos.collectAsStateWithLifecycle()
+    val shortsState by channelViewModel.channelTabShorts.collectAsStateWithLifecycle()
+    val playlistsState by channelViewModel.channelTabPlaylists.collectAsStateWithLifecycle()
 
     val videosScrollState = rememberSaveable(saver = LazyListState.Saver) {
         LazyListState()
@@ -124,22 +124,27 @@ fun ChannelScreen(
             }
         } else {
             channelDetailData?.let { channel ->
-                val allTabTitles = context.resources.getStringArray(R.array.tab_titles)
+                val tabTitles = remember(context) {
+                    val allTabTitles = context.resources.getStringArray(R.array.tab_titles)
+                    val usedTabIndices = listOf(1, 2, 4)
+                    usedTabIndices.map { allTabTitles[it] }.toTypedArray()
+                }
 
-                val usedTabIndices = listOf(1, 2, 4)
-                val tabTitles = usedTabIndices.map { allTabTitles[it] }.toTypedArray()
+                val contentTypeMap = remember {
+                    mapOf(
+                        1 to "videos",
+                        2 to "shorts",
+                        4 to "playlists"
+                    )
+                }
 
-                val contentTypeMap = mapOf(
-                    1 to "videos",
-                    2 to "shorts",
-                    4 to "playlists"
-                )
-
-                val actualToResourceIndex = mapOf(
-                    0 to 1,
-                    1 to 2,
-                    2 to 4
-                )
+                val actualToResourceIndex = remember {
+                    mapOf(
+                        0 to 1,
+                        1 to 2,
+                        2 to 4
+                    )
+                }
 
                 val resourceTabIndex = actualToResourceIndex[selectedTabIndex] ?: 1
 
@@ -157,7 +162,7 @@ fun ChannelScreen(
                                 if (tabPositions.isNotEmpty() && selectedTabIndex < tabPositions.size) {
                                     TabRowDefaults.Indicator(
                                         modifier = Modifier.tabIndicatorOffset(tabPositions[selectedTabIndex]),
-                                        color = Color.Black,
+                                        color = MaterialTheme.colorScheme.onSurface,
                                         height = 3.dp
                                     )
                                 }

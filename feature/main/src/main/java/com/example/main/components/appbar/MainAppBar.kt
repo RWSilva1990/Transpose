@@ -25,6 +25,7 @@ import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SearchBar
 import androidx.compose.material3.SearchBarDefaults
 import androidx.compose.material3.Text
@@ -33,7 +34,6 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -45,8 +45,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.main.MainViewModel
 import com.example.main.R
 import com.example.ui.components.items.SearchSuggestionItem
 import com.example.util.ToastUtil
@@ -58,30 +56,38 @@ import com.example.util.constants.AppColors
 fun MainAppBar(
     onSettingClicked: () -> Unit,
     onSearchClicked: (String) -> Unit,
-    mainViewModel: MainViewModel,
     searchBarState: SearchBarState,
     updateSearchBarState: (SearchBarState) -> Unit,
     scrollBehavior: TopAppBarScrollBehavior,
     isOnLocalFilesScreen: Boolean = false,
+    isLocalSearchActive: Boolean,
+    localSearchQuery: String,
+    searchQuery: String,
+    suggestionKeywords: List<String>,
+    onUpdateLocalSearchQuery: (String) -> Unit,
+    onSetLocalSearchActive: (Boolean) -> Unit,
+    onUpdateSearchQuery: (String) -> Unit,
+    onClearSearchQuery: () -> Unit,
 ) {
 
     val focusRequester = remember { FocusRequester() }
-    val isLocalSearchActive by mainViewModel.isLocalSearchActive.collectAsStateWithLifecycle()
-    val localSearchQuery by mainViewModel.localSearchQuery.collectAsStateWithLifecycle()
 
     Box {
         when {
             isLocalSearchActive && isOnLocalFilesScreen -> {
                 LocalSearchAppBar(
                     query = localSearchQuery,
-                    onQueryChange = mainViewModel::updateLocalSearchQuery,
-                    onClose = { mainViewModel.setLocalSearchActive(false) },
+                    onQueryChange = onUpdateLocalSearchQuery,
+                    onClose = { onSetLocalSearchActive(false) },
                     focusRequester = focusRequester
                 )
             }
             searchBarState == SearchBarState.OPENED -> {
                 CustomSearchAppBar(
-                    mainViewModel = mainViewModel,
+                    searchQuery = searchQuery,
+                    suggestionKeywords = suggestionKeywords,
+                    onUpdateSearchQuery = onUpdateSearchQuery,
+                    onClearSearchQuery = onClearSearchQuery,
                     updateSearchBarState = updateSearchBarState,
                     onSearchClicked = { onSearchClicked(it) },
                     focusRequester = focusRequester,
@@ -91,15 +97,13 @@ fun MainAppBar(
                 DefaultAppBar(
                     onSettingClicked = { onSettingClicked() },
                     onSearchClicked = { updateSearchBarState(SearchBarState.OPENED) },
-                    onLocalSearchClicked = { mainViewModel.setLocalSearchActive(true) },
+                    onLocalSearchClicked = { onSetLocalSearchActive(true) },
                     scrollBehavior = scrollBehavior,
                     showLocalSearchIcon = isOnLocalFilesScreen
                 )
             }
         }
     }
-
-
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -114,14 +118,11 @@ fun LocalSearchAppBar(
         focusRequester.requestFocus()
     }
 
-    // SearchBar와 유사한 스타일의 검색바
-    // - 파일 목록이 아래에 보여야 하므로 fullscreen SearchBar 대신 커스텀 구현
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .background(Color.White)
     ) {
-        // 검색 입력 영역
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -129,7 +130,6 @@ fun LocalSearchAppBar(
                 .padding(horizontal = 8.dp),
             verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
         ) {
-            // 뒤로가기 버튼
             IconButton(onClick = onClose) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
@@ -138,7 +138,6 @@ fun LocalSearchAppBar(
                 )
             }
 
-            // 검색 입력 필드
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -159,7 +158,7 @@ fun LocalSearchAppBar(
                     singleLine = true,
                     textStyle = androidx.compose.ui.text.TextStyle(
                         fontSize = 16.sp,
-                        color = Color.Black
+                        color = MaterialTheme.colorScheme.onSurface
                     ),
                     decorationBox = { innerTextField ->
                         Box {
@@ -176,7 +175,6 @@ fun LocalSearchAppBar(
                 )
             }
 
-            // Clear 버튼
             if (query.isNotEmpty()) {
                 IconButton(onClick = { onQueryChange("") }) {
                     Icon(
@@ -190,7 +188,6 @@ fun LocalSearchAppBar(
             }
         }
 
-        // 하단 구분선
         HorizontalDivider(
             color = Color.LightGray,
             thickness = 1.dp
@@ -201,14 +198,14 @@ fun LocalSearchAppBar(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CustomSearchAppBar(
-    mainViewModel: MainViewModel,
+    searchQuery: String,
+    suggestionKeywords: List<String>,
+    onUpdateSearchQuery: (String) -> Unit,
+    onClearSearchQuery: () -> Unit,
     updateSearchBarState: (SearchBarState) -> Unit,
     onSearchClicked: (String) -> Unit,
     focusRequester: FocusRequester,
 ) {
-
-    val searchQuery by mainViewModel.searchQuery.collectAsStateWithLifecycle()
-    val suggestionKeywords by mainViewModel.suggestionKeywords.collectAsStateWithLifecycle()
 
     val context = LocalContext.current
 
@@ -221,17 +218,17 @@ fun CustomSearchAppBar(
             .fillMaxWidth()
             .focusRequester(focusRequester),
         query = searchQuery,
-        onQueryChange = mainViewModel::updateSearchQuery,
+        onQueryChange = onUpdateSearchQuery,
         onSearch = {
             onSearchClicked(it)
-            mainViewModel.clearSearchQuery()
+            onClearSearchQuery()
         },
         active = true,
         placeholder = { Text(text = stringResource(id = R.string.searchView_hint)) },
         leadingIcon = {
             IconButton(onClick = {
                 updateSearchBarState(SearchBarState.CLOSED)
-                mainViewModel.clearSearchQuery()
+                onClearSearchQuery()
             }) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
             }
@@ -243,7 +240,7 @@ fun CustomSearchAppBar(
                 }
             } else {
                 IconButton(onClick = {
-                    mainViewModel.clearSearchQuery()
+                    onClearSearchQuery()
                 }) {
                     Icon(Icons.Default.Close, contentDescription = "Clear Text")
                 }
@@ -252,8 +249,14 @@ fun CustomSearchAppBar(
         },
         shape = SearchBarDefaults.dockedShape,
         colors = SearchBarDefaults.colors(
-            containerColor = Color.White,
-            dividerColor = Color.Black,
+            containerColor = MaterialTheme.colorScheme.surface,
+            dividerColor = MaterialTheme.colorScheme.outline,
+            inputFieldColors = SearchBarDefaults.inputFieldColors(
+                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                focusedPlaceholderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                unfocusedPlaceholderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            ),
         ),
         onActiveChange = { isActive ->
             if (!isActive) {
@@ -268,14 +271,14 @@ fun CustomSearchAppBar(
                         suggestionText = suggestionKeyword,
                         onClick = {
                             onSearchClicked(suggestionKeyword)
-                            mainViewModel.clearSearchQuery()
+                            onClearSearchQuery()
                         },
                     )
                 }
 
             }
             BackHandler {
-                mainViewModel.clearSearchQuery()
+                onClearSearchQuery()
                 updateSearchBarState(SearchBarState.CLOSED)
             }
         }
@@ -348,4 +351,3 @@ fun DefaultAppBar(
     )
 
 }
-

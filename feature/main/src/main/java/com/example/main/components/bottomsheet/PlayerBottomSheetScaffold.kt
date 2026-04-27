@@ -1,6 +1,5 @@
 package com.example.main.components.bottomsheet
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
@@ -14,11 +13,14 @@ import androidx.compose.material3.SheetValue
 import androidx.compose.material3.rememberBottomSheetScaffoldState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
@@ -50,6 +52,7 @@ fun PlayerBottomSheetScaffold(
     bottomSheetOffset: () -> Float,
     onNavigateToChannelScreen: (String) -> Unit,
     isLocalSearchActive: Boolean,
+    onStopPlayback: () -> Unit,
     content: @Composable (PaddingValues) -> Unit,
 ) {
     val density = LocalDensity.current
@@ -81,20 +84,22 @@ fun PlayerBottomSheetScaffold(
         }
     }
 
-    val scaffoldBottomPadding = trace("PlayerBottomSheetScaffold.computeBottomPadding") {
-        val currentOffset = bottomSheetOffset()
-        if (isLocalSearchActive) {
-            0.dp
-        } else {
-            when {
-                currentOffset <= 0.0f -> {
-                    val progress = (currentOffset * 25).coerceIn(-1f, 0f)
-                    (56 * (1 + progress)).coerceAtLeast(0f).dp
-                }
-                currentOffset >= 1.0f -> 56.dp
-                else -> {
-                    val progress = currentOffset.coerceIn(0f, 1f)
-                    (56 * progress).dp
+    val scaffoldBottomPadding by remember {
+        derivedStateOf {
+            val currentOffset = bottomSheetOffset()
+            if (isLocalSearchActive) {
+                0.dp
+            } else {
+                when {
+                    currentOffset <= 0.0f -> {
+                        val progress = (currentOffset * 25).coerceIn(-1f, 0f)
+                        (56 * (1 + progress)).coerceAtLeast(0f).dp
+                    }
+                    currentOffset >= 1.0f -> 56.dp
+                    else -> {
+                        val progress = currentOffset.coerceIn(0f, 1f)
+                        (56 * progress).dp
+                    }
                 }
             }
         }
@@ -104,7 +109,7 @@ fun PlayerBottomSheetScaffold(
         snapshotFlow { bottomSheetState.currentValue }.collect {
             when (it) {
                 SheetValue.Hidden -> {
-                    mainViewModel.stopPlayback()
+                    onStopPlayback()
                 }
 
                 SheetValue.Expanded -> {}
@@ -117,7 +122,11 @@ fun PlayerBottomSheetScaffold(
         sheetContainerColor = Color.White,
         scaffoldState = scaffoldState,
         modifier = Modifier
-            .drawBehind { updateIsSheetLayoutComplete(true) }
+            .onGloballyPositioned { coordinates ->
+                if (coordinates.size.height > 0) {
+                    updateIsSheetLayoutComplete(true)
+                }
+            }
             .padding(bottom = scaffoldBottomPadding),
         sheetContent = {
             PlayerBottomSheet(

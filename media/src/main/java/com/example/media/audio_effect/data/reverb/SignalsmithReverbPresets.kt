@@ -1,13 +1,5 @@
 package com.example.media.audio_effect.data.reverb
 
-/**
- * Signalsmith Reverb preset parameters
- *
- * @param dry Dry signal level (0.0 - 4.0)
- * @param wet Wet/reverb signal level (0.0 - 4.0)
- * @param roomMs Room size in milliseconds (10 - 200ms, ~1ms = 1 foot)
- * @param decaySec RT20 decay time in seconds (0.01 - 30s)
- */
 data class SignalsmithReverbPreset(
     val name: String,
     val nameKo: String,
@@ -15,216 +7,91 @@ data class SignalsmithReverbPreset(
     val wet: Float,
     val roomMs: Float,
     val decaySec: Float,
-    val description: String = ""
+    val early: Float,
+    val detune: Float,
+    val lowCutHz: Float,
+    val highCutHz: Float,
+    val lowDampRate: Float,
+    val highDampRate: Float,
+    val description: String = "",
+    val descriptionKo: String = ""
 )
 
 object SignalsmithReverbPresets {
 
-    // Preset indices
-    const val PRESET_NONE = 0
-    const val PRESET_DEFAULT = 1  // Subtle reverb - default when turning on
-    const val PRESET_BATHROOM = 2
-    const val PRESET_CATHEDRAL = 3
-    const val PRESET_CAVE = 4
-    const val PRESET_STUDIO = 5
-    const val PRESET_CONCERT_HALL = 6
-    const val PRESET_TUNNEL = 7
-    const val PRESET_UNDERWATER = 8
-    const val PRESET_TELEPHONE = 9
-    const val PRESET_ARENA = 10
-    const val PRESET_FOREST = 11
-    const val PRESET_PARKING_GARAGE = 12
-    const val PRESET_CHURCH = 13
-    const val PRESET_WAREHOUSE = 14
-    const val PRESET_SEWER = 15
-    const val PRESET_SPACESHIP = 16
+    const val PRESET_DEFAULT = 0
+    const val PRESET_HALL = 1
+    const val PRESET_VOCAL = 2
+    const val PRESET_VINTAGE = 3
+    const val PRESET_ROOM = 4
+    const val PRESET_SNAP = 5
+    const val PRESET_UNDERWATER = 6
+    const val PRESET_AIR = 7
 
     val presets = listOf(
-        // 0: None - Complete bypass (no reverb)
         SignalsmithReverbPreset(
-            name = "None",
-            nameKo = "없음",
-            dry = 1.0f,
-            wet = 0.0f,
-            roomMs = 30f,
-            decaySec = 0.5f,
-            description = "No reverb effect"
+            name = "default", nameKo = "기본",
+            dry = 1.0f, wet = 0.35f, roomMs = 80f, decaySec = 1.0f,
+            early = 1.0f, detune = 2.0f, lowCutHz = 80f, highCutHz = 12000f,
+            lowDampRate = 1.6f, highDampRate = 2.5f,
+            description = "A neutral reverb that fits any source",
+            descriptionKo = "어떤 소스에도 어울리는 자연스러운 리버브"
         ),
-
-        // 1: Default - Subtle, natural room ambience (default when turning on reverb)
         SignalsmithReverbPreset(
-            name = "Default",
-            nameKo = "기본",
-            dry = 0.95f,
-            wet = 0.2f,
-            roomMs = 25f,
-            decaySec = 0.5f,
-            description = "Subtle room ambience, natural sounding"
+            name = "lush", nameKo = "홀",
+            dry = 1.0f, wet = 0.65f, roomMs = 160f, decaySec = 1.0f,
+            early = 0.6f, detune = 3.0f, lowCutHz = 80f, highCutHz = 11000f,
+            lowDampRate = 1.5f, highDampRate = 2.2f,
+            description = "A heavy reverb that drenches the sound like a concert hall",
+            descriptionKo = "콘서트 홀처럼 풍성하고 깊은 잔향"
         ),
-
-        // 2: Bathroom - Small, bright, tile reflections
         SignalsmithReverbPreset(
-            name = "Bathroom",
-            nameKo = "욕실",
-            dry = 0.9f,
-            wet = 0.4f,
-            roomMs = 15f,
-            decaySec = 0.6f,
-            description = "Small tiled bathroom with bright reflections"
+            name = "preDelay", nameKo = "보컬",
+            dry = 1.0f, wet = 0.30f, roomMs = 180f, decaySec = 1.3f,
+            early = 0.6f, detune = 2.0f, lowCutHz = 90f, highCutHz = 12000f,
+            lowDampRate = 1.7f, highDampRate = 2.4f,
+            description = "A reverb that keeps vocals clear up front and opens up behind",
+            descriptionKo = "보컬을 또렷하게 살리며 뒤로 공간을 여는 리버브"
         ),
-
-        // 3: Cathedral - Large space, subtle majesty
         SignalsmithReverbPreset(
-            name = "Cathedral",
-            nameKo = "대성당",
-            dry = 0.85f,
-            wet = 0.5f,
-            roomMs = 120f,
-            decaySec = 2.5f,
-            description = "Large cathedral with soaring ceilings"
+            name = "slapback", nameKo = "빈티지",
+            dry = 1.0f, wet = 0.55f, roomMs = 100f, decaySec = 0.25f,
+            early = 2.0f, detune = 1.0f, lowCutHz = 120f, highCutHz = 10000f,
+            lowDampRate = 2.0f, highDampRate = 3.0f,
+            description = "A single-bounce echo effect — 50s rockabilly slap",
+            descriptionKo = "50년대 록커빌리 스타일의 한 번 튕기는 슬랩 에코"
         ),
-
-        // 4: Cave - Dark, atmospheric
         SignalsmithReverbPreset(
-            name = "Cave",
-            nameKo = "동굴",
-            dry = 0.8f,
-            wet = 0.55f,
-            roomMs = 100f,
-            decaySec = 3.0f,
-            description = "Deep cave with dark, mysterious reverb"
+            name = "drumRoom", nameKo = "룸",
+            dry = 1.0f, wet = 0.45f, roomMs = 120f, decaySec = 1.1f,
+            early = 2.0f, detune = 1.5f, lowCutHz = 120f, highCutHz = 12000f,
+            lowDampRate = 1.8f, highDampRate = 2.5f,
+            description = "A room-mic reverb that punches up drums and snares",
+            descriptionKo = "드럼·스네어를 펀치 있게 살리는 룸 사운드"
         ),
-
-        // 5: Studio - Tight, controlled, professional
         SignalsmithReverbPreset(
-            name = "Studio",
-            nameKo = "스튜디오",
-            dry = 1.0f,
-            wet = 0.15f,
-            roomMs = 20f,
-            decaySec = 0.3f,
-            description = "Professional recording studio"
+            name = "gated", nameKo = "스냅",
+            dry = 1.0f, wet = 0.40f, roomMs = 80f, decaySec = 0.9f,
+            early = 1.6f, detune = 1.5f, lowCutHz = 100f, highCutHz = 11000f,
+            lowDampRate = 3.0f, highDampRate = 4.5f,
+            description = "A gated-drum effect that cuts the tail off abruptly — 80s style",
+            descriptionKo = "80년대 게이트 드럼처럼 잔향 꼬리를 끊어주는 효과"
         ),
-
-        // 6: Concert Hall - Warm, musical
         SignalsmithReverbPreset(
-            name = "Concert Hall",
-            nameKo = "콘서트 홀",
-            dry = 0.9f,
-            wet = 0.4f,
-            roomMs = 80f,
-            decaySec = 1.8f,
-            description = "Grand concert hall with warm acoustics"
+            name = "underwater", nameKo = "수중",
+            dry = 0.7f, wet = 0.50f, roomMs = 90f, decaySec = 2.0f,
+            early = 0.8f, detune = 4.0f, lowCutHz = 50f, highCutHz = 2200f,
+            lowDampRate = 1.5f, highDampRate = 2.0f,
+            description = "A dark, muffled reverb that sounds like it's heard underwater",
+            descriptionKo = "물속에서 듣는 듯한 어둡고 무거운 잔향"
         ),
-
-        // 7: Tunnel - Subtle metallic echo
         SignalsmithReverbPreset(
-            name = "Tunnel",
-            nameKo = "터널",
-            dry = 0.85f,
-            wet = 0.4f,
-            roomMs = 50f,
-            decaySec = 1.5f,
-            description = "Underground tunnel with metallic reflections"
-        ),
-
-        // 8: Underwater - Dreamy, muffled
-        SignalsmithReverbPreset(
-            name = "Underwater",
-            nameKo = "수중",
-            dry = 0.6f,
-            wet = 0.7f,
-            roomMs = 70f,
-            decaySec = 2.0f,
-            description = "Submerged underwater feeling"
-        ),
-
-        // 9: Telephone - Tiny box, very dry
-        SignalsmithReverbPreset(
-            name = "Telephone",
-            nameKo = "전화기",
-            dry = 1.1f,
-            wet = 0.08f,
-            roomMs = 10f,
-            decaySec = 0.08f,
-            description = "Tiny phone booth feeling"
-        ),
-
-        // 10: Arena - Large space, moderate
-        SignalsmithReverbPreset(
-            name = "Arena",
-            nameKo = "경기장",
-            dry = 0.85f,
-            wet = 0.45f,
-            roomMs = 130f,
-            decaySec = 2.2f,
-            description = "Large sports arena or stadium"
-        ),
-
-        // 11: Forest - Natural, scattered, organic
-        SignalsmithReverbPreset(
-            name = "Forest",
-            nameKo = "숲",
-            dry = 0.95f,
-            wet = 0.25f,
-            roomMs = 60f,
-            decaySec = 0.8f,
-            description = "Natural forest with scattered reflections"
-        ),
-
-        // 12: Parking Garage - Concrete, moderate
-        SignalsmithReverbPreset(
-            name = "Parking Garage",
-            nameKo = "주차장",
-            dry = 0.85f,
-            wet = 0.35f,
-            roomMs = 45f,
-            decaySec = 1.2f,
-            description = "Concrete parking structure"
-        ),
-
-        // 13: Church - Medium hall, spiritual
-        SignalsmithReverbPreset(
-            name = "Church",
-            nameKo = "교회",
-            dry = 0.88f,
-            wet = 0.4f,
-            roomMs = 70f,
-            decaySec = 2.0f,
-            description = "Traditional church with high ceilings"
-        ),
-
-        // 14: Warehouse - Industrial, empty
-        SignalsmithReverbPreset(
-            name = "Warehouse",
-            nameKo = "창고",
-            dry = 0.9f,
-            wet = 0.3f,
-            roomMs = 90f,
-            decaySec = 1.5f,
-            description = "Empty industrial warehouse"
-        ),
-
-        // 15: Sewer - Dark, echoey
-        SignalsmithReverbPreset(
-            name = "Sewer",
-            nameKo = "하수도",
-            dry = 0.8f,
-            wet = 0.45f,
-            roomMs = 35f,
-            decaySec = 1.3f,
-            description = "Underground sewer system"
-        ),
-
-        // 16: Spaceship - Sci-fi, metallic
-        SignalsmithReverbPreset(
-            name = "Spaceship",
-            nameKo = "우주선",
-            dry = 0.85f,
-            wet = 0.35f,
-            roomMs = 25f,
-            decaySec = 0.9f,
-            description = "Sci-fi spaceship interior"
+            name = "shimmer", nameKo = "에어",
+            dry = 1.0f, wet = 0.32f, roomMs = 110f, decaySec = 2.2f,
+            early = 0.5f, detune = 14.0f, lowCutHz = 100f, highCutHz = 9000f,
+            lowDampRate = 1.6f, highDampRate = 2.2f,
+            description = "A reverb with a slightly detuned tail that drifts and shimmers",
+            descriptionKo = "살짝 디튠된 꼬리가 떠다니며 반짝이는 리버브"
         )
     )
 
@@ -235,7 +102,7 @@ object SignalsmithReverbPresets {
         get() = presets.map { it.nameKo }
 
     fun getPreset(index: Int): SignalsmithReverbPreset {
-        return presets.getOrElse(index) { presets[PRESET_NONE] }
+        return presets.getOrElse(index) { presets[PRESET_DEFAULT] }
     }
 
     fun getPresetByName(name: String): SignalsmithReverbPreset? {

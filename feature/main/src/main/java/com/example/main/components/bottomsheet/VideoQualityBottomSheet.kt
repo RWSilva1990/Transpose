@@ -19,13 +19,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import com.example.main.MainViewModel
 import androidx.compose.material3.Surface
 import androidx.compose.ui.graphics.Color
 import com.example.domain.model.preferences.VideoQuality
@@ -36,12 +33,11 @@ import com.example.ui.util.getDisplayStringResId
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun VideoQualityBottomSheet(
-    mainViewModel: MainViewModel,
+    videoDetailUiState: VideoDetailUiState,
+    currentQuality: VideoQuality,
+    onSetVideoQuality: (VideoQuality) -> Unit,
     onDismiss: () -> Unit
 ) {
-    val videoDetailUiState by mainViewModel.videoDetailUiState.collectAsState()
-    val currentQuality by mainViewModel.videoQuality.collectAsState()
-
     // itag -> VideoQuality mapping
     val itagToQualityMap = mapOf(
         137 to VideoQuality.P1080, 248 to VideoQuality.P1080,
@@ -92,7 +88,7 @@ fun VideoQualityBottomSheet(
                         qualityLabel = stringResource(R.string.video_quality_auto),
                         isSelected = currentQuality.isAuto,
                         onClick = {
-                            mainViewModel.setVideoQuality(VideoQuality.AUTO)
+                            onSetVideoQuality(VideoQuality.AUTO)
                             onDismiss()
                         }
                     )
@@ -107,7 +103,7 @@ fun VideoQualityBottomSheet(
                             qualityLabel = stringResource(quality.getDisplayStringResId()),
                             isSelected = currentQuality == quality,
                             onClick = {
-                                mainViewModel.setVideoQuality(quality)
+                                onSetVideoQuality(quality)
                                 onDismiss()
                             }
                         )

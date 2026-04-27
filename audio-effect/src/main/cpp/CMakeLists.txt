@@ -21,7 +21,6 @@ include_directories(${SIGNALSMITH_PATH}/basics/modules/linear/include)
 add_library(
     signalsmith_audio
     SHARED
-    SignalsmithAudioBridge.cpp
     SignalsmithProcessor.cpp
     VocalRemovalNative.cpp
 )

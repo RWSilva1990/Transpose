@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -23,8 +22,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
 import com.example.domain.model.youtube.channel.ChannelTabResult
+import com.example.ui.components.image.ThumbnailImage
 
 @Composable
 fun PlaylistItem(
@@ -43,11 +42,12 @@ fun PlaylistItem(
                 .fillMaxWidth()
                 .aspectRatio(16f / 9f)
         ) {
-            AsyncImage(
-                model = playlist.playlist.thumbnailUrl,
+            ThumbnailImage(
+                url = playlist.playlist.thumbnailUrl,
                 contentDescription = "플레이리스트 썸네일",
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
+                width = 330.dp,
+                height = 186.dp,
+                modifier = Modifier,
             )
 
             // 플레이리스트 정보 오버레이

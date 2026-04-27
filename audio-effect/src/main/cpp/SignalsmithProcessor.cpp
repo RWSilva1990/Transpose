@@ -32,33 +32,32 @@ public:
         , pitchSemitones_(0.0f)
         , tempoRate_(1.0f)
         , chorusEnabled_(false)
-        , limiterEnabled_(false)
         , reverbEnabled_(false)
         , eqEnabled_(false)
-        , pitchDetectionEnabled_(false)
         , chorusMix_(0.5f)
         , chorusDepthMs_(10.0f)
         , chorusDetune_(10.0f)
         , chorusStereo_(0.5f)
-        , limiterInputGainDb_(0.0f)
-        , limiterLimitDb_(-3.0f)
-        , limiterAttackMs_(10.0f)
-        , limiterReleaseMs_(100.0f)
         , reverbDry_(1.0f)
         , reverbWet_(0.3f)
         , reverbRoomMs_(50.0f)
         , reverbDecaySec_(2.0f)
+        , reverbEarly_(1.5f)
+        , reverbDetune_(2.0f)
+        , reverbLowCutHz_(80.0f)
+        , reverbHighCutHz_(12000.0f)
+        , reverbLowDampRate_(1.5f)
+        , reverbHighDampRate_(2.5f)
         , eqBand1Freq_(60.0f)
-        , eqBand1Gain_(0.0f)
+        , eqBand1Gain_(6.0f)
         , eqBand2Freq_(250.0f)
-        , eqBand2Gain_(0.0f)
+        , eqBand2Gain_(4.0f)
         , eqBand3Freq_(1000.0f)
         , eqBand3Gain_(0.0f)
         , eqBand4Freq_(4000.0f)
         , eqBand4Gain_(0.0f)
         , eqBand5Freq_(12000.0f)
         , eqBand5Gain_(0.0f)
-        , detectedPitch_(0.0f)
 {
         effectToggleSmoothingCoeff_ = computeSmoothingCoeff(EFFECT_TOGGLE_SMOOTHING_MS);
         initPresenceBoostFilter();
@@ -79,13 +78,17 @@ public:
         chorusEffect_->configure(sampleRate_, PROCESS_BLOCK_FRAMES, channelCount_);
         chorusEffect_->reset();
 
-        limiterEffect_ = std::make_unique<signalsmith::basics::LimiterFloat>(100.0f);
-        limiterEffect_->configure(sampleRate_, PROCESS_BLOCK_FRAMES, channelCount_);
-        limiterEffect_->reset();
-
         reverbEffect_ = std::make_unique<signalsmith::basics::ReverbFloat>(200.0f, 2.0f);
         reverbEffect_->configure(sampleRate_, PROCESS_BLOCK_FRAMES, channelCount_ == 2 ? 2 : 1);
         reverbEffect_->reset();
+
+        outputLimiter_ = std::make_unique<signalsmith::basics::LimiterFloat>(50.0f);
+        outputLimiter_->configure(sampleRate_, PROCESS_BLOCK_FRAMES, channelCount_);
+        outputLimiter_->reset();
+        outputLimiter_->inputGain = 1.0f;
+        outputLimiter_->outputLimit = 0.95f;
+        outputLimiter_->attackMs = 10.0f;
+        outputLimiter_->releaseMs = 50.0f;
 
         LOGD("Created: sampleRate=%d, channels=%d, inputLatency=%d, outputLatency=%d",
              sampleRate_, channelCount_, stretch_.inputLatency(), stretch_.outputLatency());
@@ -98,15 +101,6 @@ public:
 
         const int framesToProcess = std::min(inputFrames, maxOutputFrames);
         if (framesToProcess <= 0) return 0;
-
-        if (shouldBypass()) {
-            std::memcpy(
-                output,
-                input,
-                static_cast<size_t>(framesToProcess) * static_cast<size_t>(channelCount_) * sizeof(short)
-            );
-            return framesToProcess;
-        }
 
         const int samplesPerFrame = channelCount_;
         int processed = 0;
@@ -158,26 +152,26 @@ public:
         chorusStereo_.store(stereo, std::memory_order_relaxed);
     }
 
-    void setLimiterEnabled(bool enabled) {
-        limiterEnabled_.store(enabled, std::memory_order_relaxed);
-        limiterWetTarget_.store(enabled ? 1.0f : 0.0f, std::memory_order_relaxed);
-    }
-    void setLimiterParams(float inputGainDb, float limitDb, float attackMs, float releaseMs) {
-        limiterInputGainDb_.store(inputGainDb, std::memory_order_relaxed);
-        limiterLimitDb_.store(limitDb, std::memory_order_relaxed);
-        limiterAttackMs_.store(attackMs, std::memory_order_relaxed);
-        limiterReleaseMs_.store(releaseMs, std::memory_order_relaxed);
-    }
-
     void setReverbEnabled(bool enabled) {
         reverbEnabled_.store(enabled, std::memory_order_relaxed);
         reverbWetTarget_.store(enabled ? 1.0f : 0.0f, std::memory_order_relaxed);
     }
-    void setReverbParams(float dry, float wet, float roomMs, float decaySec) {
-        reverbDry_.store(dry, std::memory_order_relaxed);
-        reverbWet_.store(wet, std::memory_order_relaxed);
-        reverbRoomMs_.store(roomMs, std::memory_order_relaxed);
-        reverbDecaySec_.store(decaySec, std::memory_order_relaxed);
+    void setReverbParams(
+        float dry, float wet, float roomMs, float decaySec,
+        float early, float detune,
+        float lowCutHz, float highCutHz,
+        float lowDampRate, float highDampRate
+    ) {
+        reverbDry_.store(std::max(0.0f, dry), std::memory_order_relaxed);
+        reverbWet_.store(std::max(0.0f, wet), std::memory_order_relaxed);
+        reverbRoomMs_.store(std::max(0.0f, roomMs), std::memory_order_relaxed);
+        reverbDecaySec_.store(std::max(0.0f, decaySec), std::memory_order_relaxed);
+        reverbEarly_.store(std::max(0.0f, early), std::memory_order_relaxed);
+        reverbDetune_.store(std::max(0.0f, detune), std::memory_order_relaxed);
+        reverbLowCutHz_.store(std::clamp(lowCutHz, 10.0f, 500.0f), std::memory_order_relaxed);
+        reverbHighCutHz_.store(std::clamp(highCutHz, 1000.0f, 20000.0f), std::memory_order_relaxed);
+        reverbLowDampRate_.store(std::max(0.0f, lowDampRate), std::memory_order_relaxed);
+        reverbHighDampRate_.store(std::max(0.0f, highDampRate), std::memory_order_relaxed);
     }
 
     void setEqEnabled(bool enabled) {
@@ -198,8 +192,21 @@ public:
         eqDirty_.store(true, std::memory_order_relaxed);
     }
 
-    void setPitchDetectionEnabled(bool enabled) { pitchDetectionEnabled_.store(enabled, std::memory_order_relaxed); }
-    float getDetectedPitch() const { return detectedPitch_.load(std::memory_order_relaxed); }
+    void setToneFilterEnabled(bool enabled) {
+        toneFilterEnabled_.store(enabled, std::memory_order_relaxed);
+        if (!enabled) {
+            for (auto& f : toneFiltersL_) f.reset();
+            for (auto& f : toneFiltersR_) f.reset();
+        }
+    }
+
+    void setToneFilterParams(float lowCutHz, float highCutHz, float lowShelfDb, float highShelfDb) {
+        float safeHighCut = std::max(highCutHz, lowCutHz + 20.0f);
+        toneFilterLowCutHz_.store(lowCutHz, std::memory_order_relaxed);
+        toneFilterHighCutHz_.store(safeHighCut, std::memory_order_relaxed);
+        toneFilterLowShelfDb_.store(lowShelfDb, std::memory_order_relaxed);
+        toneFilterHighShelfDb_.store(highShelfDb, std::memory_order_relaxed);
+    }
 
 private:
     using BiquadFilter = signalsmith::filters::BiquadStatic<float>;
@@ -256,9 +263,9 @@ private:
         if (pitchSemitones_.load(std::memory_order_relaxed) != 0.0f) return false;
 
         if (isWetActive(chorusWetCurrent_, chorusWetTarget_.load(std::memory_order_relaxed))) return false;
-        if (isWetActive(limiterWetCurrent_, limiterWetTarget_.load(std::memory_order_relaxed))) return false;
         if (isWetActive(reverbWetCurrent_, reverbWetTarget_.load(std::memory_order_relaxed))) return false;
         if (isWetActive(eqWetCurrent_, eqWetTarget_.load(std::memory_order_relaxed))) return false;
+        if (toneFilterEnabled_.load(std::memory_order_relaxed)) return false;
 
         return true;
     }
@@ -267,21 +274,14 @@ private:
         shortToFloatDeinterleaved(input, frames);
 
         const float pitch = pitchSemitones_.load(std::memory_order_relaxed);
-        const bool needPitch = pitch != 0.0f;
+        stretch_.setTransposeSemitones(pitch);
 
-        if (needPitch) {
-            stretch_.setTransposeSemitones(pitch);
+        float* inputPtrs[2] = {inputLeft_.data(), inputRight_.data()};
+        float* outputPtrs[2] = {outputLeft_.data(), outputRight_.data()};
+        stretch_.process(inputPtrs, frames, outputPtrs, frames);
 
-            float* inputPtrs[2] = {inputLeft_.data(), inputRight_.data()};
-            float* outputPtrs[2] = {outputLeft_.data(), outputRight_.data()};
-            stretch_.process(inputPtrs, frames, outputPtrs, frames);
-
-            std::memcpy(effectsBufferLeft_.data(), outputLeft_.data(), static_cast<size_t>(frames) * sizeof(float));
-            std::memcpy(effectsBufferRight_.data(), outputRight_.data(), static_cast<size_t>(frames) * sizeof(float));
-        } else {
-            std::memcpy(effectsBufferLeft_.data(), inputLeft_.data(), static_cast<size_t>(frames) * sizeof(float));
-            std::memcpy(effectsBufferRight_.data(), inputRight_.data(), static_cast<size_t>(frames) * sizeof(float));
-        }
+        std::memcpy(effectsBufferLeft_.data(), outputLeft_.data(), static_cast<size_t>(frames) * sizeof(float));
+        std::memcpy(effectsBufferRight_.data(), outputRight_.data(), static_cast<size_t>(frames) * sizeof(float));
 
         applyEffects(frames);
 
@@ -310,25 +310,6 @@ private:
             );
         }
 
-        const float limiterTargetWet = limiterWetTarget_.load(std::memory_order_relaxed);
-        if (limiterEffect_ &&
-            (limiterEnabled_.load(std::memory_order_relaxed) || isWetActive(limiterWetCurrent_, limiterTargetWet))) {
-            const float gainDb = limiterInputGainDb_.load(std::memory_order_relaxed);
-            limiterEffect_->inputGain = std::pow(10.0f, gainDb / 20.0f);
-            limiterEffect_->outputLimit = std::pow(10.0f, limiterLimitDb_.load(std::memory_order_relaxed) / 20.0f);
-            limiterEffect_->attackMs = limiterAttackMs_.load(std::memory_order_relaxed);
-            limiterEffect_->releaseMs = limiterReleaseMs_.load(std::memory_order_relaxed);
-
-            limiterEffect_->process(effectInPtrs, effectOutPtrs, frames);
-            mixEffectOutputWithWet(
-                effectOutputL_.data(),
-                effectOutputR_.data(),
-                frames,
-                limiterWetCurrent_,
-                limiterTargetWet
-            );
-        }
-
         const float reverbTargetWet = reverbWetTarget_.load(std::memory_order_relaxed);
         if (reverbEffect_ &&
             (reverbEnabled_.load(std::memory_order_relaxed) || isWetActive(reverbWetCurrent_, reverbTargetWet))) {
@@ -336,6 +317,12 @@ private:
             reverbEffect_->wet = reverbWet_.load(std::memory_order_relaxed);
             reverbEffect_->roomMs = reverbRoomMs_.load(std::memory_order_relaxed);
             reverbEffect_->rt20 = reverbDecaySec_.load(std::memory_order_relaxed);
+            reverbEffect_->early = reverbEarly_.load(std::memory_order_relaxed);
+            reverbEffect_->detune = reverbDetune_.load(std::memory_order_relaxed);
+            reverbEffect_->lowCutHz = reverbLowCutHz_.load(std::memory_order_relaxed);
+            reverbEffect_->highCutHz = reverbHighCutHz_.load(std::memory_order_relaxed);
+            reverbEffect_->lowDampRate = reverbLowDampRate_.load(std::memory_order_relaxed);
+            reverbEffect_->highDampRate = reverbHighDampRate_.load(std::memory_order_relaxed);
 
             reverbEffect_->process(effectInPtrs, effectOutPtrs, frames);
             mixEffectOutputWithWet(
@@ -345,6 +332,37 @@ private:
                 reverbWetCurrent_,
                 reverbTargetWet
             );
+        }
+
+        if (toneFilterEnabled_.load(std::memory_order_relaxed)) {
+            const float invSr = 1.0f / static_cast<float>(sampleRate_);
+            const float lowCut = toneFilterLowCutHz_.load(std::memory_order_relaxed);
+            const float highCut = toneFilterHighCutHz_.load(std::memory_order_relaxed);
+            const float lowShelfDb = toneFilterLowShelfDb_.load(std::memory_order_relaxed);
+            const float highShelfDb = toneFilterHighShelfDb_.load(std::memory_order_relaxed);
+
+            const float lowShelfFreq = std::min(200.0f, highCut * 0.5f);
+            const float highShelfFreq = std::max(1000.0f, lowCut * 2.0f);
+
+            toneFiltersL_[0].highpass(lowCut * invSr, 1.9);
+            toneFiltersR_[0].highpass(lowCut * invSr, 1.9);
+            toneFiltersL_[1].lowpass(highCut * invSr, 1.9);
+            toneFiltersR_[1].lowpass(highCut * invSr, 1.9);
+            toneFiltersL_[2].lowShelfDb(lowShelfFreq * invSr, lowShelfDb);
+            toneFiltersR_[2].lowShelfDb(lowShelfFreq * invSr, lowShelfDb);
+            toneFiltersL_[3].highShelfDb(highShelfFreq * invSr, highShelfDb);
+            toneFiltersR_[3].highShelfDb(highShelfFreq * invSr, highShelfDb);
+
+            for (int i = 0; i < frames; i++) {
+                float sL = effectsBufferLeft_[i];
+                float sR = effectsBufferRight_[i];
+                for (int f = 0; f < 4; f++) {
+                    sL = toneFiltersL_[f](sL);
+                    sR = toneFiltersR_[f](sR);
+                }
+                effectsBufferLeft_[i] = sL;
+                effectsBufferRight_[i] = sR;
+            }
         }
 
         const float eqTargetWet = eqWetTarget_.load(std::memory_order_relaxed);
@@ -369,6 +387,11 @@ private:
             );
         }
 
+        if (outputLimiter_) {
+            outputLimiter_->process(effectInPtrs, effectOutPtrs, frames);
+            std::memcpy(effectsBufferLeft_.data(), effectOutputL_.data(), static_cast<size_t>(frames) * sizeof(float));
+            std::memcpy(effectsBufferRight_.data(), effectOutputR_.data(), static_cast<size_t>(frames) * sizeof(float));
+        }
     }
 
     float computeSmoothingCoeff(float smoothingMs) const {
@@ -457,17 +480,14 @@ private:
     std::vector<float> effectOutputR_;
 
     std::unique_ptr<signalsmith::basics::ChorusFloat> chorusEffect_;
-    std::unique_ptr<signalsmith::basics::LimiterFloat> limiterEffect_;
     std::unique_ptr<signalsmith::basics::ReverbFloat> reverbEffect_;
+    std::unique_ptr<signalsmith::basics::LimiterFloat> outputLimiter_;
 
     std::atomic<bool> chorusEnabled_;
-    std::atomic<bool> limiterEnabled_;
     std::atomic<bool> reverbEnabled_;
     std::atomic<float> chorusWetTarget_{0.0f};
-    std::atomic<float> limiterWetTarget_{0.0f};
     std::atomic<float> reverbWetTarget_{0.0f};
     float chorusWetCurrent_ = 0.0f;
-    float limiterWetCurrent_ = 0.0f;
     float reverbWetCurrent_ = 0.0f;
 
     std::atomic<bool> eqEnabled_;
@@ -476,21 +496,19 @@ private:
     float effectToggleSmoothingCoeff_ = 0.0f;
     static constexpr float EFFECT_TOGGLE_SMOOTHING_MS = 24.0f;
 
-    std::atomic<bool> pitchDetectionEnabled_;
-    std::atomic<float> detectedPitch_;
-
     std::atomic<float> chorusMix_;
     std::atomic<float> chorusDepthMs_;
     std::atomic<float> chorusDetune_;
     std::atomic<float> chorusStereo_;
 
-    std::atomic<float> limiterInputGainDb_;
-    std::atomic<float> limiterLimitDb_;
-    std::atomic<float> limiterAttackMs_;
-    std::atomic<float> limiterReleaseMs_;
-
     std::atomic<float> reverbDry_;
     std::atomic<float> reverbWet_;
+    std::atomic<float> reverbEarly_;
+    std::atomic<float> reverbDetune_;
+    std::atomic<float> reverbLowCutHz_;
+    std::atomic<float> reverbHighCutHz_;
+    std::atomic<float> reverbLowDampRate_;
+    std::atomic<float> reverbHighDampRate_;
     std::atomic<float> reverbRoomMs_;
     std::atomic<float> reverbDecaySec_;
 
@@ -512,6 +530,14 @@ private:
     std::array<float, 5> eqSmoothedFreq_ = {60.0f, 250.0f, 1000.0f, 4000.0f, 12000.0f};
     std::array<float, 5> eqSmoothedGain_ = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
     static constexpr float EQ_PARAM_SMOOTHING = 0.20f;
+
+    std::atomic<bool> toneFilterEnabled_{false};
+    std::atomic<float> toneFilterLowCutHz_{700.0f};
+    std::atomic<float> toneFilterHighCutHz_{12000.0f};
+    std::atomic<float> toneFilterLowShelfDb_{2.5f};
+    std::atomic<float> toneFilterHighShelfDb_{-2.5f};
+    std::array<BiquadFilter, 4> toneFiltersL_;
+    std::array<BiquadFilter, 4> toneFiltersR_;
 };
 
 extern "C" {
@@ -649,33 +675,6 @@ Java_com_example_media_audio_SignalsmithAudioProcessor_nativeSetChorusParams(
 }
 
 JNIEXPORT void JNICALL
-Java_com_example_media_audio_SignalsmithAudioProcessor_nativeSetLimiterEnabled(
-        JNIEnv*,
-        jobject,
-        jlong handle,
-        jboolean enabled) {
-
-    if (handle == 0) return;
-    auto* processor = reinterpret_cast<SignalsmithProcessor*>(handle);
-    processor->setLimiterEnabled(enabled);
-}
-
-JNIEXPORT void JNICALL
-Java_com_example_media_audio_SignalsmithAudioProcessor_nativeSetLimiterParams(
-        JNIEnv*,
-        jobject,
-        jlong handle,
-        jfloat inputGainDb,
-        jfloat limitDb,
-        jfloat attackMs,
-        jfloat releaseMs) {
-
-    if (handle == 0) return;
-    auto* processor = reinterpret_cast<SignalsmithProcessor*>(handle);
-    processor->setLimiterParams(inputGainDb, limitDb, attackMs, releaseMs);
-}
-
-JNIEXPORT void JNICALL
 Java_com_example_media_audio_SignalsmithAudioProcessor_nativeSetReverbEnabled(
         JNIEnv*,
         jobject,
@@ -695,11 +694,17 @@ Java_com_example_media_audio_SignalsmithAudioProcessor_nativeSetReverbParams(
         jfloat dry,
         jfloat wet,
         jfloat roomMs,
-        jfloat decaySec) {
+        jfloat decaySec,
+        jfloat early,
+        jfloat detune,
+        jfloat lowCutHz,
+        jfloat highCutHz,
+        jfloat lowDampRate,
+        jfloat highDampRate) {
 
     if (handle == 0) return;
     auto* processor = reinterpret_cast<SignalsmithProcessor*>(handle);
-    processor->setReverbParams(dry, wet, roomMs, decaySec);
+    processor->setReverbParams(dry, wet, roomMs, decaySec, early, detune, lowCutHz, highCutHz, lowDampRate, highDampRate);
 }
 
 JNIEXPORT void JNICALL
@@ -729,7 +734,7 @@ Java_com_example_media_audio_SignalsmithAudioProcessor_nativeSetEqBand(
 }
 
 JNIEXPORT void JNICALL
-Java_com_example_media_audio_SignalsmithAudioProcessor_nativeSetPitchDetectionEnabled(
+Java_com_example_media_audio_SignalsmithAudioProcessor_nativeSetToneFilterEnabled(
         JNIEnv*,
         jobject,
         jlong handle,
@@ -737,18 +742,22 @@ Java_com_example_media_audio_SignalsmithAudioProcessor_nativeSetPitchDetectionEn
 
     if (handle == 0) return;
     auto* processor = reinterpret_cast<SignalsmithProcessor*>(handle);
-    processor->setPitchDetectionEnabled(enabled);
+    processor->setToneFilterEnabled(enabled);
 }
 
-JNIEXPORT jfloat JNICALL
-Java_com_example_media_audio_SignalsmithAudioProcessor_nativeGetDetectedPitch(
+JNIEXPORT void JNICALL
+Java_com_example_media_audio_SignalsmithAudioProcessor_nativeSetToneFilterParams(
         JNIEnv*,
         jobject,
-        jlong handle) {
+        jlong handle,
+        jfloat lowCutHz,
+        jfloat highCutHz,
+        jfloat lowShelfDb,
+        jfloat highShelfDb) {
 
-    if (handle == 0) return 0.0f;
+    if (handle == 0) return;
     auto* processor = reinterpret_cast<SignalsmithProcessor*>(handle);
-    return processor->getDetectedPitch();
+    processor->setToneFilterParams(lowCutHz, highCutHz, lowShelfDb, highShelfDb);
 }
 
 }

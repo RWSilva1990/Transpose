@@ -3,6 +3,7 @@ package com.example.media.manager
 import com.example.media.audio.SignalsmithAudioProcessor
 import com.example.media.audio.VocalRemovalProcessor
 import com.example.media.audio_effect.data.eq.SignalsmithEqPresets
+import com.example.media.audio_effect.data.filter.ToneFilterPresets
 import com.example.media.audio_effect.data.reverb.SignalsmithReverbPresets
 import dagger.Lazy
 import kotlinx.coroutines.CoroutineScope
@@ -39,14 +40,6 @@ class AudioEffectsManager @Inject constructor(
     private var lastChorusDepthMs = Float.NaN
     private var lastChorusDetune = Float.NaN
     private var lastChorusStereo = Float.NaN
-    private var lastLimiterInputGainDb = Float.NaN
-    private var lastLimiterLimitDb = Float.NaN
-    private var lastLimiterAttackMs = Float.NaN
-    private var lastLimiterReleaseMs = Float.NaN
-    private var lastReverbDry = Float.NaN
-    private var lastReverbWet = Float.NaN
-    private var lastReverbRoomMs = Float.NaN
-    private var lastReverbDecaySec = Float.NaN
 
     // =========================
     // Pitch / Tempo
@@ -195,61 +188,6 @@ class AudioEffectsManager @Inject constructor(
 
 
     // =========================
-    // Signalsmith Limiter
-    // =========================
-
-    private val _isLimiterEnabled = MutableStateFlow(false)
-    val isLimiterEnabled: StateFlow<Boolean> = _isLimiterEnabled.asStateFlow()
-
-    private val _limiterInputGainDb = MutableStateFlow(0f)
-    val limiterInputGainDb: StateFlow<Float> = _limiterInputGainDb.asStateFlow()
-
-    private val _limiterLimitDb = MutableStateFlow(-3f)
-    val limiterLimitDb: StateFlow<Float> = _limiterLimitDb.asStateFlow()
-
-    private val _limiterAttackMs = MutableStateFlow(10f)
-    val limiterAttackMs: StateFlow<Float> = _limiterAttackMs.asStateFlow()
-
-    private val _limiterReleaseMs = MutableStateFlow(100f)
-    val limiterReleaseMs: StateFlow<Float> = _limiterReleaseMs.asStateFlow()
-
-    fun updateIsLimiterEnabled() {
-        _isLimiterEnabled.value = !_isLimiterEnabled.value
-        signalsmithAudioProcessor.setLimiterEnabled(_isLimiterEnabled.value)
-    }
-
-    fun updateLimiterInputGainDb(value: Float) { _limiterInputGainDb.value = value }
-    fun updateLimiterLimitDb(value: Float) { _limiterLimitDb.value = value }
-    fun updateLimiterAttackMs(value: Float) { _limiterAttackMs.value = value }
-    fun updateLimiterReleaseMs(value: Float) { _limiterReleaseMs.value = value }
-
-    fun setLimiterParams() {
-        if (
-            isNearlySame(_limiterInputGainDb.value, lastLimiterInputGainDb) &&
-            isNearlySame(_limiterLimitDb.value, lastLimiterLimitDb) &&
-            isNearlySame(_limiterAttackMs.value, lastLimiterAttackMs) &&
-            isNearlySame(_limiterReleaseMs.value, lastLimiterReleaseMs)
-        ) return
-
-        lastLimiterInputGainDb = _limiterInputGainDb.value
-        lastLimiterLimitDb = _limiterLimitDb.value
-        lastLimiterAttackMs = _limiterAttackMs.value
-        lastLimiterReleaseMs = _limiterReleaseMs.value
-        signalsmithAudioProcessor.setLimiterParams(
-            _limiterInputGainDb.value, _limiterLimitDb.value, _limiterAttackMs.value, _limiterReleaseMs.value
-        )
-    }
-
-    fun initLimiterValues() {
-        _limiterInputGainDb.value = 0f
-        _limiterLimitDb.value = -3f
-        _limiterAttackMs.value = 10f
-        _limiterReleaseMs.value = 100f
-        setLimiterParams()
-    }
-
-
-    // =========================
     // Signalsmith Reverb
     // =========================
 
@@ -259,21 +197,58 @@ class AudioEffectsManager @Inject constructor(
     private val _signalsmithReverbPreset = MutableStateFlow(SignalsmithReverbPresets.PRESET_DEFAULT)
     val signalsmithReverbPreset: StateFlow<Int> = _signalsmithReverbPreset.asStateFlow()
 
-    private val _signalsmithReverbDry = MutableStateFlow(0.95f)
+    private val _signalsmithReverbDry = MutableStateFlow(1.0f)
     val signalsmithReverbDry: StateFlow<Float> = _signalsmithReverbDry.asStateFlow()
 
-    private val _signalsmithReverbWet = MutableStateFlow(0.2f)
+    private val _signalsmithReverbWet = MutableStateFlow(0.35f)
     val signalsmithReverbWet: StateFlow<Float> = _signalsmithReverbWet.asStateFlow()
 
-    private val _signalsmithReverbRoomMs = MutableStateFlow(25f)
+    private val _signalsmithReverbRoomMs = MutableStateFlow(80f)
     val signalsmithReverbRoomMs: StateFlow<Float> = _signalsmithReverbRoomMs.asStateFlow()
 
-    private val _signalsmithReverbDecaySec = MutableStateFlow(0.5f)
+    private val _signalsmithReverbDecaySec = MutableStateFlow(1.0f)
     val signalsmithReverbDecaySec: StateFlow<Float> = _signalsmithReverbDecaySec.asStateFlow()
 
+    private val _signalsmithReverbEarly = MutableStateFlow(1.0f)
+    val signalsmithReverbEarly: StateFlow<Float> = _signalsmithReverbEarly.asStateFlow()
+
+    private val _signalsmithReverbDetune = MutableStateFlow(2.0f)
+    val signalsmithReverbDetune: StateFlow<Float> = _signalsmithReverbDetune.asStateFlow()
+
+    private val _signalsmithReverbLowCutHz = MutableStateFlow(80f)
+    val signalsmithReverbLowCutHz: StateFlow<Float> = _signalsmithReverbLowCutHz.asStateFlow()
+
+    private val _signalsmithReverbHighCutHz = MutableStateFlow(12000f)
+    val signalsmithReverbHighCutHz: StateFlow<Float> = _signalsmithReverbHighCutHz.asStateFlow()
+
+    private val _signalsmithReverbLowDampRate = MutableStateFlow(1.6f)
+    val signalsmithReverbLowDampRate: StateFlow<Float> = _signalsmithReverbLowDampRate.asStateFlow()
+
+    private val _signalsmithReverbHighDampRate = MutableStateFlow(2.5f)
+    val signalsmithReverbHighDampRate: StateFlow<Float> = _signalsmithReverbHighDampRate.asStateFlow()
+
+    private var lastReverbDry: Float = Float.NaN
+    private var lastReverbWet: Float = Float.NaN
+    private var lastReverbRoomMs: Float = Float.NaN
+    private var lastReverbDecaySec: Float = Float.NaN
+    private var lastReverbEarly: Float = Float.NaN
+    private var lastReverbDetune: Float = Float.NaN
+    private var lastReverbLowCutHz: Float = Float.NaN
+    private var lastReverbHighCutHz: Float = Float.NaN
+    private var lastReverbLowDampRate: Float = Float.NaN
+    private var lastReverbHighDampRate: Float = Float.NaN
+
+    private fun isNearlySame(a: Float, b: Float, epsilon: Float = 0.0001f): Boolean {
+        return kotlin.math.abs(a - b) < epsilon
+    }
+
     fun updateIsSignalsmithReverbEnabled() {
-        _isSignalsmithReverbEnabled.value = !_isSignalsmithReverbEnabled.value
-        signalsmithAudioProcessor.setReverbEnabled(_isSignalsmithReverbEnabled.value)
+        val newEnabled = !_isSignalsmithReverbEnabled.value
+        _isSignalsmithReverbEnabled.value = newEnabled
+        if (newEnabled) {
+            setSignalsmithReverbParams()
+        }
+        signalsmithAudioProcessor.setReverbEnabled(newEnabled)
     }
 
     fun updateSignalsmithReverbPreset(presetIndex: Int) {
@@ -283,42 +258,67 @@ class AudioEffectsManager @Inject constructor(
         _signalsmithReverbWet.value = preset.wet
         _signalsmithReverbRoomMs.value = preset.roomMs
         _signalsmithReverbDecaySec.value = preset.decaySec
+        _signalsmithReverbEarly.value = preset.early
+        _signalsmithReverbDetune.value = preset.detune
+        _signalsmithReverbLowCutHz.value = preset.lowCutHz
+        _signalsmithReverbHighCutHz.value = preset.highCutHz
+        _signalsmithReverbLowDampRate.value = preset.lowDampRate
+        _signalsmithReverbHighDampRate.value = preset.highDampRate
         setSignalsmithReverbParams()
     }
 
-    fun updateSignalsmithReverbDry(value: Float) {
-        _signalsmithReverbDry.value = value
-        _signalsmithReverbPreset.value = -1
-    }
-    fun updateSignalsmithReverbWet(value: Float) {
-        _signalsmithReverbWet.value = value
-        _signalsmithReverbPreset.value = -1
-    }
-    fun updateSignalsmithReverbRoomMs(value: Float) {
-        _signalsmithReverbRoomMs.value = value
-        _signalsmithReverbPreset.value = -1
-    }
-    fun updateSignalsmithReverbDecaySec(value: Float) {
-        _signalsmithReverbDecaySec.value = value
-        _signalsmithReverbPreset.value = -1
-    }
+    fun updateSignalsmithReverbDry(value: Float) { _signalsmithReverbDry.value = value }
+    fun updateSignalsmithReverbWet(value: Float) { _signalsmithReverbWet.value = value }
+    fun updateSignalsmithReverbRoomMs(value: Float) { _signalsmithReverbRoomMs.value = value }
+    fun updateSignalsmithReverbDecaySec(value: Float) { _signalsmithReverbDecaySec.value = value }
+    fun updateSignalsmithReverbEarly(value: Float) { _signalsmithReverbEarly.value = value }
+    fun updateSignalsmithReverbDetune(value: Float) { _signalsmithReverbDetune.value = value }
+    fun updateSignalsmithReverbLowCutHz(value: Float) { _signalsmithReverbLowCutHz.value = value }
+    fun updateSignalsmithReverbHighCutHz(value: Float) { _signalsmithReverbHighCutHz.value = value }
+    fun updateSignalsmithReverbLowDampRate(value: Float) { _signalsmithReverbLowDampRate.value = value }
+    fun updateSignalsmithReverbHighDampRate(value: Float) { _signalsmithReverbHighDampRate.value = value }
 
     fun setSignalsmithReverbParams() {
-        if (
-            isNearlySame(_signalsmithReverbDry.value, lastReverbDry) &&
-            isNearlySame(_signalsmithReverbWet.value, lastReverbWet) &&
-            isNearlySame(_signalsmithReverbRoomMs.value, lastReverbRoomMs) &&
-            isNearlySame(_signalsmithReverbDecaySec.value, lastReverbDecaySec)
-        ) return
+        val dry = _signalsmithReverbDry.value
+        val wet = _signalsmithReverbWet.value
+        val roomMs = _signalsmithReverbRoomMs.value
+        val decaySec = _signalsmithReverbDecaySec.value
+        val early = _signalsmithReverbEarly.value
+        val detune = _signalsmithReverbDetune.value
+        val lowCutHz = _signalsmithReverbLowCutHz.value
+        val highCutHz = _signalsmithReverbHighCutHz.value
+        val lowDampRate = _signalsmithReverbLowDampRate.value
+        val highDampRate = _signalsmithReverbHighDampRate.value
 
-        lastReverbDry = _signalsmithReverbDry.value
-        lastReverbWet = _signalsmithReverbWet.value
-        lastReverbRoomMs = _signalsmithReverbRoomMs.value
-        lastReverbDecaySec = _signalsmithReverbDecaySec.value
+        if (isNearlySame(dry, lastReverbDry) &&
+            isNearlySame(wet, lastReverbWet) &&
+            isNearlySame(roomMs, lastReverbRoomMs) &&
+            isNearlySame(decaySec, lastReverbDecaySec) &&
+            isNearlySame(early, lastReverbEarly) &&
+            isNearlySame(detune, lastReverbDetune) &&
+            isNearlySame(lowCutHz, lastReverbLowCutHz) &&
+            isNearlySame(highCutHz, lastReverbHighCutHz) &&
+            isNearlySame(lowDampRate, lastReverbLowDampRate) &&
+            isNearlySame(highDampRate, lastReverbHighDampRate)
+        ) {
+            return
+        }
+
         signalsmithAudioProcessor.setReverbParams(
-            _signalsmithReverbDry.value, _signalsmithReverbWet.value,
-            _signalsmithReverbRoomMs.value, _signalsmithReverbDecaySec.value
+            dry, wet, roomMs, decaySec,
+            early, detune, lowCutHz, highCutHz, lowDampRate, highDampRate
         )
+
+        lastReverbDry = dry
+        lastReverbWet = wet
+        lastReverbRoomMs = roomMs
+        lastReverbDecaySec = decaySec
+        lastReverbEarly = early
+        lastReverbDetune = detune
+        lastReverbLowCutHz = lowCutHz
+        lastReverbHighCutHz = highCutHz
+        lastReverbLowDampRate = lowDampRate
+        lastReverbHighDampRate = highDampRate
     }
 
     fun initSignalsmithReverbValues() {
@@ -328,7 +328,79 @@ class AudioEffectsManager @Inject constructor(
         _signalsmithReverbWet.value = preset.wet
         _signalsmithReverbRoomMs.value = preset.roomMs
         _signalsmithReverbDecaySec.value = preset.decaySec
+        _signalsmithReverbEarly.value = preset.early
+        _signalsmithReverbDetune.value = preset.detune
+        _signalsmithReverbLowCutHz.value = preset.lowCutHz
+        _signalsmithReverbHighCutHz.value = preset.highCutHz
+        _signalsmithReverbLowDampRate.value = preset.lowDampRate
+        _signalsmithReverbHighDampRate.value = preset.highDampRate
         setSignalsmithReverbParams()
+    }
+
+
+    // =========================
+    // Tone Filter
+    // =========================
+
+    private val _isToneFilterEnabled = MutableStateFlow(false)
+    val isToneFilterEnabled: StateFlow<Boolean> = _isToneFilterEnabled.asStateFlow()
+
+    private val _toneFilterPreset = MutableStateFlow(ToneFilterPresets.PRESET_VOCAL_FOCUS)
+    val toneFilterPreset: StateFlow<Int> = _toneFilterPreset.asStateFlow()
+
+    private val _toneFilterLowCutHz = MutableStateFlow(700f)
+    val toneFilterLowCutHz: StateFlow<Float> = _toneFilterLowCutHz.asStateFlow()
+
+    private val _toneFilterHighCutHz = MutableStateFlow(12000f)
+    val toneFilterHighCutHz: StateFlow<Float> = _toneFilterHighCutHz.asStateFlow()
+
+    private val _toneFilterLowShelfDb = MutableStateFlow(2.5f)
+    val toneFilterLowShelfDb: StateFlow<Float> = _toneFilterLowShelfDb.asStateFlow()
+
+    private val _toneFilterHighShelfDb = MutableStateFlow(-2.5f)
+    val toneFilterHighShelfDb: StateFlow<Float> = _toneFilterHighShelfDb.asStateFlow()
+
+    fun updateIsToneFilterEnabled() {
+        val newEnabled = !_isToneFilterEnabled.value
+        _isToneFilterEnabled.value = newEnabled
+        if (newEnabled) {
+            setToneFilterParams()
+        }
+        signalsmithAudioProcessor.setToneFilterEnabled(newEnabled)
+    }
+
+    fun updateToneFilterPreset(presetIndex: Int) {
+        _toneFilterPreset.value = presetIndex
+        val preset = ToneFilterPresets.getPreset(presetIndex)
+        _toneFilterLowCutHz.value = preset.lowCutHz
+        _toneFilterHighCutHz.value = preset.highCutHz
+        _toneFilterLowShelfDb.value = preset.lowShelfDb
+        _toneFilterHighShelfDb.value = preset.highShelfDb
+        setToneFilterParams()
+    }
+
+    fun updateToneFilterLowCutHz(value: Float) { _toneFilterLowCutHz.value = value }
+    fun updateToneFilterHighCutHz(value: Float) { _toneFilterHighCutHz.value = value }
+    fun updateToneFilterLowShelfDb(value: Float) { _toneFilterLowShelfDb.value = value }
+    fun updateToneFilterHighShelfDb(value: Float) { _toneFilterHighShelfDb.value = value }
+
+    fun setToneFilterParams() {
+        signalsmithAudioProcessor.setToneFilterParams(
+            _toneFilterLowCutHz.value,
+            _toneFilterHighCutHz.value,
+            _toneFilterLowShelfDb.value,
+            _toneFilterHighShelfDb.value
+        )
+    }
+
+    fun initToneFilterValues() {
+        _toneFilterPreset.value = ToneFilterPresets.PRESET_VOCAL_FOCUS
+        val preset = ToneFilterPresets.getPreset(ToneFilterPresets.PRESET_VOCAL_FOCUS)
+        _toneFilterLowCutHz.value = preset.lowCutHz
+        _toneFilterHighCutHz.value = preset.highCutHz
+        _toneFilterLowShelfDb.value = preset.lowShelfDb
+        _toneFilterHighShelfDb.value = preset.highShelfDb
+        setToneFilterParams()
     }
 
 
@@ -339,17 +411,17 @@ class AudioEffectsManager @Inject constructor(
     private val _isEqEnabled = MutableStateFlow(false)
     val isEqEnabled: StateFlow<Boolean> = _isEqEnabled.asStateFlow()
 
-    private val _eqPreset = MutableStateFlow(SignalsmithEqPresets.PRESET_FLAT)
+    private val _eqPreset = MutableStateFlow(SignalsmithEqPresets.PRESET_BASS_BOOST)
     val eqPreset: StateFlow<Int> = _eqPreset.asStateFlow()
 
     private val _eqBand1Freq = MutableStateFlow(60f)
     val eqBand1Freq: StateFlow<Float> = _eqBand1Freq.asStateFlow()
-    private val _eqBand1Gain = MutableStateFlow(0f)
+    private val _eqBand1Gain = MutableStateFlow(6f)
     val eqBand1Gain: StateFlow<Float> = _eqBand1Gain.asStateFlow()
 
     private val _eqBand2Freq = MutableStateFlow(250f)
     val eqBand2Freq: StateFlow<Float> = _eqBand2Freq.asStateFlow()
-    private val _eqBand2Gain = MutableStateFlow(0f)
+    private val _eqBand2Gain = MutableStateFlow(4f)
     val eqBand2Gain: StateFlow<Float> = _eqBand2Gain.asStateFlow()
 
     private val _eqBand3Freq = MutableStateFlow(1000f)
@@ -368,11 +440,24 @@ class AudioEffectsManager @Inject constructor(
     val eqBand5Gain: StateFlow<Float> = _eqBand5Gain.asStateFlow()
 
     fun updateIsEqEnabled() {
-        _isEqEnabled.value = !_isEqEnabled.value
-        if (!_isEqEnabled.value) {
+        val newEnabled = !_isEqEnabled.value
+        _isEqEnabled.value = newEnabled
+        if (newEnabled) {
+            val freqs = floatArrayOf(
+                _eqBand1Freq.value, _eqBand2Freq.value, _eqBand3Freq.value,
+                _eqBand4Freq.value, _eqBand5Freq.value
+            )
+            val gains = floatArrayOf(
+                _eqBand1Gain.value, _eqBand2Gain.value, _eqBand3Gain.value,
+                _eqBand4Gain.value, _eqBand5Gain.value
+            )
+            for (i in 0..4) {
+                signalsmithAudioProcessor.setEqBand(i, freqs[i], gains[i])
+            }
+        } else {
             clearPendingEqUpdates()
         }
-        signalsmithAudioProcessor.setEqEnabled(_isEqEnabled.value)
+        signalsmithAudioProcessor.setEqEnabled(newEnabled)
     }
 
     fun updateEqBand(band: Int, freq: Float, gain: Float) {
@@ -387,7 +472,6 @@ class AudioEffectsManager @Inject constructor(
     }
 
     fun updateEqBandGain(band: Int, gain: Float) {
-        _eqPreset.value = -1
         val freq = when (band) {
             0 -> _eqBand1Freq.value
             1 -> _eqBand2Freq.value
@@ -416,13 +500,18 @@ class AudioEffectsManager @Inject constructor(
     }
 
     fun initEqValues() {
-        _eqPreset.value = SignalsmithEqPresets.PRESET_FLAT
+        _eqPreset.value = SignalsmithEqPresets.PRESET_BASS_BOOST
         clearPendingEqUpdates()
-        _eqBand1Gain.value = 0f; _eqBand2Gain.value = 0f; _eqBand3Gain.value = 0f
-        _eqBand4Gain.value = 0f; _eqBand5Gain.value = 0f
+        val preset = SignalsmithEqPresets.getPreset(SignalsmithEqPresets.PRESET_BASS_BOOST)
+        val gains = preset.gains
+        _eqBand1Gain.value = gains[0]
+        _eqBand2Gain.value = gains[1]
+        _eqBand3Gain.value = gains[2]
+        _eqBand4Gain.value = gains[3]
+        _eqBand5Gain.value = gains[4]
+        val freqs = listOf(60f, 250f, 1000f, 4000f, 12000f)
         for (i in 0..4) {
-            val freq = when (i) { 0 -> 60f; 1 -> 250f; 2 -> 1000f; 3 -> 4000f; else -> 12000f }
-            signalsmithAudioProcessor.setEqBand(i, freq, 0f)
+            signalsmithAudioProcessor.setEqBand(i, freqs[i], gains[i])
         }
     }
 
@@ -482,24 +571,6 @@ class AudioEffectsManager @Inject constructor(
             else -> 0f
         }
     }
-
-    private fun isNearlySame(a: Float, b: Float, epsilon: Float = 0.0001f): Boolean {
-        return !a.isNaN() && !b.isNaN() && abs(a - b) <= epsilon
-    }
-
-    // =========================
-    // Signalsmith Pitch Detection
-    // =========================
-
-    private val _isPitchDetectionEnabled = MutableStateFlow(false)
-    val isPitchDetectionEnabled: StateFlow<Boolean> = _isPitchDetectionEnabled.asStateFlow()
-
-    fun updateIsPitchDetectionEnabled() {
-        _isPitchDetectionEnabled.value = !_isPitchDetectionEnabled.value
-        signalsmithAudioProcessor.setPitchDetectionEnabled(_isPitchDetectionEnabled.value)
-    }
-
-    fun getDetectedPitch(): Float = signalsmithAudioProcessor.getDetectedPitch()
 
     fun release() {
         eqDispatchJob?.cancel()

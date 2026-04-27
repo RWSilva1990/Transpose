@@ -4,16 +4,15 @@ import android.os.Trace
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
@@ -22,8 +21,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
 import com.example.domain.model.youtube.playlist.Playlist
+import com.example.ui.components.image.ThumbnailImage
 import com.example.util.constants.AppColors
 
 
@@ -43,14 +42,14 @@ fun NationalPlaylistItem(
                 onClick(playlistData.id)
                 Trace.endSection()}
     ) {
-        AsyncImage(
-            model = playlistData.thumbnailUrl,
+        ThumbnailImage(
+            url = playlistData.thumbnailUrl,
             contentDescription = "Nation Icon",
+            width = 330.dp,
+            height = 200.dp,
             modifier = Modifier
-                .fillMaxWidth()
-                .height(200.dp)
                 .clip(RoundedCornerShape(8.dp)),
-            contentScale = ContentScale.FillBounds
+            contentScale = ContentScale.FillBounds,
         )
 
         Spacer(modifier = Modifier.height(10.dp))
@@ -59,7 +58,7 @@ fun NationalPlaylistItem(
             text = playlistData.title,
             fontSize = 15.sp,
             fontWeight = FontWeight.Bold,
-            color = Color.Black
+            color = MaterialTheme.colorScheme.onSurface
         )
 
 
