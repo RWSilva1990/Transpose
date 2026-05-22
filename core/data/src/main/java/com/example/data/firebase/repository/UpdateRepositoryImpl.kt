@@ -39,11 +39,7 @@ class UpdateRepositoryImpl @Inject constructor(
 
     override suspend fun checkForUpdate(): UpdateInfo? = withContext(Dispatchers.IO) {
         try {
-            remoteConfig.reset().await()
-
-            val fetchResult = remoteConfig.fetch(0).await()
-
-            val activateResult = remoteConfig.activate().await()
+            remoteConfig.fetchAndActivate().await()
 
             // 값 확인
             val latestVersion = remoteConfig.getString("latest_version").ifEmpty {

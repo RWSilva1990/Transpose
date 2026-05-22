@@ -21,7 +21,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -29,7 +28,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -37,7 +35,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
 import com.example.domain.repository.UpdateInfo
 import com.example.main.R
-import java.util.Locale
 
 @Composable
 fun UpdateDialog(
@@ -45,6 +42,8 @@ fun UpdateDialog(
     onUpdateClick: () -> Unit,
     onDismiss: () -> Unit
 ) {
+    val isUpdateAvailable = updateInfo.isUpdateAvailable
+
     AlertDialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(
@@ -62,7 +61,13 @@ fun UpdateDialog(
         },
         title = {
             Text(
-                text = stringResource(R.string.update_dialog_title),
+                text = stringResource(
+                    if (isUpdateAvailable) {
+                        R.string.update_dialog_title
+                    } else {
+                        R.string.update_dialog_version_info_title
+                    }
+                ),
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center,
@@ -71,9 +76,6 @@ fun UpdateDialog(
         },
         text = {
             val scrollState = rememberScrollState()
-            val locale = LocalConfiguration.current.locales[0]
-            val isKorean = locale.language == Locale.KOREAN.language
-            val releaseNotes = if (isKorean) updateInfo.releaseNotesKo else updateInfo.releaseNotesEn
 
             Column(
                 modifier = Modifier
@@ -84,7 +86,13 @@ fun UpdateDialog(
             ) {
                 // 메시지
                 Text(
-                    text = stringResource(R.string.update_dialog_message),
+                    text = stringResource(
+                        if (isUpdateAvailable) {
+                            R.string.update_dialog_message
+                        } else {
+                            R.string.update_dialog_latest_message
+                        }
+                    ),
                     style = MaterialTheme.typography.bodyLarge,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.padding(bottom = 16.dp)
@@ -152,60 +160,35 @@ fun UpdateDialog(
                         }
                     }
                 }
-
-                // 패치 노트 섹션
-                if (releaseNotes.isNotBlank()) {
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    HorizontalDivider(
-                        modifier = Modifier.padding(horizontal = 8.dp),
-                        color = MaterialTheme.colorScheme.outlineVariant
-                    )
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    Text(
-                        text = stringResource(R.string.update_dialog_whats_new),
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 4.dp)
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Text(
-                        text = releaseNotes,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 4.dp)
-                    )
-                }
             }
         },
         confirmButton = {
             Button(
-                onClick = onUpdateClick,
+                onClick = if (isUpdateAvailable) onUpdateClick else onDismiss,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.primary
                 )
             ) {
                 Text(
-                    text = stringResource(R.string.update_dialog_update_button),
+                    text = stringResource(
+                        if (isUpdateAvailable) {
+                            R.string.update_dialog_update_button
+                        } else {
+                            R.string.update_dialog_ok_button
+                        }
+                    ),
                     fontWeight = FontWeight.Medium
                 )
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(
-                    text = stringResource(R.string.update_dialog_later_button),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+            if (isUpdateAvailable) {
+                TextButton(onClick = onDismiss) {
+                    Text(
+                        text = stringResource(R.string.update_dialog_later_button),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         }
     )

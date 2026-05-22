@@ -75,6 +75,20 @@ fun MainScreen(
     val isLocalSearchActive by mainViewModel.isLocalSearchActive.collectAsStateWithLifecycle()
     val searchQuery by mainViewModel.searchQuery.collectAsStateWithLifecycle()
     val suggestionKeywords by mainViewModel.suggestionKeywords.collectAsStateWithLifecycle()
+    val onUpdateCheckClick = { mainViewModel.checkForUpdateManually() }
+    val onContactClick = remember(context) {
+        {
+            val intent = Intent(Intent.ACTION_SENDTO).apply {
+                data = "mailto:joh99111@gmail.com".toUri()
+                putExtra(Intent.EXTRA_SUBJECT, "Transpose Feedback")
+            }
+            try {
+                context.startActivity(intent)
+            } catch (e: Exception) {
+                ToastUtil.showShort(context, R.string.contact_mail_unavailable)
+            }
+        }
+    }
 
     val permissionGranted by mainViewModel.permissionGranted.collectAsStateWithLifecycle()
 
@@ -350,8 +364,8 @@ fun MainScreen(
                                 bottomSheetOffset = { bottomSheetOffset },
                                 isBottomNavHidden = isLocalSearchActive
                             ),
-                        onUpdateCheckClick = {},
-                        onContactClick = {},
+                        onUpdateCheckClick = onUpdateCheckClick,
+                        onContactClick = onContactClick,
                         bottomSheetState = sheetState
                     )
                 }
@@ -370,8 +384,8 @@ fun MainScreen(
                             ),
                         bottomSheetState = sheetState,
                         navigateToHomeTab = { selectedTab = MainTab.Home },
-                        onUpdateCheckClick = {},
-                        onContactClick = {},
+                        onUpdateCheckClick = onUpdateCheckClick,
+                        onContactClick = onContactClick,
                         localSearchQuery = localSearchQuery,
                         isLocalSearchActive = isLocalSearchActive,
                         onCloseLocalSearch = { mainViewModel.setLocalSearchActive(false) }
@@ -392,8 +406,8 @@ fun MainScreen(
                             ),
                         bottomSheetState = sheetState,
                         navigateToHomeTab = { selectedTab = MainTab.Home },
-                        onUpdateCheckClick = {},
-                        onContactClick = {},
+                        onUpdateCheckClick = onUpdateCheckClick,
+                        onContactClick = onContactClick,
                     )
                 }
             }

@@ -1,6 +1,7 @@
 package com.example.main
 
 import android.content.Context
+import android.os.SystemClock
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -50,6 +51,7 @@ import org.schabi.newpipe.extractor.services.youtube.dashmanifestcreators.Youtub
 import javax.inject.Inject
 
 private const val SEARCH_QUERY = "search_query"
+private const val MANUAL_UPDATE_CHECK_COOLDOWN_MS = 30_000L
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
@@ -82,6 +84,11 @@ class MainViewModel @Inject constructor(
     val toastEvent = _toastEvent.receiveAsFlow()
 
     private val videoDetailCache = mutableMapOf<String, VideoDetail>()
+    private var hasCheckedUpdateOnStartup = false
+    private var isManualUpdateCheckInProgress = false
+    private var lastManualUpdateCheckAtMs = 0L
+    private var lastUpdateCheckInfo: UpdateInfo? = null
+    private var lastUpdateCheckFailed = false
 
     private fun fetchCurrentVideoDetailData(video: Video) =
         viewModelScope.launch {
@@ -101,7 +108,10 @@ class MainViewModel @Inject constructor(
                 val videoDetail = result.getOrNull()
 
                 if (videoDetail == null) {
-                    _videoDetailUiState.value = VideoDetailUiState.Error("Video detail not found")
+                    val userMessage = playbackUnavailableMessage()
+                    mediaPlaybackManager.failPendingMediaItem(video.id, userMessage)
+                    _videoDetailUiState.value = VideoDetailUiState.Error(userMessage)
+                    _toastEvent.send(userMessage)
                     return@launch
                 }
 
@@ -111,15 +121,17 @@ class MainViewModel @Inject constructor(
 
             } else {
                 val error = result.exceptionOrNull()
-                val errorMessage = error?.message ?: "Unknown error"
+                val technicalMessage = error?.message ?: "Unknown error"
+                val userMessage = playbackUnavailableMessage()
+                mediaPlaybackManager.failPendingMediaItem(video.id, userMessage)
 
                 crashReporter.setCustomKey("video_id", video.id)
                 crashReporter.setCustomKey("video_title", video.title)
-                crashReporter.log("Video detail fetch failed: $errorMessage")
+                crashReporter.log("Video detail fetch failed: $technicalMessage")
                 error?.let { crashReporter.recordException(it) }
 
-                _videoDetailUiState.value = VideoDetailUiState.Error(message = errorMessage)
-                _toastEvent.send(errorMessage)
+                _videoDetailUiState.value = VideoDetailUiState.Error(message = userMessage)
+                _toastEvent.send(userMessage)
             }
         }
 
@@ -134,6 +146,15 @@ class MainViewModel @Inject constructor(
         val videoDefaultStreamUrl = videoDetail.videoStreamContent
         if (videoDefaultStreamUrl == null) {
             Logger.e("videoStreamContent is null for video: ${videoDetail.id}")
+            val userMessage = playbackUnavailableMessage()
+            mediaPlaybackManager.failPendingMediaItem(
+                itemId = videoDetail.id,
+                message = userMessage
+            )
+            _videoDetailUiState.value = VideoDetailUiState.Error(userMessage)
+            viewModelScope.launch {
+                _toastEvent.send(userMessage)
+            }
             return
         }
 
@@ -215,7 +236,7 @@ class MainViewModel @Inject constructor(
                 audioManifestsString = audioManifestString,
             )
         } catch (e: Exception) {
-            Logger.e("DASH manifest creation failed, falling back to Progressive: ${e.message}")
+            Logger.d("DASH manifest creation failed, falling back to Progressive: ${e.message}")
             mediaPlaybackManager.updateMediaItemWithFullInfo(
                 itemId = videoDetail.id,
                 videoQuality = currentVideoQuality,
@@ -226,6 +247,10 @@ class MainViewModel @Inject constructor(
                 audioManifestsString = null,
             )
         }
+    }
+
+    private fun playbackUnavailableMessage(): String {
+        return context.getString(R.string.playback_error)
     }
 
     @OptIn(FlowPreview::class)
@@ -343,7 +368,7 @@ class MainViewModel @Inject constructor(
 
     fun start() {
         checkPermissions()
-        checkForUpdate()
+        checkForUpdateOnStartup()
     }
 
     fun setVideoQuality(quality: VideoQuality) {
@@ -352,13 +377,76 @@ class MainViewModel @Inject constructor(
         }
     }
 
-    private fun checkForUpdate() {
+    private fun checkForUpdateOnStartup() {
+        if (hasCheckedUpdateOnStartup) return
+        hasCheckedUpdateOnStartup = true
+
         viewModelScope.launch {
             updateRepository.checkForUpdate()?.let { updateInfo ->
+                lastUpdateCheckInfo = updateInfo
+                lastUpdateCheckFailed = false
                 Logger.d("Update available: ${updateInfo.latestVersion}")
                 if (updateInfo.isUpdateAvailable) {
                     _updateDialogState.value = UpdateDialogState.Visible(updateInfo)
                 }
+            } ?: run {
+                lastUpdateCheckFailed = true
+            }
+        }
+    }
+
+    fun checkForUpdateManually() {
+        viewModelScope.launch {
+            val now = SystemClock.elapsedRealtime()
+            if (isManualUpdateCheckInProgress) {
+                showCachedUpdateCheckResult()
+                return@launch
+            }
+
+            if (lastUpdateCheckInfo != null &&
+                now - lastManualUpdateCheckAtMs < MANUAL_UPDATE_CHECK_COOLDOWN_MS
+            ) {
+                showCachedUpdateCheckResult()
+                return@launch
+            }
+
+            isManualUpdateCheckInProgress = true
+            lastManualUpdateCheckAtMs = now
+
+            val updateInfo = try {
+                updateRepository.checkForUpdate()
+            } finally {
+                isManualUpdateCheckInProgress = false
+            }
+
+            if (updateInfo != null) {
+                lastUpdateCheckInfo = updateInfo
+                lastUpdateCheckFailed = false
+            } else {
+                lastUpdateCheckFailed = true
+            }
+
+            showCachedUpdateCheckResult()
+        }
+    }
+
+    private suspend fun showCachedUpdateCheckResult() {
+        val updateInfo = lastUpdateCheckInfo
+        when {
+            updateInfo?.isUpdateAvailable == true -> {
+                _updateDialogState.value = UpdateDialogState.Visible(updateInfo)
+            }
+
+            updateInfo != null -> {
+                _toastEvent.send(context.getString(R.string.update_check_latest))
+            }
+
+            lastUpdateCheckFailed -> {
+                _toastEvent.send(context.getString(R.string.update_check_failed))
+            }
+
+            else -> {
+                _toastEvent.send(context.getString(R.string.update_check_latest))
             }
         }
     }
