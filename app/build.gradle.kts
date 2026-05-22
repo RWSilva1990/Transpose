@@ -20,7 +20,8 @@ android {
     buildTypes {
         getByName("release") {
             signingConfig = signingConfigs.getByName("debug")
-            // 기타 옵션: minifyEnabled 등 원래 release 옵션들 그대로
+            isMinifyEnabled = true
+            isShrinkResources = true
         }
         create("benchmark") {
             initWith(buildTypes.getByName("release"))
@@ -62,4 +63,3 @@ dependencies {
     implementation(libs.coil.compose)
 
 }
-
