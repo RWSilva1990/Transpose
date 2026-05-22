@@ -4,8 +4,8 @@ import com.example.media.audio.SignalsmithAudioProcessor
 import com.example.media.audio.VocalRemovalProcessor
 import com.example.media.audio_effect.data.eq.SignalsmithEqPresets
 import com.example.media.audio_effect.data.filter.ToneFilterPresets
+import com.example.media.audio_effect.data.reverb.ReverbPlusPresets
 import com.example.media.audio_effect.data.reverb.SignalsmithReverbPresets
-import dagger.Lazy
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -25,8 +25,7 @@ import javax.inject.Singleton
 @Singleton
 class AudioEffectsManager @Inject constructor(
     private val signalsmithAudioProcessor: SignalsmithAudioProcessor,
-    private val vocalRemovalProcessor: VocalRemovalProcessor,
-    private val mediaPlaybackManager: Lazy<MediaPlaybackManager>
+    private val vocalRemovalProcessor: VocalRemovalProcessor
 ) {
     companion object {
         private const val EQ_CONTROL_INTERVAL_MS = 40L
@@ -52,7 +51,6 @@ class AudioEffectsManager @Inject constructor(
         .stateIn(scope, SharingStarted.Eagerly, 100)
 
     private fun uiValueToSemitones(uiValue: Int): Float = (uiValue - 100) / 10f
-    private fun semitonesToRate(semitones: Float): Float = Math.pow(2.0, semitones.toDouble() / 12.0).toFloat()
 
     fun pitchPlusOne() {
         signalsmithAudioProcessor.addPitchSemitone()
@@ -79,29 +77,20 @@ class AudioEffectsManager @Inject constructor(
         .map { semitonesToUiValue(it) }
         .stateIn(scope, SharingStarted.Eagerly, 100)
 
-    private fun applyTempoToPlayer() {
-        val tempoRate = semitonesToRate(_tempoSemitones.value)
-        mediaPlaybackManager.get().setPlaybackSpeed(tempoRate)
-    }
-
     fun tempoPlusOne() {
-        _tempoSemitones.value = (_tempoSemitones.value + 1f).coerceIn(-24f, 24f)
-        applyTempoToPlayer()
+        // Tempo is intentionally disabled until the native Signalsmith tempo path is complete.
     }
 
     fun tempoMinusOne() {
-        _tempoSemitones.value = (_tempoSemitones.value - 1f).coerceIn(-24f, 24f)
-        applyTempoToPlayer()
+        // Tempo is intentionally disabled until the native Signalsmith tempo path is complete.
     }
 
     fun initTempoValue() {
         _tempoSemitones.value = 0f
-        applyTempoToPlayer()
     }
 
     fun updateTempoValue(uiValue: Int) {
-        _tempoSemitones.value = uiValueToSemitones(uiValue).coerceIn(-24f, 24f)
-        applyTempoToPlayer()
+        // Tempo is intentionally disabled until the native Signalsmith tempo path is complete.
     }
 
     fun setTempo() {
@@ -113,9 +102,25 @@ class AudioEffectsManager @Inject constructor(
     private val _vocalRemovalMix = MutableStateFlow(1.0f)
     val vocalRemovalMix: StateFlow<Float> = _vocalRemovalMix.asStateFlow()
 
+    private val _isVocalOnlyMode = MutableStateFlow(false)
+    val isVocalOnlyMode: StateFlow<Boolean> = _isVocalOnlyMode.asStateFlow()
+
     fun updateIsVocalRemovalEnabled() {
         _isVocalRemovalEnabled.value = !_isVocalRemovalEnabled.value
         vocalRemovalProcessor.enabled = _isVocalRemovalEnabled.value
+    }
+
+    fun disableVocalRemovalForBackground() {
+        if (!_isVocalRemovalEnabled.value) return
+
+        _isVocalRemovalEnabled.value = false
+        vocalRemovalProcessor.enabled = false
+        vocalRemovalProcessor.flush()
+    }
+
+    fun updateIsVocalOnlyMode() {
+        _isVocalOnlyMode.value = !_isVocalOnlyMode.value
+        vocalRemovalProcessor.vocalOnlyMode = _isVocalOnlyMode.value
     }
 
     fun updateVocalRemovalMix(value: Float) {
@@ -130,6 +135,8 @@ class AudioEffectsManager @Inject constructor(
     fun initVocalRemovalValues() {
         _vocalRemovalMix.value = 1.0f
         vocalRemovalProcessor.mixRatio = 1.0f
+        _isVocalOnlyMode.value = false
+        vocalRemovalProcessor.vocalOnlyMode = false
     }
 
     // =========================
@@ -184,6 +191,82 @@ class AudioEffectsManager @Inject constructor(
         _chorusDetune.value = 10f
         _chorusStereo.value = 0.5f
         setChorusParams()
+    }
+
+    // =========================
+    // Reverb+
+    // =========================
+
+    private val _isReverbPlusEnabled = MutableStateFlow(false)
+    val isReverbPlusEnabled: StateFlow<Boolean> = _isReverbPlusEnabled.asStateFlow()
+
+    private val _reverbPlusPreset = MutableStateFlow(ReverbPlusPresets.PRESET_BALANCED)
+    val reverbPlusPreset: StateFlow<Int> = _reverbPlusPreset.asStateFlow()
+
+    private val _reverbPlusDry = MutableStateFlow(1.0f)
+    val reverbPlusDry: StateFlow<Float> = _reverbPlusDry.asStateFlow()
+
+    private val _reverbPlusWet = MutableStateFlow(0.30f)
+    val reverbPlusWet: StateFlow<Float> = _reverbPlusWet.asStateFlow()
+
+    private val _reverbPlusRoomSize = MutableStateFlow(0.50f)
+    val reverbPlusRoomSize: StateFlow<Float> = _reverbPlusRoomSize.asStateFlow()
+
+    private val _reverbPlusDamping = MutableStateFlow(0.50f)
+    val reverbPlusDamping: StateFlow<Float> = _reverbPlusDamping.asStateFlow()
+
+    private var lastReverbPlusDry: Float = Float.NaN
+    private var lastReverbPlusWet: Float = Float.NaN
+    private var lastReverbPlusRoomSize: Float = Float.NaN
+    private var lastReverbPlusDamping: Float = Float.NaN
+
+    fun updateIsReverbPlusEnabled() {
+        val newEnabled = !_isReverbPlusEnabled.value
+        _isReverbPlusEnabled.value = newEnabled
+        if (newEnabled) {
+            setReverbPlusParams()
+        }
+        signalsmithAudioProcessor.setReverbPlusEnabled(newEnabled)
+    }
+
+    fun updateReverbPlusPreset(presetIndex: Int) {
+        _reverbPlusPreset.value = presetIndex
+        val preset = ReverbPlusPresets.getPreset(presetIndex)
+        _reverbPlusDry.value = preset.dry
+        _reverbPlusWet.value = preset.wet
+        _reverbPlusRoomSize.value = preset.roomSize
+        _reverbPlusDamping.value = preset.damping
+        setReverbPlusParams()
+    }
+
+    fun updateReverbPlusDry(value: Float) { _reverbPlusDry.value = value.coerceIn(0f, 1f) }
+    fun updateReverbPlusWet(value: Float) { _reverbPlusWet.value = value.coerceIn(0f, 1f) }
+    fun updateReverbPlusRoomSize(value: Float) { _reverbPlusRoomSize.value = value.coerceIn(0f, 1f) }
+    fun updateReverbPlusDamping(value: Float) { _reverbPlusDamping.value = value.coerceIn(0f, 1f) }
+
+    fun setReverbPlusParams() {
+        val dry = _reverbPlusDry.value
+        val wet = _reverbPlusWet.value
+        val roomSize = _reverbPlusRoomSize.value
+        val damping = _reverbPlusDamping.value
+
+        if (isNearlySame(dry, lastReverbPlusDry) &&
+            isNearlySame(wet, lastReverbPlusWet) &&
+            isNearlySame(roomSize, lastReverbPlusRoomSize) &&
+            isNearlySame(damping, lastReverbPlusDamping)
+        ) {
+            return
+        }
+
+        signalsmithAudioProcessor.setReverbPlusParams(dry, wet, roomSize, damping)
+        lastReverbPlusDry = dry
+        lastReverbPlusWet = wet
+        lastReverbPlusRoomSize = roomSize
+        lastReverbPlusDamping = damping
+    }
+
+    fun initReverbPlusValues() {
+        updateReverbPlusPreset(ReverbPlusPresets.PRESET_BALANCED)
     }
 
 

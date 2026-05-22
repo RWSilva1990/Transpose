@@ -6,6 +6,7 @@ import androidx.media3.common.C
 import androidx.media3.common.audio.AudioProcessor
 import androidx.media3.common.audio.AudioProcessor.AudioFormat
 import androidx.media3.common.util.UnstableApi
+import com.example.media.BuildConfig
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -20,7 +21,9 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
 
     companion object {
         private const val TAG = "SignalsmithProcessor"
+        private const val PIPE_TAG = "AudioPipe"
         private const val EFFECT_TRANSITION_MS = 36
+        private const val ENABLE_OUTPUT_TRANSITION = false
 
         init {
             System.loadLibrary("signalsmith_audio")
@@ -62,6 +65,12 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
     private var chorusDetune: Float = 10.0f
     private var chorusStereo: Float = 0.5f
 
+    private var reverbPlusEnabled: Boolean = false
+    private var reverbPlusDry: Float = 1.0f
+    private var reverbPlusWet: Float = 0.3f
+    private var reverbPlusRoomSize: Float = 0.5f
+    private var reverbPlusDamping: Float = 0.5f
+
     private var reverbEnabled: Boolean = false
     private var reverbDry: Float = 1.0f
     private var reverbWet: Float = 0.35f
@@ -92,13 +101,21 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
     private var toneFilterLowShelfDb: Float = 2.5f
     private var toneFilterHighShelfDb: Float = -2.5f
 
+    private fun logDebug(message: String) {
+        if (BuildConfig.DEBUG) Log.d(TAG, message)
+    }
+
+    private fun logPipeline(message: String) {
+        if (BuildConfig.DEBUG) Log.i(PIPE_TAG, message)
+    }
+
     fun setPitchSemitones(semitones: Float) {
         _pitchSemitones.value = semitones.coerceIn(-24f, 24f)
         requestOutputTransition()
         if (nativeHandle != 0L) {
             nativeSetPitchSemitones(nativeHandle, _pitchSemitones.value)
         }
-        Log.d(TAG, "setPitchSemitones: ${_pitchSemitones.value}")
+        logDebug("setPitchSemitones: ${_pitchSemitones.value}")
     }
 
     fun addPitchSemitone() {
@@ -119,7 +136,7 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
         if (nativeHandle != 0L) {
             nativeSetTempoRate(nativeHandle, tempoRate)
         }
-        Log.d(TAG, "setTempoRate: $tempoRate")
+        logDebug("setTempoRate: $tempoRate")
     }
 
     fun setTempoSemitones(semitones: Float) {
@@ -129,7 +146,7 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
         if (nativeHandle != 0L) {
             nativeSetTempoRate(nativeHandle, tempoRate)
         }
-        Log.d(TAG, "setTempoSemitones: $semitones, tempoRate: $tempoRate")
+        logDebug("setTempoSemitones: $semitones, tempoRate: $tempoRate")
     }
 
     fun addTempoSemitone() {
@@ -159,6 +176,30 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
         chorusStereo = stereo
         if (nativeHandle != 0L) {
             nativeSetChorusParams(nativeHandle, mix, depthMs, detune, stereo)
+        }
+    }
+
+    fun setReverbPlusEnabled(enabled: Boolean) {
+        reverbPlusEnabled = enabled
+        requestOutputTransition()
+        if (nativeHandle != 0L) {
+            nativeSetReverbPlusEnabled(nativeHandle, enabled)
+        }
+    }
+
+    fun setReverbPlusParams(dry: Float, wet: Float, roomSize: Float, damping: Float) {
+        reverbPlusDry = dry.coerceIn(0f, 1f)
+        reverbPlusWet = wet.coerceIn(0f, 1f)
+        reverbPlusRoomSize = roomSize.coerceIn(0f, 1f)
+        reverbPlusDamping = damping.coerceIn(0f, 1f)
+        if (nativeHandle != 0L) {
+            nativeSetReverbPlusParams(
+                nativeHandle,
+                reverbPlusDry,
+                reverbPlusWet,
+                reverbPlusRoomSize,
+                reverbPlusDamping
+            )
         }
     }
 
@@ -250,12 +291,34 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
     }
 
     override fun configure(inputAudioFormat: AudioFormat): AudioFormat {
-        Log.d(TAG, "configure: sampleRate=${inputAudioFormat.sampleRate}, " +
+        val sameConfiguredFormat = outputAudioFormat != AudioFormat.NOT_SET &&
+            sameAudioFormat(this.inputAudioFormat, inputAudioFormat) &&
+            nativeHandle != 0L
+
+        if (sameConfiguredFormat) {
+            logPipeline(
+                "CONFIG_SKIP stage=signalsmith sampleRate=${inputAudioFormat.sampleRate} " +
+                    "channels=${inputAudioFormat.channelCount} encoding=${inputAudioFormat.encoding} " +
+                    "nativeHandle=$nativeHandle pending=${pendingOutputBuffer?.remaining() ?: 0} " +
+                    "outputRemaining=${outputBuffer.remaining()} transitionActive=$transitionActive reason=same_format"
+            )
+            return outputAudioFormat
+        }
+
+        logPipeline(
+            "CONFIG_APPLY stage=signalsmith sampleRate=${inputAudioFormat.sampleRate} " +
+                "channels=${inputAudioFormat.channelCount} encoding=${inputAudioFormat.encoding} " +
+                "oldNativeHandle=$nativeHandle"
+        )
+        logDebug("configure: sampleRate=${inputAudioFormat.sampleRate}, " +
                 "channelCount=${inputAudioFormat.channelCount}, " +
                 "encoding=${inputAudioFormat.encoding}")
 
         if (inputAudioFormat.encoding != C.ENCODING_PCM_16BIT) {
             Log.w(TAG, "Unsupported encoding: ${inputAudioFormat.encoding}")
+            logPipeline(
+                "CONFIG_REJECT stage=signalsmith reason=encoding encoding=${inputAudioFormat.encoding}"
+            )
             this.inputAudioFormat = AudioFormat.NOT_SET
             this.outputAudioFormat = AudioFormat.NOT_SET
             return AudioFormat.NOT_SET
@@ -286,6 +349,15 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
             nativeSetChorusEnabled(nativeHandle, chorusEnabled)
             nativeSetChorusParams(nativeHandle, chorusMix, chorusDepthMs, chorusDetune, chorusStereo)
 
+            nativeSetReverbPlusEnabled(nativeHandle, reverbPlusEnabled)
+            nativeSetReverbPlusParams(
+                nativeHandle,
+                reverbPlusDry,
+                reverbPlusWet,
+                reverbPlusRoomSize,
+                reverbPlusDamping
+            )
+
             nativeSetReverbEnabled(nativeHandle, reverbEnabled)
             nativeSetReverbParams(
                 nativeHandle,
@@ -305,8 +377,14 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
             nativeSetToneFilterParams(nativeHandle, toneFilterLowCutHz, toneFilterHighCutHz, toneFilterLowShelfDb, toneFilterHighShelfDb)
         }
 
-        Log.d(TAG, "configure: nativeHandle=$nativeHandle")
+        logDebug("configure: nativeHandle=$nativeHandle")
         return outputAudioFormat
+    }
+
+    private fun sameAudioFormat(a: AudioFormat, b: AudioFormat): Boolean {
+        return a.sampleRate == b.sampleRate &&
+            a.channelCount == b.channelCount &&
+            a.encoding == b.encoding
     }
 
     override fun isActive(): Boolean {
@@ -340,6 +418,10 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
         val inputFrames = inputBytes / bytesPerFrame
         val processBytes = inputFrames * bytesPerFrame
         if (processBytes == 0) {
+            Log.w(
+                PIPE_TAG,
+                "QUEUE_DROP stage=signalsmith reason=partial_frame inputBytes=$inputBytes bytesPerFrame=$bytesPerFrame"
+            )
             inputBuffer.position(inputBuffer.limit())
             outputBuffer = AudioProcessor.EMPTY_BUFFER
             this.inputBuffer = AudioProcessor.EMPTY_BUFFER
@@ -384,6 +466,12 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
 
         if (actualOutputFrames > 0) {
             val actualOutputBytes = actualOutputFrames * bytesPerFrame
+            if (actualOutputFrames != inputFrames) {
+                logPipeline(
+                    "QUEUE_RATE_CHANGE stage=signalsmith inputFrames=$inputFrames outputFrames=$actualOutputFrames " +
+                        "inputBytes=$inputBytes outputBytes=$actualOutputBytes tempo=$tempoRate pitch=${_pitchSemitones.value}"
+                )
+            }
             processingBuffer!!.position(0)
             processingBuffer!!.limit(actualOutputBytes)
             maybeStartOutputTransition()
@@ -394,6 +482,11 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
 
             outputBuffer = processingBuffer!!
         } else {
+            Log.w(
+                PIPE_TAG,
+                "QUEUE_NO_OUTPUT stage=signalsmith inputBytes=$inputBytes processBytes=$processBytes " +
+                    "inputFrames=$inputFrames nativeHandle=$nativeHandle tempo=$tempoRate pitch=${_pitchSemitones.value}"
+            )
             outputBuffer = AudioProcessor.EMPTY_BUFFER
         }
 
@@ -401,7 +494,24 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
     }
 
     override fun queueEndOfStream() {
+        if (inputEnded &&
+            !outputBuffer.hasRemaining() &&
+            (pendingOutputBuffer == null || !pendingOutputBuffer!!.hasRemaining())
+        ) {
+            outputBuffer = AudioProcessor.EMPTY_BUFFER
+            pendingOutputBuffer = null
+            return
+        }
+
         inputEnded = true
+        logPipeline(
+            "EOS stage=signalsmith nativeHandle=$nativeHandle pending=${pendingOutputBuffer?.remaining() ?: 0} " +
+                "outputRemaining=${outputBuffer.remaining()}"
+        )
+
+        if (!outputBuffer.hasRemaining()) {
+            outputBuffer = AudioProcessor.EMPTY_BUFFER
+        }
 
         if (nativeHandle != 0L) {
             val bytesPerFrame = inputAudioFormat.channelCount * 2
@@ -415,13 +525,12 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
             processingBuffer!!.clear()
 
             val remainingFrames = nativeFlushAndGetRemaining(nativeHandle, processingBuffer!!, maxRemainingFrames)
-
             if (remainingFrames > 0) {
-                val remainingBytes = remainingFrames * bytesPerFrame
-                processingBuffer!!.position(0)
-                processingBuffer!!.limit(remainingBytes)
-                pendingOutputBuffer = processingBuffer
+                logPipeline(
+                    "EOS_DROP_REMAINING stage=signalsmith frames=$remainingFrames bytes=${remainingFrames * bytesPerFrame}"
+                )
             }
+            pendingOutputBuffer = null
         }
     }
 
@@ -439,12 +548,16 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
 
     override fun isEnded(): Boolean {
         return inputEnded &&
-               outputBuffer === AudioProcessor.EMPTY_BUFFER &&
+               !outputBuffer.hasRemaining() &&
                (pendingOutputBuffer == null || !pendingOutputBuffer!!.hasRemaining())
     }
 
     override fun flush() {
-        Log.d(TAG, "flush")
+        logPipeline(
+            "FLUSH stage=signalsmith nativeHandle=$nativeHandle pending=${pendingOutputBuffer?.remaining() ?: 0} " +
+                "outputRemaining=${outputBuffer.remaining()} transitionActive=$transitionActive"
+        )
+        logDebug("flush")
         inputBuffer = AudioProcessor.EMPTY_BUFFER
         outputBuffer = AudioProcessor.EMPTY_BUFFER
         pendingOutputBuffer = null
@@ -458,7 +571,11 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
     }
 
     override fun reset() {
-        Log.d(TAG, "reset")
+        logPipeline(
+            "RESET stage=signalsmith nativeHandle=$nativeHandle pending=${pendingOutputBuffer?.remaining() ?: 0} " +
+                "outputRemaining=${outputBuffer.remaining()}"
+        )
+        logDebug("reset")
         flush()
 
         if (nativeHandle != 0L) {
@@ -472,6 +589,7 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
     }
 
     private fun requestOutputTransition() {
+        if (!ENABLE_OUTPUT_TRANSITION) return
         transitionRequested = true
     }
 
@@ -572,6 +690,16 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
         depthMs: Float,
         detune: Float,
         stereo: Float
+    )
+
+    private external fun nativeSetReverbPlusEnabled(handle: Long, enabled: Boolean)
+
+    private external fun nativeSetReverbPlusParams(
+        handle: Long,
+        dry: Float,
+        wet: Float,
+        roomSize: Float,
+        damping: Float
     )
 
     private external fun nativeSetReverbEnabled(handle: Long, enabled: Boolean)

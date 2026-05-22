@@ -15,9 +15,14 @@
 #include "signalsmith-basics/limiter.h"
 #include "signalsmith-basics/reverb.h"
 #include "signalsmith/basics/modules/dsp/filters.h"
+#include "effects/ReverbPlusEffect.h"
 
 #define LOG_TAG "SignalsmithProc"
+#ifdef NDEBUG
+#define LOGD(...) ((void)0)
+#else
 #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
+#endif
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
 
 namespace {
@@ -32,12 +37,17 @@ public:
         , pitchSemitones_(0.0f)
         , tempoRate_(1.0f)
         , chorusEnabled_(false)
+        , reverbPlusEnabled_(false)
         , reverbEnabled_(false)
         , eqEnabled_(false)
         , chorusMix_(0.5f)
         , chorusDepthMs_(10.0f)
         , chorusDetune_(10.0f)
         , chorusStereo_(0.5f)
+        , reverbPlusDry_(1.0f)
+        , reverbPlusWet_(0.3f)
+        , reverbPlusRoomSize_(0.5f)
+        , reverbPlusDamping_(0.5f)
         , reverbDry_(1.0f)
         , reverbWet_(0.3f)
         , reverbRoomMs_(50.0f)
@@ -77,6 +87,8 @@ public:
         chorusEffect_ = std::make_unique<signalsmith::basics::ChorusFloat>(50.0f);
         chorusEffect_->configure(sampleRate_, PROCESS_BLOCK_FRAMES, channelCount_);
         chorusEffect_->reset();
+
+        reverbPlusEffect_.initialize(sampleRate_, channelCount_);
 
         reverbEffect_ = std::make_unique<signalsmith::basics::ReverbFloat>(200.0f, 2.0f);
         reverbEffect_->configure(sampleRate_, PROCESS_BLOCK_FRAMES, channelCount_ == 2 ? 2 : 1);
@@ -152,6 +164,25 @@ public:
         chorusStereo_.store(stereo, std::memory_order_relaxed);
     }
 
+    void setReverbPlusEnabled(bool enabled) {
+        reverbPlusEnabled_.store(enabled, std::memory_order_relaxed);
+        reverbPlusWetTarget_.store(enabled ? 1.0f : 0.0f, std::memory_order_relaxed);
+        reverbPlusEffect_.setEnabled(enabled);
+    }
+
+    void setReverbPlusParams(float dry, float wet, float roomSize, float damping) {
+        reverbPlusDry_.store(std::clamp(dry, 0.0f, 1.0f), std::memory_order_relaxed);
+        reverbPlusWet_.store(std::clamp(wet, 0.0f, 1.0f), std::memory_order_relaxed);
+        reverbPlusRoomSize_.store(std::clamp(roomSize, 0.0f, 1.0f), std::memory_order_relaxed);
+        reverbPlusDamping_.store(std::clamp(damping, 0.0f, 1.0f), std::memory_order_relaxed);
+        reverbPlusEffect_.setParams(
+            reverbPlusDry_.load(std::memory_order_relaxed),
+            reverbPlusWet_.load(std::memory_order_relaxed),
+            reverbPlusRoomSize_.load(std::memory_order_relaxed),
+            reverbPlusDamping_.load(std::memory_order_relaxed)
+        );
+    }
+
     void setReverbEnabled(bool enabled) {
         reverbEnabled_.store(enabled, std::memory_order_relaxed);
         reverbWetTarget_.store(enabled ? 1.0f : 0.0f, std::memory_order_relaxed);
@@ -194,10 +225,7 @@ public:
 
     void setToneFilterEnabled(bool enabled) {
         toneFilterEnabled_.store(enabled, std::memory_order_relaxed);
-        if (!enabled) {
-            for (auto& f : toneFiltersL_) f.reset();
-            for (auto& f : toneFiltersR_) f.reset();
-        }
+        toneFilterWetTarget_.store(enabled ? 1.0f : 0.0f, std::memory_order_relaxed);
     }
 
     void setToneFilterParams(float lowCutHz, float highCutHz, float lowShelfDb, float highShelfDb) {
@@ -263,6 +291,7 @@ private:
         if (pitchSemitones_.load(std::memory_order_relaxed) != 0.0f) return false;
 
         if (isWetActive(chorusWetCurrent_, chorusWetTarget_.load(std::memory_order_relaxed))) return false;
+        if (isWetActive(reverbPlusWetCurrent_, reverbPlusWetTarget_.load(std::memory_order_relaxed))) return false;
         if (isWetActive(reverbWetCurrent_, reverbWetTarget_.load(std::memory_order_relaxed))) return false;
         if (isWetActive(eqWetCurrent_, eqWetTarget_.load(std::memory_order_relaxed))) return false;
         if (toneFilterEnabled_.load(std::memory_order_relaxed)) return false;
@@ -310,6 +339,27 @@ private:
             );
         }
 
+        const float reverbPlusTargetWet = reverbPlusWetTarget_.load(std::memory_order_relaxed);
+        if (reverbPlusEnabled_.load(std::memory_order_relaxed) ||
+            isWetActive(reverbPlusWetCurrent_, reverbPlusTargetWet)) {
+            std::memcpy(effectOutputL_.data(), effectsBufferLeft_.data(), static_cast<size_t>(frames) * sizeof(float));
+            std::memcpy(effectOutputR_.data(), effectsBufferRight_.data(), static_cast<size_t>(frames) * sizeof(float));
+            reverbPlusEffect_.setParams(
+                reverbPlusDry_.load(std::memory_order_relaxed),
+                reverbPlusWet_.load(std::memory_order_relaxed),
+                reverbPlusRoomSize_.load(std::memory_order_relaxed),
+                reverbPlusDamping_.load(std::memory_order_relaxed)
+            );
+            reverbPlusEffect_.process(effectOutputL_.data(), effectOutputR_.data(), frames);
+            mixEffectOutputWithWet(
+                effectOutputL_.data(),
+                effectOutputR_.data(),
+                frames,
+                reverbPlusWetCurrent_,
+                reverbPlusTargetWet
+            );
+        }
+
         const float reverbTargetWet = reverbWetTarget_.load(std::memory_order_relaxed);
         if (reverbEffect_ &&
             (reverbEnabled_.load(std::memory_order_relaxed) || isWetActive(reverbWetCurrent_, reverbTargetWet))) {
@@ -334,7 +384,8 @@ private:
             );
         }
 
-        if (toneFilterEnabled_.load(std::memory_order_relaxed)) {
+        const float toneTargetWet = toneFilterWetTarget_.load(std::memory_order_relaxed);
+        if (toneFilterEnabled_.load(std::memory_order_relaxed) || isWetActive(toneFilterWetCurrent_, toneTargetWet)) {
             const float invSr = 1.0f / static_cast<float>(sampleRate_);
             const float lowCut = toneFilterLowCutHz_.load(std::memory_order_relaxed);
             const float highCut = toneFilterHighCutHz_.load(std::memory_order_relaxed);
@@ -360,9 +411,16 @@ private:
                     sL = toneFiltersL_[f](sL);
                     sR = toneFiltersR_[f](sR);
                 }
-                effectsBufferLeft_[i] = sL;
-                effectsBufferRight_[i] = sR;
+                effectOutputL_[i] = sL;
+                effectOutputR_[i] = sR;
             }
+            mixEffectOutputWithWet(
+                effectOutputL_.data(),
+                effectOutputR_.data(),
+                frames,
+                toneFilterWetCurrent_,
+                toneTargetWet
+            );
         }
 
         const float eqTargetWet = eqWetTarget_.load(std::memory_order_relaxed);
@@ -480,14 +538,18 @@ private:
     std::vector<float> effectOutputR_;
 
     std::unique_ptr<signalsmith::basics::ChorusFloat> chorusEffect_;
+    ReverbPlusEffect reverbPlusEffect_;
     std::unique_ptr<signalsmith::basics::ReverbFloat> reverbEffect_;
     std::unique_ptr<signalsmith::basics::LimiterFloat> outputLimiter_;
 
     std::atomic<bool> chorusEnabled_;
+    std::atomic<bool> reverbPlusEnabled_;
     std::atomic<bool> reverbEnabled_;
     std::atomic<float> chorusWetTarget_{0.0f};
+    std::atomic<float> reverbPlusWetTarget_{0.0f};
     std::atomic<float> reverbWetTarget_{0.0f};
     float chorusWetCurrent_ = 0.0f;
+    float reverbPlusWetCurrent_ = 0.0f;
     float reverbWetCurrent_ = 0.0f;
 
     std::atomic<bool> eqEnabled_;
@@ -500,6 +562,11 @@ private:
     std::atomic<float> chorusDepthMs_;
     std::atomic<float> chorusDetune_;
     std::atomic<float> chorusStereo_;
+
+    std::atomic<float> reverbPlusDry_;
+    std::atomic<float> reverbPlusWet_;
+    std::atomic<float> reverbPlusRoomSize_;
+    std::atomic<float> reverbPlusDamping_;
 
     std::atomic<float> reverbDry_;
     std::atomic<float> reverbWet_;
@@ -532,6 +599,8 @@ private:
     static constexpr float EQ_PARAM_SMOOTHING = 0.20f;
 
     std::atomic<bool> toneFilterEnabled_{false};
+    std::atomic<float> toneFilterWetTarget_{0.0f};
+    float toneFilterWetCurrent_ = 0.0f;
     std::atomic<float> toneFilterLowCutHz_{700.0f};
     std::atomic<float> toneFilterHighCutHz_{12000.0f};
     std::atomic<float> toneFilterLowShelfDb_{2.5f};
@@ -672,6 +741,33 @@ Java_com_example_media_audio_SignalsmithAudioProcessor_nativeSetChorusParams(
     if (handle == 0) return;
     auto* processor = reinterpret_cast<SignalsmithProcessor*>(handle);
     processor->setChorusParams(mix, depthMs, detune, stereo);
+}
+
+JNIEXPORT void JNICALL
+Java_com_example_media_audio_SignalsmithAudioProcessor_nativeSetReverbPlusEnabled(
+        JNIEnv*,
+        jobject,
+        jlong handle,
+        jboolean enabled) {
+
+    if (handle == 0) return;
+    auto* processor = reinterpret_cast<SignalsmithProcessor*>(handle);
+    processor->setReverbPlusEnabled(enabled);
+}
+
+JNIEXPORT void JNICALL
+Java_com_example_media_audio_SignalsmithAudioProcessor_nativeSetReverbPlusParams(
+        JNIEnv*,
+        jobject,
+        jlong handle,
+        jfloat dry,
+        jfloat wet,
+        jfloat roomSize,
+        jfloat damping) {
+
+    if (handle == 0) return;
+    auto* processor = reinterpret_cast<SignalsmithProcessor*>(handle);
+    processor->setReverbPlusParams(dry, wet, roomSize, damping);
 }
 
 JNIEXPORT void JNICALL

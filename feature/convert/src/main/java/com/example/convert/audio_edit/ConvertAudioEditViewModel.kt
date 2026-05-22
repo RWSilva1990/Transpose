@@ -50,6 +50,22 @@ class ConvertAudioEditViewModel @Inject constructor(
         audioEffectsManager.setChorusParams()
     }
 
+    // Reverb+
+    val isReverbPlusEnabled = audioEffectsManager.isReverbPlusEnabled
+    val reverbPlusPreset = audioEffectsManager.reverbPlusPreset
+    val reverbPlusDry = audioEffectsManager.reverbPlusDry
+    val reverbPlusWet = audioEffectsManager.reverbPlusWet
+    val reverbPlusRoomSize = audioEffectsManager.reverbPlusRoomSize
+    val reverbPlusDamping = audioEffectsManager.reverbPlusDamping
+    fun updateIsReverbPlusEnabled() = audioEffectsManager.updateIsReverbPlusEnabled()
+    fun updateReverbPlusPreset(presetIndex: Int) = audioEffectsManager.updateReverbPlusPreset(presetIndex)
+    fun updateReverbPlusDry(value: Float) = audioEffectsManager.updateReverbPlusDry(value)
+    fun updateReverbPlusWet(value: Float) = audioEffectsManager.updateReverbPlusWet(value)
+    fun updateReverbPlusRoomSize(value: Float) = audioEffectsManager.updateReverbPlusRoomSize(value)
+    fun updateReverbPlusDamping(value: Float) = audioEffectsManager.updateReverbPlusDamping(value)
+    fun setReverbPlusParams() = audioEffectsManager.setReverbPlusParams()
+    fun initReverbPlusValues() = audioEffectsManager.initReverbPlusValues()
+
     // Signalsmith Reverb
     val isSignalsmithReverbEnabled = audioEffectsManager.isSignalsmithReverbEnabled
     val signalsmithReverbPreset = audioEffectsManager.signalsmithReverbPreset
@@ -110,7 +126,9 @@ class ConvertAudioEditViewModel @Inject constructor(
     // Vocal Removal
     val isVocalRemovalEnabled = audioEffectsManager.isVocalRemovalEnabled
     val vocalRemovalMix = audioEffectsManager.vocalRemovalMix
+    val isVocalOnlyMode = audioEffectsManager.isVocalOnlyMode
     fun updateIsVocalRemovalEnabled() = audioEffectsManager.updateIsVocalRemovalEnabled()
+    fun updateIsVocalOnlyMode() = audioEffectsManager.updateIsVocalOnlyMode()
     fun updateVocalRemovalMix(value: Float) = audioEffectsManager.updateVocalRemovalMix(value)
     fun initVocalRemovalValues() = audioEffectsManager.initVocalRemovalValues()
 }

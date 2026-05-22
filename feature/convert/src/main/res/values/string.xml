@@ -9,6 +9,7 @@
     <string name="tempo_plus_text">Increase tempo. Current state: %1$.1f</string>
     <string name="tempo_minus_text">Decrease tempo. Current state: %1$.1f</string>
     <string name="tempo_init_text">Reset tempo. Current state: %1$.1f</string>
+    <string name="tempo_disabled_message">Tempo control is unavailable to preserve high-quality audio processing.</string>
     <string name="equalizer_text">Equalizer</string>
     <string name="equalizer_preset">Preset</string>
     <string name="bass_text">Bass</string>

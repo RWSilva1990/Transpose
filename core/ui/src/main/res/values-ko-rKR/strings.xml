@@ -184,12 +184,18 @@
     <string name="chorus_stereo">스테레오 확장 (Stereo Width)</string>
 
     <string name="vocal_removal_text">보컬 제거</string>
-    <string name="vocal_removal_mix">보컬 감소량</string>
+    <string name="vocal_removal_mix">효과 적용량</string>
+    <string name="vocal_removal_vocal_only">목소리만 듣기</string>
+    <string name="vocal_removal_description">AI 모델로 보컬을 실시간 처리합니다. 슬라이더로 효과 적용량을 조절하세요.</string>
+    <string name="vocal_removal_foreground_notice">보컬 제거는 앱이 화면에 표시되는 동안에만 적용됩니다.</string>
+    <string name="vocal_removal_background_notice">실시간 보컬 제거는 높은 CPU 성능이 필요합니다.\n다운로드, 백그라운드 작업, 기기 발열 상태에 따라 처리 성능이 달라질 수 있습니다.</string>
 
-    <string name="signalsmith_reverb_text">리버브</string>
+    <string name="signalsmith_reverb_text">리버브+</string>
+    <string name="reverb_plus_text">리버브</string>
     <string name="reverb_dry">원음 비율 (Dry)</string>
     <string name="reverb_wet">잔향 양 (Wet)</string>
     <string name="reverb_room_size">공간 크기 (Room Size)</string>
+    <string name="reverb_damping">감쇠 (Damping)</string>
     <string name="reverb_decay">잔향 길이 (Decay)</string>
     <string name="reverb_early">초기 반사음 (Early)</string>
     <string name="reverb_detune">디튠 (Detune)</string>

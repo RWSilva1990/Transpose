@@ -53,7 +53,7 @@ class CustomMediaSessionCallback @Inject constructor(
             .setDisplayName("Plus")
             .build()
 
-        return listOf(minusButton, plusButton)
+        return listOf(plusButton, minusButton)
     }
 
     override fun onPostConnect(session: MediaSession, controller: MediaSession.ControllerInfo) {
@@ -121,13 +121,13 @@ class CustomMediaSessionCallback @Inject constructor(
                 signalsmithAudioProcessor.resetPitch()
             }
             MediaSessionCallback.TEMPO_PLUS -> {
-                signalsmithAudioProcessor.addTempoSemitone()
+                // Tempo controls are disabled until native time-stretching is wired end-to-end.
             }
             MediaSessionCallback.TEMPO_MINUS -> {
-                signalsmithAudioProcessor.subtractTempoSemitone()
+                // Tempo controls are disabled until native time-stretching is wired end-to-end.
             }
             MediaSessionCallback.INIT_TEMPO_VALUE -> {
-                signalsmithAudioProcessor.resetTempo()
+                // Tempo controls are disabled until native time-stretching is wired end-to-end.
             }
         }
         return super.onCustomCommand(session, controller, customCommand, args)

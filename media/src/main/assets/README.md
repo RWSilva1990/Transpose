@@ -1,10 +1,12 @@
-Place ONNX model files in this directory.
+Place only release-bundled ONNX model files in this directory.
 
-Current runtime model in app:
+Runtime model:
 
-- `UVR-MDX-NET-Inst_Main_fp16_dynT.onnx` (default)
+- `UVR_MDXNET_3_9662_dynT.onnx`
 
-Important:
+Release rule:
 
-- Real-time path expects MDX-like I/O shape rank 4 with `[1, 4, 2048, 32]` (dynamic dimension allowed).
+- Keep experimental candidates outside `media/src/main/assets`.
+- Files in this directory are packaged into the app.
+- Default path expects MDX-like I/O shape rank 4 with `[1, 4, 2048, 32]` (dynamic dimension allowed).
 - If the model file is missing or shape is incompatible, loading is rejected and logs include the reason.

@@ -9,11 +9,15 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.convert.R
 import com.example.convert.audio_edit.ConvertAudioEditViewModel
 import com.example.convert.audio_edit.components.common.EffectCard
 import com.example.convert.audio_edit.components.common.PitchTempoCardHeader
+import com.example.util.ToastUtil
 import java.util.Locale
 
 @Composable
@@ -24,11 +28,6 @@ fun TempoSection(
     val tempoValue by convertAudioEditViewModel.tempoValue.collectAsStateWithLifecycle()
     TempoSectionContent(
         tempoValue = tempoValue,
-        onMinus = convertAudioEditViewModel::tempoMinusOne,
-        onPlus = convertAudioEditViewModel::tempoPlusOne,
-        onReset = convertAudioEditViewModel::initTempoValue,
-        onValueChange = convertAudioEditViewModel::updateTempoValue,
-        onValueChangeFinished = convertAudioEditViewModel::setTempo,
         modifier = modifier,
     )
 }
@@ -36,14 +35,13 @@ fun TempoSection(
 @Composable
 private fun TempoSectionContent(
     tempoValue: Int,
-    onMinus: () -> Unit,
-    onPlus: () -> Unit,
-    onReset: () -> Unit,
-    onValueChange: (Int) -> Unit,
-    onValueChangeFinished: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var isExpanded by rememberSaveable { mutableStateOf(false) }
+    val context = LocalContext.current
+    val showUnavailable = {
+        ToastUtil.showShort(context, context.getString(R.string.tempo_disabled_message))
+    }
 
     val actualValue = (tempoValue * 0.1) - 10.0
     val displayText = if (actualValue >= 0) {
@@ -52,23 +50,27 @@ private fun TempoSectionContent(
         String.format(Locale.ROOT, "%.1f", actualValue)
     }
 
-    val toggle = { isExpanded = !isExpanded }
-    EffectCard(modifier = modifier, onClick = toggle) {
+    val toggle = {
+        isExpanded = !isExpanded
+        showUnavailable()
+    }
+    EffectCard(modifier = modifier.alpha(0.62f), onClick = toggle) {
         PitchTempoCardHeader(
             title = "Tempo",
             displayValue = displayText,
             isExpanded = isExpanded,
             onToggleExpand = toggle,
-            onMinus = onMinus,
-            onPlus = onPlus,
-            onReset = onReset,
+            onMinus = showUnavailable,
+            onPlus = showUnavailable,
+            onReset = showUnavailable,
         )
         if (isExpanded) {
             Slider(
                 value = tempoValue.toFloat(),
                 valueRange = 0f..200f,
-                onValueChange = { onValueChange(it.toInt()) },
-                onValueChangeFinished = onValueChangeFinished,
+                onValueChange = {},
+                onValueChangeFinished = showUnavailable,
+                enabled = false,
                 colors = SliderDefaults.colors(),
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
             )

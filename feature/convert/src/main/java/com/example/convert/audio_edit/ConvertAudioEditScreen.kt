@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import com.example.convert.audio_edit.components.pitch.PitchSection
 import com.example.convert.audio_edit.components.signalsmith.ChorusSection
 import com.example.convert.audio_edit.components.signalsmith.EqSection
+import com.example.convert.audio_edit.components.signalsmith.ReverbPlusSection
 import com.example.convert.audio_edit.components.signalsmith.SignalsmithReverbSection
 import com.example.convert.audio_edit.components.signalsmith.ToneFilterSection
 import com.example.convert.audio_edit.components.signalsmith.VocalRemovalSection
@@ -70,6 +71,13 @@ fun ConvertAudioEditScreen(
         item(key = "signalsmith_reverb") {
             SignalsmithReverbSection(
                 title = stringResource(id = CoreUiR.string.signalsmith_reverb_text),
+                convertAudioEditViewModel = convertAudioEditViewModel
+            )
+        }
+
+        item(key = "reverb_plus") {
+            ReverbPlusSection(
+                title = stringResource(id = CoreUiR.string.reverb_plus_text),
                 convertAudioEditViewModel = convertAudioEditViewModel
             )
         }

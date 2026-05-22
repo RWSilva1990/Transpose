@@ -1,31 +1,44 @@
 package com.example.convert.audio_edit.components.signalsmith
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.KeyboardArrowUp
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.convert.audio_edit.ConvertAudioEditViewModel
-import com.example.convert.audio_edit.components.ExpandableSectionTitle
+import com.example.convert.audio_edit.components.common.EffectCard
 import com.example.transpose.core.ui.R
 import com.example.util.constants.AppColors
-import java.util.Locale
 
 @Composable
 fun VocalRemovalSection(
@@ -36,47 +49,41 @@ fun VocalRemovalSection(
 ) {
     val isEnabled by convertAudioEditViewModel.isVocalRemovalEnabled.collectAsState()
     val mix by convertAudioEditViewModel.vocalRemovalMix.collectAsState()
+    val isVocalOnlyMode by convertAudioEditViewModel.isVocalOnlyMode.collectAsState()
     var isExpanded by rememberSaveable { mutableStateOf(false) }
+    val vocalOnlyInteractionSource = remember { MutableInteractionSource() }
 
-    val isKorean = Locale.getDefault().language == "ko"
-
-    val effectDescription = if (isKorean) {
-        "AI 모델로 보컬을 실시간 제거합니다. 슬라이더로 제거량을 조절하세요."
-    } else {
-        "Removes vocals in real-time using AI. Adjust the slider to control reduction."
+    val toggle = {
+        isExpanded = !isExpanded
+        onExpandChanged(isExpanded)
     }
 
-    Column(
-        modifier = modifier
-            .clickable {
-                isExpanded = !isExpanded
-                onExpandChanged(isExpanded)
-            }
-            .fillMaxWidth()
-    ) {
-        ExpandableSectionTitle(
-            isExpanded = isExpanded,
+    EffectCard(modifier = modifier, onClick = toggle) {
+        VocalRemovalHeader(
             title = title,
+            isExpanded = isExpanded,
             isEnabled = isEnabled,
-            onSwitchChange = { convertAudioEditViewModel.updateIsVocalRemovalEnabled() },
-            onInitButton = { convertAudioEditViewModel.initVocalRemovalValues() }
+            onToggleEnable = { convertAudioEditViewModel.updateIsVocalRemovalEnabled() },
+            onReset = { convertAudioEditViewModel.initVocalRemovalValues() },
         )
 
-        AnimatedVisibility(
-            modifier = Modifier
-                .background(Color.White)
-                .fillMaxSize(),
-            visible = isExpanded,
-        ) {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                Text(
-                    text = effectDescription,
-                    fontSize = 12.sp,
-                    color = AppColors.BlueBackground.copy(alpha = 0.6f),
-                    modifier = Modifier.padding(horizontal = 15.dp, vertical = 4.dp)
-                )
+        Text(
+            text = stringResource(id = R.string.vocal_removal_foreground_notice),
+            fontSize = 12.sp,
+            color = AppColors.BlueBackground.copy(alpha = 0.86f),
+            lineHeight = 16.sp,
+            modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
+        )
 
-                Spacer(modifier = Modifier.height(8.dp))
+        if (isExpanded) {
+            Column(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
+                Text(
+                    text = stringResource(id = R.string.vocal_removal_background_notice),
+                    fontSize = 12.sp,
+                    color = AppColors.BlueBackground.copy(alpha = 0.86f),
+                    lineHeight = 16.sp,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                )
 
                 FloatSliderSection(
                     title = stringResource(id = R.string.vocal_removal_mix),
@@ -87,7 +94,86 @@ fun VocalRemovalSection(
                     currentValue = mix,
                     valueRange = 0f..1f
                 )
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(
+                            interactionSource = vocalOnlyInteractionSource,
+                            indication = null,
+                            onClick = { convertAudioEditViewModel.updateIsVocalOnlyMode() }
+                        )
+                        .padding(start = 15.dp, end = 15.dp, top = 0.dp, bottom = 6.dp)
+                ) {
+                    Checkbox(
+                        checked = isVocalOnlyMode,
+                        onCheckedChange = null,
+                        colors = CheckboxDefaults.colors(
+                            checkedColor = AppColors.BlueBackground,
+                            uncheckedColor = AppColors.DescriptionColor,
+                            checkmarkColor = Color.White
+                        )
+                    )
+                    Text(
+                        text = stringResource(id = R.string.vocal_removal_vocal_only),
+                        fontSize = 13.sp,
+                        color = AppColors.BlueBackground,
+                    )
+                }
             }
+        }
+    }
+}
+
+@Composable
+private fun VocalRemovalHeader(
+    title: String,
+    isExpanded: Boolean,
+    isEnabled: Boolean,
+    onToggleEnable: () -> Unit,
+    onReset: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.weight(1f),
+        ) {
+            Text(
+                text = title,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Spacer(modifier = Modifier.width(2.dp))
+            Icon(
+                imageVector = if (isExpanded) Icons.Rounded.KeyboardArrowUp else Icons.Rounded.KeyboardArrowDown,
+                contentDescription = null,
+                tint = AppColors.DescriptionColor,
+            )
+        }
+        Switch(
+            checked = isEnabled,
+            onCheckedChange = { onToggleEnable() },
+            colors = SwitchDefaults.colors(
+                uncheckedThumbColor = Color.White,
+                uncheckedTrackColor = AppColors.DescriptionColor,
+                uncheckedBorderColor = AppColors.DescriptionColor,
+            ),
+        )
+        IconButton(onClick = onReset) {
+            Icon(
+                imageVector = Icons.Default.Refresh,
+                contentDescription = "Reset $title",
+                tint = AppColors.DescriptionColor,
+            )
         }
     }
 }
