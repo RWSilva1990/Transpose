@@ -59,6 +59,7 @@ fun PlaylistHeaderItem(playlistData: Playlist?) {
                         width = 330.dp,
                         height = 186.dp,
                         modifier = Modifier,
+                        fillMaxSize = true,
                     )
 
                     Box(

@@ -48,6 +48,7 @@ fun PlaylistItem(
                 width = 330.dp,
                 height = 186.dp,
                 modifier = Modifier,
+                fillMaxSize = true,
             )
 
             // 플레이리스트 정보 오버레이

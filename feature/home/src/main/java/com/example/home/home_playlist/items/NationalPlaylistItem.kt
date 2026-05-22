@@ -46,10 +46,10 @@ fun NationalPlaylistItem(
             url = playlistData.thumbnailUrl,
             contentDescription = "Nation Icon",
             width = 330.dp,
-            height = 200.dp,
+            height = 186.dp,
             modifier = Modifier
                 .clip(RoundedCornerShape(8.dp)),
-            contentScale = ContentScale.FillBounds,
+            contentScale = ContentScale.Crop,
         )
 
         Spacer(modifier = Modifier.height(10.dp))

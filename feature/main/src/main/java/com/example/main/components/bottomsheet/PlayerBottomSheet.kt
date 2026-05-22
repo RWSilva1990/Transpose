@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -29,6 +30,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.res.stringResource
@@ -61,7 +63,7 @@ object GraphicsLayerConstants {
     const val MIN_SCALE = 0.3f
 
     val PEEK_HEIGHT = 56.dp
-    val DEFAULT_HEIGHT = 250.dp
+    const val PLAYER_ASPECT_RATIO = 16f / 9f
 }
 
 
@@ -95,6 +97,7 @@ fun PlayerBottomSheet(
     var showPlaylistModal by remember { mutableStateOf(false) }
     var showQualityModal by remember { mutableStateOf(false) }
     var isControllerVisible by remember { mutableStateOf(false) }
+    val playerHeight = LocalConfiguration.current.screenWidthDp.dp / GraphicsLayerConstants.PLAYER_ASPECT_RATIO
 
     val isSheetExpanded by remember(bottomSheetState) {
         derivedStateOf { bottomSheetState.currentValue == SheetValue.Expanded }
@@ -129,9 +132,9 @@ fun PlayerBottomSheet(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(GraphicsLayerConstants.DEFAULT_HEIGHT)
+                    .height(playerHeight)
                     .graphicsLayer {
-                        scaleY = calculateScaleFactorY(bottomSheetOffset())
+                        scaleY = calculateScaleFactorY(bottomSheetOffset(), playerHeight)
                         transformOrigin = TransformOrigin(0.5f, 0f)
                     }
                     .background(AppColors.BlueBackground)
@@ -157,7 +160,7 @@ fun PlayerBottomSheet(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(GraphicsLayerConstants.DEFAULT_HEIGHT)
+                    .aspectRatio(GraphicsLayerConstants.PLAYER_ASPECT_RATIO)
                     .onGloballyPositioned { coordinates ->
                         playerViewHeight = coordinates.size.height
                     }
@@ -167,7 +170,7 @@ fun PlayerBottomSheet(
                             bottomSheetOffset() < 0.2f -> calculateDefaultScaleX(bottomSheetOffset())
                             else -> 1f
                         }
-                        scaleY = calculateScaleFactorY(bottomSheetOffset())
+                        scaleY = calculateScaleFactorY(bottomSheetOffset(), playerHeight)
                         transformOrigin = TransformOrigin(0f, 0f)
                     }
             ) {
@@ -175,7 +178,8 @@ fun PlayerBottomSheet(
                     AndroidView(
                         factory = { ctx ->
                             PlayerView(ctx).apply {
-                                resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FILL
+                                resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                                setShutterBackgroundColor(android.graphics.Color.BLACK)
                                 keepScreenOn = true
                                 setControllerVisibilityListener(
                                     PlayerView.ControllerVisibilityListener { visibility ->
@@ -248,7 +252,8 @@ fun PlayerBottomSheet(
                     .fillMaxSize()
                     .graphicsLayer {
                         translationY = -playerViewHeight * (1 - calculateScaleFactorY(
-                            bottomSheetOffset()
+                            bottomSheetOffset(),
+                            playerHeight
                         ))
                         alpha = if (bottomSheetOffset() < 0) 1f else bottomSheetOffset().pow(3)
                             .coerceAtLeast(0f)
@@ -281,8 +286,8 @@ private fun calculateDefaultScaleX(bottomSheetOffset: Float): Float {
     return GraphicsLayerConstants.MIN_SCALE + (1f - GraphicsLayerConstants.MIN_SCALE) * easedT
 }
 
-private fun calculateScaleFactorY(bottomSheetOffset: Float): Float {
-    val minScale = PEEK_HEIGHT.value / GraphicsLayerConstants.DEFAULT_HEIGHT.value
+private fun calculateScaleFactorY(bottomSheetOffset: Float, playerHeight: androidx.compose.ui.unit.Dp): Float {
+    val minScale = PEEK_HEIGHT.value / playerHeight.value
     return when {
         bottomSheetOffset <= GraphicsLayerConstants.FULLY_EXPANDED -> minScale
         else -> lerp(start = minScale, stop = 1f, fraction = bottomSheetOffset)

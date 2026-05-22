@@ -100,7 +100,7 @@ object VideoMapper {
                 val videoId = try {
                     ServiceList.YouTube.streamLHFactory.getId(relatedVideo.url)
                 } catch (e: Exception) {
-                    Logger.e("VideoMapper", "Failed to extract video ID from URL: ${relatedVideo.url}")
+                    Logger.d("VideoMapper", "Failed to extract video ID from URL: ${relatedVideo.url}")
                     return@mapNotNull null
                 }
                 val uploaderId = try {

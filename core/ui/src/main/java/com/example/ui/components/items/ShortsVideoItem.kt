@@ -55,6 +55,7 @@ fun ShortsVideoItem(
                 width = 330.dp,
                 height = 186.dp,
                 modifier = Modifier,
+                fillMaxSize = true,
             )
 
             // 영상 길이

@@ -139,7 +139,7 @@ fun PlaylistSection(
             is UiState.Error -> {
                 ErrorMessage(
                     isVisible = true,
-                    message = playlistState.message,
+                    message = stringResource(R.string.playlist_load_error),
                     onRefresh = onRetry
                 )
             }

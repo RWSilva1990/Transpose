@@ -4,7 +4,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -24,14 +23,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.domain.model.playable.PlayableItem
 import com.example.library.R
+import com.example.transpose.core.ui.R as CoreUiR
 import com.example.ui.components.dropdown_menu.DropDownMenu
 import com.example.ui.components.image.ThumbnailImage
+import com.example.util.TextFormatUtil
 
 @Composable
 fun PlaylistItem(
@@ -40,15 +42,26 @@ fun PlaylistItem(
     dropDownMenuClick: () -> Unit
 ) {
     var isExpanded by remember { mutableStateOf(false) }
+    val viewCountFormats = stringArrayResource(id = CoreUiR.array.view_count_formats)
 
     val title = item.title
     val subtitle = when (item) {
         is PlayableItem.Remote -> item.video.uploaderName ?: ""
         is PlayableItem.Local -> item.artist ?: stringResource(R.string.unknown_artist)
     }
-    val description = when (item) {
-        is PlayableItem.Remote -> item.video.description
-        is PlayableItem.Local -> item.album ?: ""
+    val detailText = remember(item, viewCountFormats) {
+        when (item) {
+            is PlayableItem.Remote -> {
+                val viewCount = TextFormatUtil.viewCountCalculator(
+                    viewCountFormats,
+                    item.video.viewCount.toString()
+                )
+                val uploadDate = item.video.textualUploadDate.orEmpty()
+                if (uploadDate.isBlank()) viewCount else "$viewCount • $uploadDate"
+            }
+
+            is PlayableItem.Local -> item.album ?: ""
+        }
     }
 
     Row(
@@ -61,7 +74,7 @@ fun PlaylistItem(
         ThumbnailImage(
             url = item.thumbnailUri,
             contentDescription = "Thumbnail",
-            width = 150.dp,
+            width = 142.dp,
             height = 80.dp,
             modifier = Modifier.clip(RoundedCornerShape(8.dp)),
         )
@@ -72,23 +85,24 @@ fun PlaylistItem(
         ) {
             Text(
                 text = title,
-                fontSize = 13.sp,
+                fontSize = 12.sp,
+                minLines = 2,
                 maxLines = 2,
+                lineHeight = 14.sp,
                 overflow = TextOverflow.Ellipsis
             )
-            Spacer(modifier = Modifier.height(10.dp))
             Text(
                 text = subtitle,
                 fontSize = 10.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
-            Spacer(modifier = Modifier.height(5.dp))
             Text(
-                text = description,
+                text = detailText,
                 fontSize = 10.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
         }
         Box {

@@ -31,7 +31,7 @@ fun RegularPlaylistItem(playlistData: Playlist,
             url = playlistData.thumbnailUrl,
             contentDescription = "Playlist Thumbnail",
             width = 150.dp,
-            height = 100.dp,
+            height = 84.dp,
             modifier = Modifier.clip(RoundedCornerShape(8.dp)),
         )
         Text(

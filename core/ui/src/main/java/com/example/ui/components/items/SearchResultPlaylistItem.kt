@@ -51,6 +51,7 @@ fun SearchResultPlaylistItem(
                 height = 186.dp,
                 modifier = Modifier
                     .clip(RoundedCornerShape(8.dp)),
+                fillMaxSize = true,
             )
             Box(
                 modifier = Modifier

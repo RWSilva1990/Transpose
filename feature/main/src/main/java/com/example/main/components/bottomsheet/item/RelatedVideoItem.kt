@@ -37,7 +37,7 @@ fun RelatedVideoItem(relatedVideo: Video, onClick: () -> Unit) {
         ThumbnailImage(
             url = relatedVideo.thumbnailUrl,
             contentDescription = "Thumbnail",
-            width = 150.dp,
+            width = 142.dp,
             height = 80.dp,
             modifier = Modifier.clip(RoundedCornerShape(8.dp)),
         )

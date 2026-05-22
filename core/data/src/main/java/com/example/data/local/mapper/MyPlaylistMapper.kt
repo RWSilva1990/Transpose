@@ -117,7 +117,7 @@ object MyPlaylistMapper {
             uploaderUrl = video.uploaderId,
             uploaderAvatarUrl = video.uploaderAvatarUrl,
             uploaderVerified = video.uploaderSubscriberCount != null,
-            duration = 0,
+            duration = video.duration,
             viewCount = video.viewCount ?: 0,
             textualUploadDate = video.publishedTimeText,
             streamType = StreamType.VIDEO_STREAM.name,

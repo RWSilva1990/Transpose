@@ -1,6 +1,7 @@
 package com.example.ui.components.image
 
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -22,6 +23,7 @@ fun ThumbnailImage(
     height: Dp,
     modifier: Modifier = Modifier,
     contentScale: ContentScale = ContentScale.Crop,
+    fillMaxSize: Boolean = false,
 ) {
     val context = LocalContext.current
     val density = LocalDensity.current
@@ -39,9 +41,11 @@ fun ThumbnailImage(
     AsyncImage(
         model = request,
         contentDescription = contentDescription,
-        modifier = Modifier
-            .size(width = width, height = height)
-            .then(modifier),
+        modifier = if (fillMaxSize) {
+            Modifier.fillMaxSize().then(modifier)
+        } else {
+            Modifier.size(width = width, height = height).then(modifier)
+        },
         contentScale = contentScale,
         placeholder = ColorPainter(AppColors.LightGray),
         error = ColorPainter(AppColors.LightGray),

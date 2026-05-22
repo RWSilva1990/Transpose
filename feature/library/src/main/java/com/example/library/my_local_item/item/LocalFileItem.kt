@@ -59,7 +59,7 @@ fun LocalFileData(
         ThumbnailImage(
             url = item.uri.toString(),
             contentDescription = "Thumbnail",
-            width = 150.dp,
+            width = 142.dp,
             height = 80.dp,
             modifier = Modifier.clip(RoundedCornerShape(8.dp)),
         )

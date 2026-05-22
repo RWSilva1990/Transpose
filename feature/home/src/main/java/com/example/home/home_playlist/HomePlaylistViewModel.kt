@@ -8,6 +8,9 @@ import com.example.domain.repository.PlaylistRepository
 import com.example.media.state_holder.NowPlayingStateHolder
 import com.example.ui.common.UiState
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -64,31 +67,20 @@ class HomePlaylistViewModel @Inject constructor(
 
     private fun fetchNationalPlaylists() = viewModelScope.launch {
         _nationalPlaylistDataState.value = UiState.Loading
-        val currentList = mutableListOf<Playlist>()
-        var hasError = false
 
         val nationPlaylistUrls = MusicCategoryConstants().nationalPlaylistUrls
-        nationPlaylistUrls.forEach { playlistId ->
-            val result = playlistRepository.fetchPlaylistResult(playlistId)
-            when {
-                result.isSuccess -> {
-                    val playlist = result.getOrNull()
-                    playlist?.let {
-                        currentList.add(playlist)
-                        _nationalPlaylistDataState.value = UiState.Success(currentList.toList())
-                    }
+        val playlists = coroutineScope {
+            nationPlaylistUrls.map { playlistId ->
+                async {
+                    playlistRepository.fetchPlaylistResult(playlistId).getOrNull()
                 }
-
-                result.isFailure -> {
-                    hasError = true
-                }
-            }
+            }.awaitAll().filterNotNull()
         }
 
-        _nationalPlaylistDataState.value = when {
-            hasError && currentList.isEmpty() -> UiState.Error("Failed to fetch playlists")
-            hasError -> UiState.Error("Some playlists failed to load")
-            else -> UiState.Success(currentList)
+        _nationalPlaylistDataState.value = if (playlists.isNotEmpty()) {
+            UiState.Success(playlists)
+        } else {
+            UiState.Error(PLAYLIST_LOAD_ERROR)
         }
     }
 
@@ -96,42 +88,27 @@ class HomePlaylistViewModel @Inject constructor(
         _recommendedPlaylistDataState.value = UiState.Loading
 
         val recommendedId = MusicCategoryConstants().recommendPlaylistChannelId
-        val result = playlistRepository.fetchPlaylistWithChannelId(recommendedId)
-
-        _recommendedPlaylistDataState.value = when {
-            result.isSuccess -> {
-                val contents = result.getOrNull()
-                contents?.let { playlists ->
-                    if (playlists.isNotEmpty()) UiState.Success(playlists)
-                    else UiState.Error("No playlists found")
-                } ?: UiState.Error("No content found")
-            }
-
-            result.isFailure -> UiState.Error("${result.exceptionOrNull()}")
-            else -> UiState.Error("${result.exceptionOrNull()}")
-
-        }
+        _recommendedPlaylistDataState.value = fetchChannelPlaylistState(recommendedId)
     }
 
     private fun fetchTypedPlaylists() = viewModelScope.launch {
         _typedPlaylistDataState.value = UiState.Loading
 
         val typedPlaylistId = MusicCategoryConstants().typedPlaylistChannelId
-        val result = playlistRepository.fetchPlaylistWithChannelId(typedPlaylistId)
+        _typedPlaylistDataState.value = fetchChannelPlaylistState(typedPlaylistId)
+    }
 
-        _typedPlaylistDataState.value = when {
-            result.isSuccess -> {
-                val contents = result.getOrNull()
-                contents?.let { playlists ->
-                    if (playlists.isNotEmpty()) UiState.Success(playlists)
-                    else UiState.Error("No playlists found")
-                } ?: UiState.Error("No content found")
-            }
-
-            result.isFailure -> UiState.Error("${result.exceptionOrNull()}")
-            else -> UiState.Error("${result.exceptionOrNull()}")
-
+    private suspend fun fetchChannelPlaylistState(channelId: String): UiState<List<Playlist>> {
+        val result = playlistRepository.fetchPlaylistWithChannelId(channelId)
+        val playlists = result.getOrNull()
+        return if (!playlists.isNullOrEmpty()) {
+            UiState.Success(playlists)
+        } else {
+            UiState.Error(PLAYLIST_LOAD_ERROR)
         }
     }
 
+    private companion object {
+        const val PLAYLIST_LOAD_ERROR = "playlist_load_error"
+    }
 }
