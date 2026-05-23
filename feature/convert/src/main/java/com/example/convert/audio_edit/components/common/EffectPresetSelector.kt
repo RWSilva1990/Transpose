@@ -7,9 +7,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -68,7 +66,6 @@ fun EffectPresetSelector(
             presets.forEachIndexed { index, preset ->
                 PresetChip(
                     name = preset.name,
-                    description = preset.description,
                     isSelected = index == selectedIndex,
                     onClick = { onPresetSelected(index) }
                 )
@@ -80,7 +77,6 @@ fun EffectPresetSelector(
 @Composable
 private fun PresetChip(
     name: String,
-    description: String,
     isSelected: Boolean,
     onClick: () -> Unit
 ) {
@@ -119,15 +115,6 @@ private fun PresetChip(
             color = textColor,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
-        )
-        Spacer(modifier = Modifier.height(2.dp))
-        Text(
-            text = description,
-            fontSize = 10.sp,
-            color = if (isSelected) Color.White.copy(alpha = 0.8f) else Color.Gray,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-            lineHeight = 12.sp
         )
     }
 }
