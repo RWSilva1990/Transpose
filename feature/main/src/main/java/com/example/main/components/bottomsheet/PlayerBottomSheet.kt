@@ -3,6 +3,8 @@ package com.example.main.components.bottomsheet
 import android.widget.ImageButton
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.aspectRatio
@@ -22,6 +24,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -29,6 +32,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.semantics.contentDescription
@@ -74,7 +79,8 @@ fun PlayerBottomSheet(
     mainViewModel: MainViewModel,
     bottomSheetState: SheetState,
     bottomSheetOffset: () -> Float,
-    onNavigateToChannelScreen: (String) -> Unit
+    onNavigateToChannelScreen: (String) -> Unit,
+    onVideoDetailTouchActiveChanged: (Boolean) -> Unit,
 ) = trace("PlayerBottomSheet") {
 
     // ===== Collect all states here =====
@@ -98,6 +104,7 @@ fun PlayerBottomSheet(
     var showQualityModal by remember { mutableStateOf(false) }
     var isControllerVisible by remember { mutableStateOf(false) }
     val playerHeight = LocalConfiguration.current.screenWidthDp.dp / GraphicsLayerConstants.PLAYER_ASPECT_RATIO
+    val onVideoDetailTouchActiveChangedState by rememberUpdatedState(onVideoDetailTouchActiveChanged)
 
     val isSheetExpanded by remember(bottomSheetState) {
         derivedStateOf { bottomSheetState.currentValue == SheetValue.Expanded }
@@ -250,6 +257,22 @@ fun PlayerBottomSheet(
                 bottomSheetState = bottomSheetState,
                 modifier = Modifier
                     .fillMaxSize()
+                    .pointerInput(Unit) {
+                        awaitEachGesture {
+                            awaitFirstDown(
+                                requireUnconsumed = false,
+                                pass = PointerEventPass.Initial
+                            )
+                            onVideoDetailTouchActiveChangedState(true)
+                            try {
+                                do {
+                                    val event = awaitPointerEvent(PointerEventPass.Initial)
+                                } while (event.changes.any { it.pressed })
+                            } finally {
+                                onVideoDetailTouchActiveChangedState(false)
+                            }
+                        }
+                    }
                     .graphicsLayer {
                         translationY = -playerViewHeight * (1 - calculateScaleFactorY(
                             bottomSheetOffset(),

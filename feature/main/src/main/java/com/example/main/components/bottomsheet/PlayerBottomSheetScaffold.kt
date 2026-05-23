@@ -15,7 +15,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
@@ -72,6 +74,7 @@ fun PlayerBottomSheetScaffold(
     val scaffoldState = rememberBottomSheetScaffoldState(
         bottomSheetState = bottomSheetState
     )
+    var isSheetSwipeEnabled by remember { mutableStateOf(true) }
 
     val sheetPeekHeight = remember(bottomSheetState.currentValue, searchBarState, isLocalSearchActive) {
         when (bottomSheetState.currentValue) {
@@ -134,6 +137,9 @@ fun PlayerBottomSheetScaffold(
                 bottomSheetState = bottomSheetState,
                 bottomSheetOffset = bottomSheetOffset,
                 onNavigateToChannelScreen = onNavigateToChannelScreen,
+                onVideoDetailTouchActiveChanged = { isActive ->
+                    isSheetSwipeEnabled = !isActive
+                },
             )
         },
         sheetShape = RectangleShape,
@@ -144,7 +150,7 @@ fun PlayerBottomSheetScaffold(
                 Box(modifier = Modifier.matchParentSize().scrimOverlay(bottomSheetOffset))
             }
         },
-        sheetSwipeEnabled = true,
+        sheetSwipeEnabled = isSheetSwipeEnabled,
         sheetDragHandle = null,
     ) { playerBottomSheetInnerPadding ->
         Box {
