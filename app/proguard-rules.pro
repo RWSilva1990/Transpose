@@ -30,3 +30,13 @@
 -dontwarn java.beans.Introspector
 -dontwarn java.beans.PropertyDescriptor
 -dontwarn javax.script.ScriptEngineFactory
+
+# NewPipe's YouTube protobuf helpers access generated message members by their
+# original field names through reflection/protobuf internals.
+-keep class org.schabi.newpipe.extractor.services.youtube.protos.** {
+    *;
+}
+
+-keepclassmembers class * extends com.google.protobuf.GeneratedMessageLite {
+    <fields>;
+}
