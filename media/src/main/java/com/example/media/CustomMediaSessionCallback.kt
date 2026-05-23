@@ -53,7 +53,7 @@ class CustomMediaSessionCallback @Inject constructor(
             .setDisplayName("Plus")
             .build()
 
-        return listOf(plusButton, minusButton)
+        return listOf(minusButton, plusButton)
     }
 
     override fun onPostConnect(session: MediaSession, controller: MediaSession.ControllerInfo) {

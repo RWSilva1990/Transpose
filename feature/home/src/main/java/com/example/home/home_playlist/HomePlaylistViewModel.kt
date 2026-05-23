@@ -69,18 +69,33 @@ class HomePlaylistViewModel @Inject constructor(
         _nationalPlaylistDataState.value = UiState.Loading
 
         val nationPlaylistUrls = MusicCategoryConstants().nationalPlaylistUrls
-        val playlists = coroutineScope {
-            nationPlaylistUrls.map { playlistId ->
-                async {
-                    playlistRepository.fetchPlaylistResult(playlistId).getOrNull()
-                }
-            }.awaitAll().filterNotNull()
+        val firstBatch = nationPlaylistUrls.take(INITIAL_NATIONAL_PLAYLIST_COUNT)
+        val remainingBatch = nationPlaylistUrls.drop(INITIAL_NATIONAL_PLAYLIST_COUNT)
+        val firstPlaylists = fetchPlaylistsInParallel(firstBatch)
+
+        if (firstPlaylists.isNotEmpty()) {
+            _nationalPlaylistDataState.value = UiState.Success(firstPlaylists)
         }
+
+        val remainingPlaylists = fetchPlaylistsInParallel(remainingBatch)
+        val playlists = firstPlaylists + remainingPlaylists
 
         _nationalPlaylistDataState.value = if (playlists.isNotEmpty()) {
             UiState.Success(playlists)
         } else {
             UiState.Error(PLAYLIST_LOAD_ERROR)
+        }
+    }
+
+    private suspend fun fetchPlaylistsInParallel(playlistIds: List<String>): List<Playlist> {
+        if (playlistIds.isEmpty()) return emptyList()
+
+        return coroutineScope {
+            playlistIds.map { playlistId ->
+                async {
+                    playlistRepository.fetchPlaylistResult(playlistId).getOrNull()
+                }
+            }.awaitAll().filterNotNull()
         }
     }
 
@@ -110,5 +125,6 @@ class HomePlaylistViewModel @Inject constructor(
 
     private companion object {
         const val PLAYLIST_LOAD_ERROR = "playlist_load_error"
+        const val INITIAL_NATIONAL_PLAYLIST_COUNT = 3
     }
 }
