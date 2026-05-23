@@ -8,10 +8,6 @@ import androidx.media3.common.C
 import androidx.media3.common.audio.AudioProcessor
 import androidx.media3.common.audio.AudioProcessor.AudioFormat
 import androidx.media3.common.util.UnstableApi
-import ai.onnxruntime.OnnxTensor
-import ai.onnxruntime.OrtEnvironment
-import ai.onnxruntime.OrtException
-import ai.onnxruntime.OrtSession
 import com.example.media.BuildConfig
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
@@ -62,11 +58,6 @@ class VocalRemovalProcessor @Inject constructor(
         private const val PROCESSOR_NAME = "uvr_mdxnet_3_9662"
         private const val BACKEND_REQUEST = "XNNPACK"
 
-        // ===== A/B benchmark toggle =====
-        // true  → Native C++ ORT (zero-copy, NNAPI/XNNPACK)
-        // false → Java/Kotlin ORT (com.microsoft.onnxruntime:onnxruntime-android)
-        // Build twice (one with each value) and compare INFER stageAvgMs.onnx values.
-        private const val USE_NATIVE_MDX = true
         private const val MODEL_CHANNELS = 2
 
         private const val CROSSFADE_MS = 30
@@ -86,16 +77,28 @@ class VocalRemovalProcessor @Inject constructor(
         private const val RING_MAX_CHUNKS = 48
         private const val SESSION_IDLE_TIMEOUT_SEC = 30L
         private const val INFERENCE_THREAD_PRIORITY = Process.THREAD_PRIORITY_DISPLAY
+        private const val FORCE_UNSUPPORTED_FOR_UI_CHECK = false
 
-        init {
-            System.loadLibrary("signalsmith_audio")
-        }
+        private val nativeLibraryAvailable: Boolean = runCatching {
+            System.loadLibrary("vocal_removal_native")
+        }.onFailure { t ->
+            Log.w(TAG, "Vocal removal native library unavailable on this ABI", t)
+        }.isSuccess
     }
+
+    val isSupported: Boolean
+        get() = nativeLibraryAvailable && !FORCE_UNSUPPORTED_FOR_UI_CHECK
 
     @Volatile
     var enabled: Boolean = false
         set(value) {
             if (field == value) return
+            if (value && !isSupported) {
+                field = false
+                outputState = OutputState.BYPASS
+                Log.w(TAG, "Vocal removal is unavailable on this device ABI")
+                return
+            }
             field = value
             processingGeneration.incrementAndGet()
             logVocal(
@@ -128,6 +131,7 @@ class VocalRemovalProcessor @Inject constructor(
     var vocalOnlyMode: Boolean = false
 
     fun prewarm() {
+        if (!isSupported) return
         ensureModelLoadingAsync()
     }
 
@@ -149,10 +153,6 @@ class VocalRemovalProcessor @Inject constructor(
     @Volatile private var modelLoading = false
     @Volatile private var mdxModelHandle: Long = 0L
     private val mdxThreads: Int = 4
-    // Java ORT path (only used when USE_NATIVE_MDX = false)
-    private var ortEnv: OrtEnvironment? = null
-    private var ortSession: OrtSession? = null
-    private var modelInputName: String = "input"
 
     @Volatile private var nativeHandle: Long = 0L
 
@@ -333,6 +333,12 @@ class VocalRemovalProcessor @Inject constructor(
 
         this.inputAudioFormat = inputAudioFormat
         this.outputAudioFormat = inputAudioFormat
+        if (!isSupported) {
+            canProcessFormat = false
+            outputState = OutputState.BYPASS
+            logPipe("CONFIG_REJECT stage=vocal reason=native_unavailable")
+            return outputAudioFormat
+        }
         setupRuntimeForFormat(inputAudioFormat)
         outputState = if (enabled) OutputState.WARMUP else OutputState.BYPASS
         return outputAudioFormat
@@ -353,18 +359,18 @@ class VocalRemovalProcessor @Inject constructor(
             return
         }
 
-        if (!::outputRing.isInitialized || outputAudioFormat == AudioFormat.NOT_SET) {
-            inputBuffer.position(inputBuffer.limit())
-            outputBuffer = AudioProcessor.EMPTY_BUFFER
-            return
-        }
-
         if (!enabled || !canProcessFormat) {
             outputState = OutputState.BYPASS
             val out = ensureOutputBuf(inputBytes)
             out.put(inputBuffer)
             out.flip()
             outputBuffer = out
+            return
+        }
+
+        if (!::outputRing.isInitialized || outputAudioFormat == AudioFormat.NOT_SET) {
+            inputBuffer.position(inputBuffer.limit())
+            outputBuffer = AudioProcessor.EMPTY_BUFFER
             return
         }
 
@@ -564,7 +570,7 @@ class VocalRemovalProcessor @Inject constructor(
             nativeReleaseStft(nativeHandle)
             nativeHandle = 0L
         }
-        // Keep ORT env/session alive across track transitions to avoid "effect disabled" after next song.
+        // Keep the native model session alive across track transitions to avoid reload gaps.
         // ExoPlayer can call reset() frequently; re-loading the model each time is expensive and brittle.
         inputAudioFormat = AudioFormat.NOT_SET
         outputAudioFormat = AudioFormat.NOT_SET
@@ -782,7 +788,7 @@ class VocalRemovalProcessor @Inject constructor(
                 "budgetMs=${processIntervalMs.toInt()} preBufferMs=${preBufferMs.toInt()} " +
                 "inputAvailMs=${inputAvailMs.toInt()} outputAvailMs=${outputAvailMs.toInt()} " +
                 "callsPerSec=${String.format(Locale.US, "%.2f", callsPerSec)} " +
-                "starvedTransitions=$starvedTransitions backend=${if (USE_NATIVE_MDX) "Native_ONNXRuntime" else "Java_ONNXRuntime"}"
+                "starvedTransitions=$starvedTransitions backend=Native_ONNXRuntime"
         )
     }
 
@@ -940,6 +946,7 @@ class VocalRemovalProcessor @Inject constructor(
     }
 
     private fun ensureModelLoadingAsync() {
+        if (!isSupported) return
         if (mdxModelHandle != 0L || modelLoading) {
             logVocal("MODEL_LOAD skip processor=$PROCESSOR_NAME modelReady=${mdxModelHandle != 0L} loading=$modelLoading")
             return
@@ -958,12 +965,9 @@ class VocalRemovalProcessor @Inject constructor(
     }
 
     private fun ensureModelLoaded() {
-        if (USE_NATIVE_MDX) ensureModelLoadedNative() else ensureModelLoadedJava()
-    }
-
-    private fun ensureModelLoadedNative() {
+        if (!isSupported) return
         if (mdxModelHandle != 0L) return
-        closeCurrentOrtSession()
+        closeCurrentModelSession()
 
         val modelDir = File(context.filesDir, "mdx").apply { if (!exists()) mkdirs() }
         val modelFile = File(modelDir, DEFAULT_MODEL_ASSET_FILE)
@@ -988,51 +992,22 @@ class VocalRemovalProcessor @Inject constructor(
         logVocal("BACKEND_READY processor=$PROCESSOR_NAME runtime=Native_ONNXRuntime requested=$BACKEND_REQUEST model=$DEFAULT_MODEL_ASSET_FILE dimF=$modelDimF T=$modelTargetT io=$modelIo")
     }
 
-    private fun ensureModelLoadedJava() {
-        if (ortSession != null) return
-        closeCurrentOrtSession()
-
-        val env = ortEnv ?: OrtEnvironment.getEnvironment().also { ortEnv = it }
-        val modelBytes = context.assets.open(DEFAULT_MODEL_ASSET_FILE).use { it.readBytes() }
-
-        val sessionOptions = OrtSession.SessionOptions().apply {
-            setOptimizationLevel(OrtSession.SessionOptions.OptLevel.ALL_OPT)
-            setIntraOpNumThreads(mdxThreads)
-            setInterOpNumThreads(1)
-        }
-        logVocal("BACKEND_ATTACH runtime=Java_ONNXRuntime requested=CPU threads=$mdxThreads")
-        try {
-            val newSession = env.createSession(modelBytes, sessionOptions)
-            modelInputName = newSession.inputNames.firstOrNull() ?: "input"
-            ortSession = newSession
-            logVocal("BACKEND_READY processor=$PROCESSOR_NAME runtime=Java_ONNXRuntime model=$DEFAULT_MODEL_ASSET_FILE dimF=$modelDimF T=$modelTargetT")
-        } finally {
-            try { sessionOptions.close() } catch (_: Throwable) {}
-        }
-    }
-
-    private fun closeCurrentOrtSession() {
-        // Native side
+    private fun closeCurrentModelSession() {
         val handle = mdxModelHandle
         mdxModelHandle = 0L
         if (handle != 0L) {
             try { nativeReleaseMdxModel(handle) } catch (_: Throwable) {}
         }
-        // Java side
-        ortSession?.let {
-            try { it.close() } catch (_: Throwable) {}
-        }
-        ortSession = null
     }
 
     private fun isModelReady(): Boolean =
-        if (USE_NATIVE_MDX) mdxModelHandle != 0L else ortSession != null
+        mdxModelHandle != 0L
 
     private fun scheduleSessionRelease() {
         sessionReleaseTask?.cancel(false)
         sessionReleaseTask = idleScheduler.schedule({
             if (!enabled && isModelReady()) {
-                closeCurrentOrtSession()
+                closeCurrentModelSession()
                 logVocal("MDX session released after ${SESSION_IDLE_TIMEOUT_SEC}s idle timeout")
             }
         }, SESSION_IDLE_TIMEOUT_SEC, TimeUnit.SECONDS)
@@ -1557,20 +1532,18 @@ class VocalRemovalProcessor @Inject constructor(
             return
         }
 
-        if (USE_NATIVE_MDX) {
-            val channelCount = if (inputAudioFormat.channelCount == 1) 1 else MODEL_CHANNELS
-            val nativeOk = nativeUnpackMdxModelOutput(
-                nativeHandle,
-                procModelOutputBuffer,
-                procIstftRealBuffer,
-                procIstftImagBuffer,
-                frames,
-                channelCount
-            )
-            if (nativeOk) return
+        val channelCount = if (inputAudioFormat.channelCount == 1) 1 else MODEL_CHANNELS
+        val nativeOk = nativeUnpackMdxModelOutput(
+            nativeHandle,
+            procModelOutputBuffer,
+            procIstftRealBuffer,
+            procIstftImagBuffer,
+            frames,
+            channelCount
+        )
+        if (nativeOk) return
 
-            Log.w(TAG, "nativeUnpackMdxModelOutput failed; using Kotlin fallback")
-        }
+        Log.w(TAG, "nativeUnpackMdxModelOutput failed; using Kotlin fallback")
         unpackMdxModelOutputFallback(modelOutput, frames)
     }
 
@@ -1634,10 +1607,6 @@ class VocalRemovalProcessor @Inject constructor(
     }
 
     private fun runModel(frames: Int): Boolean {
-        return if (USE_NATIVE_MDX) runModelNative(frames) else runModelJava(frames)
-    }
-
-    private fun runModelNative(frames: Int): Boolean {
         val handle = mdxModelHandle
         if (handle == 0L) return false
         val frameTensorSize = modelDimF * frames
@@ -1714,40 +1683,6 @@ class VocalRemovalProcessor @Inject constructor(
             true
         } catch (t: Throwable) {
             Log.e(TAG, "Native waveform inference failed", t)
-            false
-        }
-    }
-
-    private fun runModelJava(frames: Int): Boolean {
-        val env = ortEnv ?: return false
-        val session = ortSession ?: return false
-            val shape = if (USE_POLARFORMER_MASK_MODEL) {
-                longArrayOf(1L, frames.toLong(), (modelDimF * 4).toLong())
-            } else {
-                longArrayOf(1L, 4L, modelDimF.toLong(), frames.toLong())
-            }
-        val frameTensorSize = modelDimF * frames
-        val modelValueCount = 4 * frameTensorSize
-        return try {
-            procModelInputFloats.position(0)
-            procModelInputFloats.limit(modelValueCount)
-            val tRunStart = System.nanoTime()
-            OnnxTensor.createTensor(env, procModelInputFloats, shape).use { inputTensor ->
-                session.run(mapOf(modelInputName to inputTensor)).use { result ->
-                    val outputTensor = result[0] as? OnnxTensor ?: return false
-                    val buf = outputTensor.floatBuffer
-                    buf.rewind()
-                    if (buf.remaining() < modelValueCount) return false
-                    unpackModelOutput(buf, frames)
-                }
-            }
-            val tRunEnd = System.nanoTime()
-            lastNativeOnnxMs = (tRunEnd - tRunStart) / 1_000_000f
-            lastUnpackMs = 0f
-            true
-        } catch (t: Throwable) {
-            if (t is OrtException) Log.e(TAG, "Java ORT inference failed", t)
-            else Log.e(TAG, "Java ORT inference unexpected failure", t)
             false
         }
     }

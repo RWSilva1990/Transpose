@@ -99,6 +99,9 @@ class AudioEffectsManager @Inject constructor(
     private val _isVocalRemovalEnabled = MutableStateFlow(false)
     val isVocalRemovalEnabled: StateFlow<Boolean> = _isVocalRemovalEnabled.asStateFlow()
 
+    private val _isVocalRemovalSupported = MutableStateFlow(vocalRemovalProcessor.isSupported)
+    val isVocalRemovalSupported: StateFlow<Boolean> = _isVocalRemovalSupported.asStateFlow()
+
     private val _vocalRemovalMix = MutableStateFlow(1.0f)
     val vocalRemovalMix: StateFlow<Float> = _vocalRemovalMix.asStateFlow()
 
@@ -106,7 +109,13 @@ class AudioEffectsManager @Inject constructor(
     val isVocalOnlyMode: StateFlow<Boolean> = _isVocalOnlyMode.asStateFlow()
 
     fun updateIsVocalRemovalEnabled() {
-        _isVocalRemovalEnabled.value = !_isVocalRemovalEnabled.value
+        val nextEnabled = !_isVocalRemovalEnabled.value
+        if (nextEnabled && !_isVocalRemovalSupported.value) {
+            _isVocalRemovalEnabled.value = false
+            vocalRemovalProcessor.enabled = false
+            return
+        }
+        _isVocalRemovalEnabled.value = nextEnabled
         vocalRemovalProcessor.enabled = _isVocalRemovalEnabled.value
     }
 
@@ -129,6 +138,7 @@ class AudioEffectsManager @Inject constructor(
     }
 
     fun prewarmVocalRemovalModel() {
+        if (!_isVocalRemovalSupported.value) return
         vocalRemovalProcessor.prewarm()
     }
 

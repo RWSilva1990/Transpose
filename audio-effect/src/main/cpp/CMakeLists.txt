@@ -17,20 +17,12 @@ include_directories(${SIGNALSMITH_PATH}/basics/include)
 include_directories(${SIGNALSMITH_PATH}/basics/modules/dsp/include)
 include_directories(${SIGNALSMITH_PATH}/basics/modules/hilbert-iir/include)
 include_directories(${SIGNALSMITH_PATH}/basics/modules/linear/include)
-include_directories(${CMAKE_SOURCE_DIR}/third_party/onnxruntime/headers)
-
-add_library(onnxruntime SHARED IMPORTED)
-set_target_properties(onnxruntime PROPERTIES
-    IMPORTED_LOCATION
-    ${CMAKE_SOURCE_DIR}/third_party/onnxruntime/jni/${ANDROID_ABI}/libonnxruntime.so
-)
 
 add_library(
     signalsmith_audio
     SHARED
     SignalsmithProcessor.cpp
     effects/ReverbPlusEffect.cpp
-    VocalRemovalNative.cpp
 )
 
 target_compile_options(signalsmith_audio PRIVATE
@@ -41,7 +33,35 @@ target_compile_options(signalsmith_audio PRIVATE
 
 target_link_libraries(
     signalsmith_audio
-    onnxruntime
     log
     android
 )
+
+if (ANDROID_ABI STREQUAL "arm64-v8a")
+    include_directories(${CMAKE_SOURCE_DIR}/third_party/onnxruntime/headers)
+
+    add_library(onnxruntime SHARED IMPORTED)
+    set_target_properties(onnxruntime PROPERTIES
+        IMPORTED_LOCATION
+        ${CMAKE_SOURCE_DIR}/third_party/onnxruntime/jni/${ANDROID_ABI}/libonnxruntime.so
+    )
+
+    add_library(
+        vocal_removal_native
+        SHARED
+        VocalRemovalNative.cpp
+    )
+
+    target_compile_options(vocal_removal_native PRIVATE
+        -O3
+        -ffast-math
+        -fsigned-char
+    )
+
+    target_link_libraries(
+        vocal_removal_native
+        onnxruntime
+        log
+        android
+    )
+endif()
