@@ -125,6 +125,7 @@ class ConvertAudioEditViewModel @Inject constructor(
 
     // Vocal Removal
     val isVocalRemovalEnabled = audioEffectsManager.isVocalRemovalEnabled
+    val isVocalRemovalSupported = audioEffectsManager.isVocalRemovalSupported
     val vocalRemovalMix = audioEffectsManager.vocalRemovalMix
     val isVocalOnlyMode = audioEffectsManager.isVocalOnlyMode
     fun updateIsVocalRemovalEnabled() = audioEffectsManager.updateIsVocalRemovalEnabled()

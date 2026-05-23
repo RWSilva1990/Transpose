@@ -224,6 +224,8 @@
     <string name="vocal_removal_description">Removes vocals in real time using AI. Adjust the slider to control the effect amount.</string>
     <string name="vocal_removal_foreground_notice">Vocal Removal is applied only while the app is visible on screen.</string>
     <string name="vocal_removal_background_notice">Real-time Vocal Removal requires high CPU performance.\nProcessing quality may vary during downloads, background tasks, or device thermal throttling.</string>
+    <string name="vocal_removal_unsupported_notice">Real-time Vocal Removal is not available on this device.</string>
+    <string name="vocal_removal_unsupported_detail">Real-time Vocal Removal requires a 64-bit Android device.</string>
 
     <string name="signalsmith_reverb_text">Reverb+</string>
     <string name="reverb_plus_text">Reverb</string>

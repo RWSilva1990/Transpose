@@ -48,6 +48,7 @@ fun VocalRemovalSection(
     onExpandChanged: (Boolean) -> Unit = {}
 ) {
     val isEnabled by convertAudioEditViewModel.isVocalRemovalEnabled.collectAsState()
+    val isSupported by convertAudioEditViewModel.isVocalRemovalSupported.collectAsState()
     val mix by convertAudioEditViewModel.vocalRemovalMix.collectAsState()
     val isVocalOnlyMode by convertAudioEditViewModel.isVocalOnlyMode.collectAsState()
     var isExpanded by rememberSaveable { mutableStateOf(false) }
@@ -63,14 +64,25 @@ fun VocalRemovalSection(
             title = title,
             isExpanded = isExpanded,
             isEnabled = isEnabled,
+            isSupported = isSupported,
             onToggleEnable = { convertAudioEditViewModel.updateIsVocalRemovalEnabled() },
             onReset = { convertAudioEditViewModel.initVocalRemovalValues() },
         )
 
         Text(
-            text = stringResource(id = R.string.vocal_removal_foreground_notice),
+            text = stringResource(
+                id = if (isSupported) {
+                    R.string.vocal_removal_foreground_notice
+                } else {
+                    R.string.vocal_removal_unsupported_notice
+                }
+            ),
             fontSize = 12.sp,
-            color = AppColors.BlueBackground.copy(alpha = 0.86f),
+            color = if (isSupported) {
+                AppColors.BlueBackground.copy(alpha = 0.86f)
+            } else {
+                AppColors.DescriptionColor
+            },
             lineHeight = 16.sp,
             modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
         )
@@ -78,7 +90,13 @@ fun VocalRemovalSection(
         if (isExpanded) {
             Column(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
                 Text(
-                    text = stringResource(id = R.string.vocal_removal_background_notice),
+                    text = stringResource(
+                        id = if (isSupported) {
+                            R.string.vocal_removal_background_notice
+                        } else {
+                            R.string.vocal_removal_unsupported_detail
+                        }
+                    ),
                     fontSize = 12.sp,
                     color = AppColors.BlueBackground.copy(alpha = 0.86f),
                     lineHeight = 16.sp,
@@ -92,7 +110,8 @@ fun VocalRemovalSection(
                     onValueChangeFinished = { },
                     onReset = { convertAudioEditViewModel.initVocalRemovalValues() },
                     currentValue = mix,
-                    valueRange = 0f..1f
+                    valueRange = 0f..1f,
+                    enabled = isSupported
                 )
 
                 Row(
@@ -103,6 +122,7 @@ fun VocalRemovalSection(
                         .clickable(
                             interactionSource = vocalOnlyInteractionSource,
                             indication = null,
+                            enabled = isSupported,
                             onClick = { convertAudioEditViewModel.updateIsVocalOnlyMode() }
                         )
                         .padding(start = 15.dp, end = 15.dp, top = 0.dp, bottom = 6.dp)
@@ -110,6 +130,7 @@ fun VocalRemovalSection(
                     Checkbox(
                         checked = isVocalOnlyMode,
                         onCheckedChange = null,
+                        enabled = isSupported,
                         colors = CheckboxDefaults.colors(
                             checkedColor = AppColors.BlueBackground,
                             uncheckedColor = AppColors.DescriptionColor,
@@ -119,7 +140,7 @@ fun VocalRemovalSection(
                     Text(
                         text = stringResource(id = R.string.vocal_removal_vocal_only),
                         fontSize = 13.sp,
-                        color = AppColors.BlueBackground,
+                        color = if (isSupported) AppColors.BlueBackground else AppColors.DescriptionColor,
                     )
                 }
             }
@@ -132,6 +153,7 @@ private fun VocalRemovalHeader(
     title: String,
     isExpanded: Boolean,
     isEnabled: Boolean,
+    isSupported: Boolean,
     onToggleEnable: () -> Unit,
     onReset: () -> Unit,
 ) {
@@ -161,6 +183,7 @@ private fun VocalRemovalHeader(
         }
         Switch(
             checked = isEnabled,
+            enabled = isSupported,
             onCheckedChange = { onToggleEnable() },
             colors = SwitchDefaults.colors(
                 uncheckedThumbColor = Color.White,
@@ -168,7 +191,7 @@ private fun VocalRemovalHeader(
                 uncheckedBorderColor = AppColors.DescriptionColor,
             ),
         )
-        IconButton(onClick = onReset) {
+        IconButton(onClick = onReset, enabled = isSupported) {
             Icon(
                 imageVector = Icons.Default.Refresh,
                 contentDescription = "Reset $title",
