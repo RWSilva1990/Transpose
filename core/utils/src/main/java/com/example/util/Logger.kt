@@ -16,11 +16,23 @@ object Logger {
         Log.d(tag, "✅ $message")
     }
 
+    fun i(message: String) {
+        if (!BuildConfig.DEBUG) return
+        Log.i(TAG, "ℹ️ $message")
+    }
+
+    fun i(tag: String, message: String) {
+        if (!BuildConfig.DEBUG) return
+        Log.i(tag, "ℹ️ $message")
+    }
+
     fun e(message: String, throwable: Throwable? = null) {
+        if (!BuildConfig.DEBUG) return
         Log.e(TAG, "❌ $message", throwable)
     }
 
     fun e(tag: String, message: String, throwable: Throwable? = null) {
+        if (!BuildConfig.DEBUG) return
         Log.e(tag, "❌ $message", throwable)
     }
 }

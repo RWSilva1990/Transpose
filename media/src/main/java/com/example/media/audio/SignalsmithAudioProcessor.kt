@@ -109,6 +109,14 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
         if (BuildConfig.DEBUG) Log.i(PIPE_TAG, message)
     }
 
+    private fun logWarning(message: String) {
+        if (BuildConfig.DEBUG) Log.w(TAG, message)
+    }
+
+    private fun logPipelineWarning(message: String) {
+        if (BuildConfig.DEBUG) Log.w(PIPE_TAG, message)
+    }
+
     fun setPitchSemitones(semitones: Float) {
         _pitchSemitones.value = semitones.coerceIn(-24f, 24f)
         requestOutputTransition()
@@ -315,7 +323,7 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
                 "encoding=${inputAudioFormat.encoding}")
 
         if (inputAudioFormat.encoding != C.ENCODING_PCM_16BIT) {
-            Log.w(TAG, "Unsupported encoding: ${inputAudioFormat.encoding}")
+            logWarning("Unsupported encoding: ${inputAudioFormat.encoding}")
             logPipeline(
                 "CONFIG_REJECT stage=signalsmith reason=encoding encoding=${inputAudioFormat.encoding}"
             )
@@ -418,8 +426,7 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
         val inputFrames = inputBytes / bytesPerFrame
         val processBytes = inputFrames * bytesPerFrame
         if (processBytes == 0) {
-            Log.w(
-                PIPE_TAG,
+            logPipelineWarning(
                 "QUEUE_DROP stage=signalsmith reason=partial_frame inputBytes=$inputBytes bytesPerFrame=$bytesPerFrame"
             )
             inputBuffer.position(inputBuffer.limit())
@@ -482,8 +489,7 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
 
             outputBuffer = processingBuffer!!
         } else {
-            Log.w(
-                PIPE_TAG,
+            logPipelineWarning(
                 "QUEUE_NO_OUTPUT stage=signalsmith inputBytes=$inputBytes processBytes=$processBytes " +
                     "inputFrames=$inputFrames nativeHandle=$nativeHandle tempo=$tempoRate pitch=${_pitchSemitones.value}"
             )

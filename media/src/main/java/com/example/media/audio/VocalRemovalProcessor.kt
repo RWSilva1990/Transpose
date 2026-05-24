@@ -82,6 +82,7 @@ class VocalRemovalProcessor @Inject constructor(
         private val nativeLibraryAvailable: Boolean = runCatching {
             System.loadLibrary("vocal_removal_native")
         }.onFailure { t ->
+            if (!BuildConfig.DEBUG) return@onFailure
             Log.w(TAG, "Vocal removal native library unavailable on this ABI", t)
         }.isSuccess
     }
@@ -96,7 +97,7 @@ class VocalRemovalProcessor @Inject constructor(
             if (value && !isSupported) {
                 field = false
                 outputState = OutputState.BYPASS
-                Log.w(TAG, "Vocal removal is unavailable on this device ABI")
+                logPerfWarning("Vocal removal is unavailable on this device ABI")
                 return
             }
             field = value
@@ -175,7 +176,9 @@ class VocalRemovalProcessor @Inject constructor(
                     Process.setThreadPriority(priority)
                     logVocal("THREAD_PRIORITY name=$name priority=$priority")
                 } catch (t: Throwable) {
-                    Log.w(TAG, "THREAD_PRIORITY failed name=$name priority=$priority", t)
+                    if (BuildConfig.DEBUG) {
+                        Log.w(TAG, "THREAD_PRIORITY failed name=$name priority=$priority", t)
+                    }
                 }
                 runnable.run()
             }, name).apply {
@@ -321,7 +324,7 @@ class VocalRemovalProcessor @Inject constructor(
         )
 
         if (inputAudioFormat.encoding != C.ENCODING_PCM_16BIT) {
-            Log.w(TAG, "Unsupported encoding: ${inputAudioFormat.encoding} (need PCM_16BIT)")
+            logPerfWarning("Unsupported encoding: ${inputAudioFormat.encoding} (need PCM_16BIT)")
             logPipe(
                 "CONFIG_REJECT stage=vocal reason=encoding encoding=${inputAudioFormat.encoding}"
             )
@@ -718,8 +721,7 @@ class VocalRemovalProcessor @Inject constructor(
             (format.channelCount == 1 || format.channelCount == 2) &&
             nativeHandle != 0L
         if (!canProcessFormat) {
-            Log.w(
-                TAG,
+            logPerfWarning(
                 "Unsupported format for $PROCESSOR_NAME: sampleRate=${format.sampleRate} " +
                     "channels=${format.channelCount}; need 44100Hz mono/stereo"
             )
@@ -1155,8 +1157,7 @@ class VocalRemovalProcessor @Inject constructor(
         )
         val mixedInNative = outSamples == processIntervalSamples
         if (!mixedInNative) {
-            Log.w(
-                TAG,
+            logPerfWarning(
                 "ISTFT_INTERVAL_FALLBACK processor=$PROCESSOR_NAME chunk=${inferCount + 1} " +
                     "outSamples=$outSamples expected=$processIntervalSamples frames=$frames " +
                     "channels=${inputAudioFormat.channelCount}"
@@ -1283,8 +1284,7 @@ class VocalRemovalProcessor @Inject constructor(
         )
         if (fullOutSamples <= 0) {
             val elapsed = System.nanoTime() - start
-            Log.w(
-                TAG,
+            logPerfWarning(
                 "ISTFT_INTERVAL_VERIFY chunk=${inferCount + 1} status=full_istft_failed " +
                     "fullOutSamples=$fullOutSamples verifyMs=${elapsed / 1_000_000}"
             )
@@ -1295,8 +1295,7 @@ class VocalRemovalProcessor @Inject constructor(
         val extractEnd = extractOffsetBytes + processIntervalBytes
         if (extractEnd > fullBytes) {
             val elapsed = System.nanoTime() - start
-            Log.w(
-                TAG,
+            logPerfWarning(
                 "ISTFT_INTERVAL_VERIFY chunk=${inferCount + 1} status=extract_oob " +
                     "extractEnd=$extractEnd fullBytes=$fullBytes verifyMs=${elapsed / 1_000_000}"
             )
@@ -1354,7 +1353,7 @@ class VocalRemovalProcessor @Inject constructor(
         )
         if (nativeOk) return true
 
-        Log.w(TAG, "nativeApplyVocalConfidenceFilter failed; using Kotlin fallback")
+        logPerfWarning("nativeApplyVocalConfidenceFilter failed; using Kotlin fallback")
         applyVocalConfidenceSpectralFilterFallback(frames, channelCount)
         return true
     }
@@ -1507,7 +1506,7 @@ class VocalRemovalProcessor @Inject constructor(
         )
         if (nativeOk) return
 
-        Log.w(TAG, "nativePackMdxModelInput failed; using Kotlin fallback")
+        logPerfWarning("nativePackMdxModelInput failed; using Kotlin fallback")
         packMdxModelInputFallback(frames)
     }
 
@@ -1543,7 +1542,7 @@ class VocalRemovalProcessor @Inject constructor(
         )
         if (nativeOk) return
 
-        Log.w(TAG, "nativeUnpackMdxModelOutput failed; using Kotlin fallback")
+        logPerfWarning("nativeUnpackMdxModelOutput failed; using Kotlin fallback")
         unpackMdxModelOutputFallback(modelOutput, frames)
     }
 
