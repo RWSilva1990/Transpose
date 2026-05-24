@@ -16,6 +16,28 @@ object TextFormatUtil {
         return format(viewCountString.toLong(), viewCountStringArray)
     }
 
+    fun formatVideoMeta(
+        viewCountStringArray: Array<String>,
+        viewCount: Long?,
+        textualUploadDate: String?,
+        publishTimestamp: Long? = null
+    ): String {
+        val parts = mutableListOf<String>()
+        val formattedViewCount = viewCount
+            ?.takeIf { it > 0L }
+            ?.let { viewCountCalculator(viewCountStringArray, it.toString()) }
+            .orEmpty()
+        val formattedDate = formatTimestampToPrettyTime(publishTimestamp)
+            .ifBlank { textualUploadDate.orEmpty() }
+            .takeUnless { it.isBlank() || it.equals("null", ignoreCase = true) }
+            .orEmpty()
+
+        if (formattedViewCount.isNotBlank()) parts += formattedViewCount
+        if (formattedDate.isNotBlank()) parts += formattedDate
+
+        return parts.joinToString(" • ")
+    }
+
     fun subscriberCountConverter(subscriberCountString: String?, subscriberArray: Array<String>): String {
         return if (subscriberCountString != null)
             format(subscriberCountString.toLong(), subscriberArray, isSubscriber = true)

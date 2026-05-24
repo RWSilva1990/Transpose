@@ -89,9 +89,11 @@ fun ShortsVideoItem(
                 )
 
                 Text(
-                    text = TextFormatUtil.viewCountCalculator(
-                        viewCountFormats,
-                        video.viewCount.toString()
+                    text = TextFormatUtil.formatVideoMeta(
+                        viewCountStringArray = viewCountFormats,
+                        viewCount = video.viewCount,
+                        textualUploadDate = video.textualUploadDate,
+                        publishTimestamp = video.publishTimestamp
                     ),
                     style = MaterialTheme.typography.bodySmall,
                     color = Color.Gray

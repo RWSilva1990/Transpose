@@ -18,15 +18,26 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.domain.model.youtube.video.Video
+import com.example.main.R
 import com.example.ui.components.image.ThumbnailImage
+import com.example.util.TextFormatUtil
 
 @Composable
 fun RelatedVideoItem(relatedVideo: Video, onClick: () -> Unit) {
+    val viewCountFormats = stringArrayResource(id = R.array.view_count_formats)
+    val metadata = TextFormatUtil.formatVideoMeta(
+        viewCountStringArray = viewCountFormats,
+        viewCount = relatedVideo.viewCount,
+        textualUploadDate = relatedVideo.textualUploadDate,
+        publishTimestamp = relatedVideo.publishTimestamp
+    )
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -55,7 +66,7 @@ fun RelatedVideoItem(relatedVideo: Video, onClick: () -> Unit) {
             )
             Spacer(modifier = Modifier.height(10.dp))
             Text(
-                text = "relatedVideo",
+                text = metadata,
                 fontSize = 10.sp,
                 color = MaterialTheme.colorScheme.onSurface,
                 fontWeight = FontWeight.Bold,

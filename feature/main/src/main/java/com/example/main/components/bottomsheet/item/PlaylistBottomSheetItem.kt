@@ -42,11 +42,12 @@ fun PlaylistBottomSheetItem(
     val detailText = remember(item) {
         when (item) {
             is PlayableItem.Remote -> {
-                val viewCount = TextFormatUtil.viewCountCalculator(
-                    myStringArray,
-                    item.video.viewCount.toString()
+                TextFormatUtil.formatVideoMeta(
+                    viewCountStringArray = myStringArray,
+                    viewCount = item.video.viewCount,
+                    textualUploadDate = item.video.textualUploadDate,
+                    publishTimestamp = item.video.publishTimestamp
                 )
-                "$viewCount • ${item.video.textualUploadDate}"
             }
             is PlayableItem.Local -> item.album ?: ""
         }

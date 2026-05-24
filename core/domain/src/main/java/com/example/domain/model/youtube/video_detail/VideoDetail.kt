@@ -7,6 +7,7 @@ import org.schabi.newpipe.extractor.stream.VideoStream
 data class VideoDetail(
     val id: String,
     val title: String,
+    val videoStreams: List<VideoStream>?,
     val videoOnlyStreams: List<VideoStream>?,
     val audioOnlyStreams: List<AudioStream>?,
     val videoStreamContent: String?,
@@ -24,5 +25,4 @@ data class VideoDetail(
     val dislikeCount: Long?,
     val relatedVideos: List<Video>
 )
-
 

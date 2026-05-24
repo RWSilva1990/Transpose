@@ -48,14 +48,15 @@ private fun VideoInfoContent(
     item: PlayableItem,
     viewCountFormats: Array<String>
 ) {
-    val formattedViewInfo = remember(item) {
+    val formattedViewInfo = remember(item, viewCountFormats) {
         when (item) {
             is PlayableItem.Remote -> {
-                val viewCount = TextFormatUtil.viewCountCalculator(
+                TextFormatUtil.formatVideoMeta(
                     viewCountStringArray = viewCountFormats,
-                    viewCountString = item.video.viewCount.toString()
+                    viewCount = item.video.viewCount,
+                    textualUploadDate = item.video.textualUploadDate,
+                    publishTimestamp = item.video.publishTimestamp
                 )
-                "$viewCount • ${item.video.textualUploadDate ?: ""}"
             }
             is PlayableItem.Local -> {
                 item.artist ?: ""

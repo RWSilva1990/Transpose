@@ -94,7 +94,12 @@ fun CommonVideoItem(
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = "${TextFormatUtil.viewCountCalculator(myStringArray, item.viewCount.toString())} • ${item.textualUploadDate}",
+                    text = TextFormatUtil.formatVideoMeta(
+                        viewCountStringArray = myStringArray,
+                        viewCount = item.viewCount,
+                        textualUploadDate = item.textualUploadDate,
+                        publishTimestamp = item.publishTimestamp
+                    ),
                     fontSize = 10.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1

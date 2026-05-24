@@ -52,12 +52,12 @@ fun PlaylistItem(
     val detailText = remember(item, viewCountFormats) {
         when (item) {
             is PlayableItem.Remote -> {
-                val viewCount = TextFormatUtil.viewCountCalculator(
-                    viewCountFormats,
-                    item.video.viewCount.toString()
+                TextFormatUtil.formatVideoMeta(
+                    viewCountStringArray = viewCountFormats,
+                    viewCount = item.video.viewCount,
+                    textualUploadDate = item.video.textualUploadDate,
+                    publishTimestamp = item.video.publishTimestamp
                 )
-                val uploadDate = item.video.textualUploadDate.orEmpty()
-                if (uploadDate.isBlank()) viewCount else "$viewCount • $uploadDate"
             }
 
             is PlayableItem.Local -> item.album ?: ""
