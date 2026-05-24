@@ -25,7 +25,7 @@ fun PlayerThumbnailView(
                 AsyncImage(
                     model = (currentItem as? PlayableItem.Remote)?.video?.thumbnailUrl,
                     contentDescription = "Video Thumbnail",
-                    contentScale = ContentScale.Crop,
+                    contentScale = ContentScale.Fit,
                     modifier = Modifier.matchParentSize(),
                     placeholder = ColorPainter(Color.Black),
                     error = ColorPainter(Color.Black)
