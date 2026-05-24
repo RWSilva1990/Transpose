@@ -54,6 +54,9 @@
     <string name="subscriber_count_over_billion">%sB</string>
     <string name="playlist_text">"Playlist: %s"</string>
     <string name="playlist_item_empty_text">Empty</string>
+    <string name="playlist_items_unavailable_title">Playlist items could not be loaded</string>
+    <string name="playlist_items_unavailable_message">The playlist returned no playable videos. Please check your connection and try again.</string>
+    <string name="playlist_items_retry_text">Try again</string>
     <string name="quota_error_message">App has exceeded the daily limit for accessing YouTube.\n
     We are sorry for the inconvenience and we kindly ask you to try again tomorrow.</string>
     <string name="refresh_text">Refresh</string>

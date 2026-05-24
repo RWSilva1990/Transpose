@@ -81,7 +81,12 @@ class ChannelRepositoryImpl @Inject constructor(
                 val tabExtractor = newPipeManager.getChannelTabExtractor(targetTab)
                 tabExtractor.fetchPage()
 
-                val pager = ChannelTabPager(newPipeManager.youtubeService, tabExtractor, contentType)
+                val pager = ChannelTabPager(
+                    newPipeManager.youtubeService,
+                    tabExtractor,
+                    contentType,
+                    initialPageFetched = true
+                )
                 channelTabPagers[contentType] = pager
 
                 val result = pager.getNextPage()

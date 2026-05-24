@@ -71,13 +71,13 @@ class HomePlaylistViewModel @Inject constructor(
         val nationPlaylistUrls = MusicCategoryConstants().nationalPlaylistUrls
         val firstBatch = nationPlaylistUrls.take(INITIAL_NATIONAL_PLAYLIST_COUNT)
         val remainingBatch = nationPlaylistUrls.drop(INITIAL_NATIONAL_PLAYLIST_COUNT)
-        val firstPlaylists = fetchPlaylistsInParallel(firstBatch)
+        val firstPlaylists = fetchPlaylistsInBatches(firstBatch)
 
         if (firstPlaylists.isNotEmpty()) {
             _nationalPlaylistDataState.value = UiState.Success(firstPlaylists)
         }
 
-        val remainingPlaylists = fetchPlaylistsInParallel(remainingBatch)
+        val remainingPlaylists = fetchPlaylistsInBatches(remainingBatch)
         val playlists = firstPlaylists + remainingPlaylists
 
         _nationalPlaylistDataState.value = if (playlists.isNotEmpty()) {
@@ -87,16 +87,21 @@ class HomePlaylistViewModel @Inject constructor(
         }
     }
 
-    private suspend fun fetchPlaylistsInParallel(playlistIds: List<String>): List<Playlist> {
+    private suspend fun fetchPlaylistsInBatches(playlistIds: List<String>): List<Playlist> {
         if (playlistIds.isEmpty()) return emptyList()
 
-        return coroutineScope {
-            playlistIds.map { playlistId ->
-                async {
-                    playlistRepository.fetchPlaylistResult(playlistId).getOrNull()
-                }
-            }.awaitAll().filterNotNull()
+        val playlists = mutableListOf<Playlist>()
+        playlistIds.chunked(PLAYLIST_FETCH_BATCH_SIZE).forEach { batch ->
+            val batchResult = coroutineScope {
+                batch.map { playlistId ->
+                    async {
+                        playlistRepository.fetchPlaylistResult(playlistId).getOrNull()
+                    }
+                }.awaitAll().filterNotNull()
+            }
+            playlists += batchResult
         }
+        return playlists
     }
 
     private fun fetchRecommendedPlaylists() = viewModelScope.launch {
@@ -125,6 +130,7 @@ class HomePlaylistViewModel @Inject constructor(
 
     private companion object {
         const val PLAYLIST_LOAD_ERROR = "playlist_load_error"
-        const val INITIAL_NATIONAL_PLAYLIST_COUNT = 3
+        const val INITIAL_NATIONAL_PLAYLIST_COUNT = 2
+        const val PLAYLIST_FETCH_BATCH_SIZE = 2
     }
 }

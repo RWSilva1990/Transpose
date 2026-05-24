@@ -51,6 +51,9 @@
     <string name="subscriber_count_over_billion">%s억</string>
     <string name="playlist_text">재생목록:  %s</string>
     <string name="playlist_item_empty_text">비어 있음</string>
+    <string name="playlist_items_unavailable_title">재생목록을 불러오지 못했습니다</string>
+    <string name="playlist_items_unavailable_message">재생 가능한 항목을 가져오지 못했습니다. 연결 상태를 확인한 후 다시 시도해 주세요.</string>
+    <string name="playlist_items_retry_text">다시 시도</string>
     <string name="channel_video_count">비디오 %d개</string>
     <string name="refresh_text">새로고침</string>
 
