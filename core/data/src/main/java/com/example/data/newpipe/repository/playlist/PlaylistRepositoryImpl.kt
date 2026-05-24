@@ -44,10 +44,26 @@ class PlaylistRepositoryImpl @Inject constructor(
                 val playlistExtractor = newPipeManager.youtubeService.getPlaylistExtractor(linkHandler)
                 playlistExtractor.fetchPage()
 
-                val pager = PlaylistItemPager(newPipeManager.youtubeService, playlistExtractor)
+                val rawInitialCount = playlistExtractor.initialPage.items.size
+                val pager = PlaylistItemPager(
+                    newPipeManager.youtubeService,
+                    playlistExtractor,
+                    initialPageFetched = true
+                )
                 playlistItemPager = pager
 
                 val items = pager.getNextPage()
+                val hasMore = pager.isHasNextPage()
+                Logger.i(
+                    "PLAYLIST_ITEMS_FETCH playlistId=$playlistId rawInitialCount=$rawInitialCount " +
+                        "mappedCount=${items.size} hasMore=$hasMore"
+                )
+                if (items.isEmpty()) {
+                    Logger.e(
+                        "PLAYLIST_ITEMS_EMPTY playlistId=$playlistId rawInitialCount=$rawInitialCount " +
+                            "hasMore=$hasMore"
+                    )
+                }
                 Result.success(items)
             } catch (e: Exception) {
                 Logger.e("Error fetching playlist items for playlistId: $playlistId", e)
@@ -63,6 +79,13 @@ class PlaylistRepositoryImpl @Inject constructor(
                     ?: throw IllegalStateException("No PlaylistItemData initiated")
 
                 val items = pager.getNextPage()
+                Logger.i(
+                    "PLAYLIST_ITEMS_LOAD_MORE mappedCount=${items.size} " +
+                        "hasMore=${pager.isHasNextPage()}"
+                )
+                if (items.isEmpty()) {
+                    Logger.e("PLAYLIST_ITEMS_LOAD_MORE_EMPTY hasMore=${pager.isHasNextPage()}")
+                }
                 Result.success(items)
             } catch (e: Exception) {
                 Logger.e("Error loading more playlist items", e)

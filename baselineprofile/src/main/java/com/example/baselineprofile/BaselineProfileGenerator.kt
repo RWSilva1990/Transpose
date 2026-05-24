@@ -45,8 +45,9 @@ class BaselineProfileGenerator {
             packageName = InstrumentationRegistry.getArguments().getString("targetAppId")
                 ?: throw Exception("targetAppId not passed as instrumentation runner arg"),
 
-            // See: https://d.android.com/topic/performance/baselineprofiles/dex-layout-optimizations
-            includeInStartupProfile = true
+            // Startup profiles currently produce nonMinifiedRelease-only rules that do not match
+            // the release APK. Keep baseline profile generation enabled, but skip startup-prof.txt.
+            includeInStartupProfile = false
         ) {
             // This block defines the app's critical user journey. Here we are interested in
             // optimizing for app startup. But you can also navigate and scroll through your most important UI.

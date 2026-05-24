@@ -80,6 +80,7 @@ object VideoMapper {
         return VideoDetail(
             id = extractor.id,
             title = extractor.name,
+            videoStreams = videoStreams,
             videoStreamContent = videoStreams.firstOrNull()?.content,
             videoOnlyStreams = videoOnlyUrls,
             audioOnlyStreams = audioOnlyUrls,
@@ -88,7 +89,7 @@ object VideoMapper {
             thumbnailUrl = BaseMapper.getHighestResThumbnail(extractor.thumbnails.firstOrNull()?.url),
             uploaderName = extractor.uploaderName,
             uploaderId = uploaderId,
-            uploaderAvatarUrl = extractor.uploaderAvatars.first().url,
+            uploaderAvatarUrl = extractor.uploaderAvatars.firstOrNull()?.url,
             uploaderSubscriberCount = extractor.uploaderSubscriberCount,
             publishTimestamp = extractor.uploadDate?.offsetDateTime()?.toInstant()?.toEpochMilli(),
             publishedTimeText = extractor.textualUploadDate,
@@ -100,7 +101,7 @@ object VideoMapper {
                 val videoId = try {
                     ServiceList.YouTube.streamLHFactory.getId(relatedVideo.url)
                 } catch (e: Exception) {
-                    Logger.e("VideoMapper", "Failed to extract video ID from URL: ${relatedVideo.url}")
+                    Logger.d("VideoMapper", "Failed to extract video ID from URL: ${relatedVideo.url}")
                     return@mapNotNull null
                 }
                 val uploaderId = try {

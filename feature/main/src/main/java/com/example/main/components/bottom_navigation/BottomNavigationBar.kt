@@ -18,6 +18,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.util.trace
 import com.example.main.components.appbar.SearchBarState
 import com.example.util.constants.AppColors
 
@@ -52,17 +53,20 @@ fun BottomNavigationBar(
     BottomNavigation(
         modifier = Modifier
             .navigationBarsPadding()
-            .offset{
-                val normalizedBottomSheetOffset = when {
-                    bottomSheetOffset() <= 0f -> 0.dp
-                    bottomSheetOffset() >= 1f -> 56.dp
-                    else -> (bottomSheetOffset() * 56).dp
+            .offset {
+                trace("BottomNavigationBar.offset") {
+                    val normalizedBottomSheetOffset = when {
+                        bottomSheetOffset() <= 0f -> 0.dp
+                        bottomSheetOffset() >= 1f -> 56.dp
+                        else -> (bottomSheetOffset() * 56).dp
+                    }
+
+                    val searchBarOffset =
+                        if (searchBarState == SearchBarState.OPENED || isLocalSearchActive) 56.dp else 0.dp
+                    val totalOffset = normalizedBottomSheetOffset + searchBarOffset
+
+                    IntOffset(0, totalOffset.roundToPx())
                 }
-
-                val searchBarOffset = if (searchBarState == SearchBarState.OPENED || isLocalSearchActive) 56.dp else 0.dp
-                val totalOffset = normalizedBottomSheetOffset + searchBarOffset
-
-                IntOffset(0, totalOffset.roundToPx())
             },
         backgroundColor = AppColors.BlueBackground
 
@@ -103,4 +107,3 @@ fun BottomNavigationBar(
     }
 
 }
-

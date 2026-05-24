@@ -1,27 +1,23 @@
 package com.example.convert.audio_edit.components.common
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -63,12 +59,11 @@ fun EffectPresetSelector(
             modifier = Modifier
                 .fillMaxWidth()
                 .horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             presets.forEachIndexed { index, preset ->
-                PresetChip(
-                    name = preset.name,
-                    description = preset.description,
+                EffectPresetChip(
+                    label = preset.name,
                     isSelected = index == selectedIndex,
                     onClick = { onPresetSelected(index) }
                 )
@@ -78,56 +73,32 @@ fun EffectPresetSelector(
 }
 
 @Composable
-private fun PresetChip(
-    name: String,
-    description: String,
+fun EffectPresetChip(
+    label: String,
     isSelected: Boolean,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    val backgroundColor = if (isSelected) {
-        MaterialTheme.colorScheme.primary
-    } else {
-        Color(0xFFF5F5F5)
-    }
-
-    val textColor = if (isSelected) {
-        Color.White
-    } else {
-        Color.DarkGray
-    }
-
-    val borderColor = if (isSelected) {
-        MaterialTheme.colorScheme.primary
-    } else {
-        Color(0xFFE0E0E0)
-    }
-
-    Column(
-        modifier = Modifier
-            .clip(RoundedCornerShape(12.dp))
-            .background(backgroundColor)
-            .border(1.dp, borderColor, RoundedCornerShape(12.dp))
-            .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 10.dp)
-            .width(100.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+    Surface(
+        modifier = modifier
+            .clickable { onClick() }
+            .border(
+                width = if (isSelected) 2.dp else 1.dp,
+                color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Gray.copy(alpha = 0.5f),
+                shape = RoundedCornerShape(8.dp)
+            ),
+        shape = RoundedCornerShape(8.dp),
+        color = if (isSelected) MaterialTheme.colorScheme.primary else Color.White
     ) {
         Text(
-            text = name,
+            text = label,
+            modifier = Modifier.padding(vertical = 10.dp, horizontal = 12.dp),
+            textAlign = TextAlign.Center,
             fontSize = 13.sp,
-            fontWeight = FontWeight.Medium,
-            color = textColor,
+            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+            color = if (isSelected) Color.White else Color.DarkGray,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
-        )
-        Spacer(modifier = Modifier.height(2.dp))
-        Text(
-            text = description,
-            fontSize = 10.sp,
-            color = if (isSelected) Color.White.copy(alpha = 0.8f) else Color.Gray,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-            lineHeight = 12.sp
         )
     }
 }
@@ -146,46 +117,15 @@ fun EffectPresetChips(
         modifier = modifier
             .fillMaxWidth()
             .horizontalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp, vertical = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         presets.forEachIndexed { index, presetName ->
-            SimplePresetChip(
-                name = presetName,
+            EffectPresetChip(
+                label = presetName,
                 isSelected = index == selectedIndex,
                 onClick = { onPresetSelected(index) }
             )
         }
     }
-}
-
-@Composable
-private fun SimplePresetChip(
-    name: String,
-    isSelected: Boolean,
-    onClick: () -> Unit
-) {
-    val backgroundColor = if (isSelected) {
-        MaterialTheme.colorScheme.primary
-    } else {
-        Color(0xFFF0F0F0)
-    }
-
-    val textColor = if (isSelected) {
-        Color.White
-    } else {
-        Color.DarkGray
-    }
-
-    Text(
-        text = name,
-        fontSize = 12.sp,
-        fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal,
-        color = textColor,
-        modifier = Modifier
-            .clip(RoundedCornerShape(16.dp))
-            .background(backgroundColor)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 6.dp)
-    )
 }

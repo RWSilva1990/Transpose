@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -25,10 +24,10 @@ import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
 import com.example.domain.model.youtube.channel.ChannelTabResult
 import com.example.domain.model.youtube.video.Video
 import com.example.transpose.core.ui.R
+import com.example.ui.components.image.ThumbnailImage
 import com.example.util.TextFormatUtil
 
 @Composable
@@ -50,11 +49,13 @@ fun ShortsVideoItem(
                 .fillMaxWidth()
                 .aspectRatio(16f / 9f)
         ) {
-            AsyncImage(
-                model = video.thumbnailUrl,
+            ThumbnailImage(
+                url = video.thumbnailUrl,
                 contentDescription = "비디오 썸네일",
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
+                width = 330.dp,
+                height = 186.dp,
+                modifier = Modifier,
+                fillMaxSize = true,
             )
 
             // 영상 길이
@@ -88,9 +89,11 @@ fun ShortsVideoItem(
                 )
 
                 Text(
-                    text = TextFormatUtil.viewCountCalculator(
-                        viewCountFormats,
-                        video.viewCount.toString()
+                    text = TextFormatUtil.formatVideoMeta(
+                        viewCountStringArray = viewCountFormats,
+                        viewCount = video.viewCount,
+                        textualUploadDate = video.textualUploadDate,
+                        publishTimestamp = video.publishTimestamp
                     ),
                     style = MaterialTheme.typography.bodySmall,
                     color = Color.Gray

@@ -16,8 +16,9 @@ import org.schabi.newpipe.extractor.stream.StreamInfoItem
 
 open class ContentPager(
     streamingService: StreamingService,
-    extractor: ListExtractor<out InfoItem>
-) : Pager<InfoItem, SearchResult>(streamingService, extractor) {
+    extractor: ListExtractor<out InfoItem>,
+    initialPageFetched: Boolean = false
+) : Pager<InfoItem, SearchResult>(streamingService, extractor, initialPageFetched) {
 
     private val seenVideos = HashSet<String>()
 

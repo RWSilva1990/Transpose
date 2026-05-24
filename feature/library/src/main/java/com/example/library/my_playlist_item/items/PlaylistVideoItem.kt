@@ -4,12 +4,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreVert
@@ -26,16 +23,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.painter.ColorPainter
-import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
 import com.example.domain.model.playable.PlayableItem
 import com.example.library.R
+import com.example.transpose.core.ui.R as CoreUiR
 import com.example.ui.components.dropdown_menu.DropDownMenu
+import com.example.ui.components.image.ThumbnailImage
+import com.example.util.TextFormatUtil
 
 @Composable
 fun PlaylistItem(
@@ -44,15 +42,26 @@ fun PlaylistItem(
     dropDownMenuClick: () -> Unit
 ) {
     var isExpanded by remember { mutableStateOf(false) }
+    val viewCountFormats = stringArrayResource(id = CoreUiR.array.view_count_formats)
 
     val title = item.title
     val subtitle = when (item) {
         is PlayableItem.Remote -> item.video.uploaderName ?: ""
         is PlayableItem.Local -> item.artist ?: stringResource(R.string.unknown_artist)
     }
-    val description = when (item) {
-        is PlayableItem.Remote -> item.video.description
-        is PlayableItem.Local -> item.album ?: ""
+    val detailText = remember(item, viewCountFormats) {
+        when (item) {
+            is PlayableItem.Remote -> {
+                TextFormatUtil.formatVideoMeta(
+                    viewCountStringArray = viewCountFormats,
+                    viewCount = item.video.viewCount,
+                    textualUploadDate = item.video.textualUploadDate,
+                    publishTimestamp = item.video.publishTimestamp
+                )
+            }
+
+            is PlayableItem.Local -> item.album ?: ""
+        }
     }
 
     Row(
@@ -62,16 +71,12 @@ fun PlaylistItem(
             .clickable { onClick(item) }
             .padding(vertical = 10.dp, horizontal = 10.dp)
     ) {
-        AsyncImage(
-            model = item.thumbnailUri,
+        ThumbnailImage(
+            url = item.thumbnailUri,
             contentDescription = "Thumbnail",
-            modifier = Modifier
-                .width(150.dp)
-                .fillMaxHeight()
-                .clip(RoundedCornerShape(8.dp)),
-            contentScale = ContentScale.Crop,
-            placeholder = ColorPainter(Color.LightGray),
-            error = ColorPainter(Color.LightGray)
+            width = 142.dp,
+            height = 80.dp,
+            modifier = Modifier.clip(RoundedCornerShape(8.dp)),
         )
         Column(
             modifier = Modifier
@@ -80,23 +85,24 @@ fun PlaylistItem(
         ) {
             Text(
                 text = title,
-                fontSize = 13.sp,
+                fontSize = 12.sp,
+                minLines = 2,
                 maxLines = 2,
+                lineHeight = 14.sp,
                 overflow = TextOverflow.Ellipsis
             )
-            Spacer(modifier = Modifier.height(10.dp))
             Text(
                 text = subtitle,
                 fontSize = 10.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
-            Spacer(modifier = Modifier.height(5.dp))
             Text(
-                text = description,
+                text = detailText,
                 fontSize = 10.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
         }
         Box {

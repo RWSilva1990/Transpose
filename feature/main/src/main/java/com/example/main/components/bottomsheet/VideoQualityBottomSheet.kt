@@ -29,6 +29,7 @@ import com.example.domain.model.preferences.VideoQuality
 import com.example.main.components.bottomsheet.state.VideoDetailUiState
 import com.example.transpose.core.ui.R
 import com.example.ui.util.getDisplayStringResId
+import org.schabi.newpipe.extractor.stream.VideoStream
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -38,22 +39,13 @@ fun VideoQualityBottomSheet(
     onSetVideoQuality: (VideoQuality) -> Unit,
     onDismiss: () -> Unit
 ) {
-    // itag -> VideoQuality mapping
-    val itagToQualityMap = mapOf(
-        137 to VideoQuality.P1080, 248 to VideoQuality.P1080,
-        136 to VideoQuality.P720, 247 to VideoQuality.P720,
-        135 to VideoQuality.P480, 244 to VideoQuality.P480,
-        134 to VideoQuality.P360, 243 to VideoQuality.P360,
-        133 to VideoQuality.P240, 242 to VideoQuality.P240,
-        160 to VideoQuality.P144, 278 to VideoQuality.P144
-    )
-
     when (val state = videoDetailUiState) {
         is VideoDetailUiState.Success -> {
-            val itagList = state.videoDetail?.videoOnlyStreams?.map { it.itag }
-            val availableQualities = itagList
-                ?.mapNotNull { itagToQualityMap[it] }
+            val availableQualities = state.videoDetail?.videoOnlyStreams
+                ?.filter { it.isVideoOnly() }
+                ?.mapNotNull { it.toVideoQuality() }
                 ?.distinct()
+                ?.sortedBy { qualitySortOrder.indexOf(it).takeIf { index -> index >= 0 } ?: Int.MAX_VALUE }
                 ?: emptyList()
 
             ModalBottomSheet(
@@ -117,6 +109,29 @@ fun VideoQualityBottomSheet(
             }
         }
     }
+}
+
+private val qualitySortOrder = listOf(
+    VideoQuality.P1080,
+    VideoQuality.P720,
+    VideoQuality.P480,
+    VideoQuality.P360,
+    VideoQuality.P240,
+    VideoQuality.P144
+)
+
+private fun VideoStream.toVideoQuality(): VideoQuality? {
+    return VideoQuality.entries.firstOrNull { it.height == height }
+        ?: getQuality().toVideoQuality()
+        ?: getResolution().toVideoQuality()
+}
+
+private fun String?.toVideoQuality(): VideoQuality? {
+    val streamHeight = this
+        ?.let { Regex("(\\d{3,4})p").find(it)?.groupValues?.getOrNull(1) }
+        ?.toIntOrNull()
+        ?: return null
+    return VideoQuality.entries.firstOrNull { it.height == streamHeight }
 }
 
 @Composable

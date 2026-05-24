@@ -15,11 +15,15 @@ import org.schabi.newpipe.extractor.stream.StreamInfoItem
 
 class PlaylistItemPager(
     streamingService: StreamingService,
-    extractor: ListExtractor<out InfoItem>
-) : Pager<InfoItem, PlaylistItem>(streamingService, extractor) {
+    extractor: ListExtractor<out InfoItem>,
+    initialPageFetched: Boolean = false
+) : Pager<InfoItem, PlaylistItem>(streamingService, extractor, initialPageFetched) {
 
     override fun extract(page: ListExtractor.InfoItemsPage<out InfoItem>): List<PlaylistItem> {
         val result = mutableListOf<PlaylistItem>()
+        val itemTypeCounts = page.items
+            .groupingBy { item -> item::class.simpleName ?: "Unknown" }
+            .eachCount()
 
         for (infoItem in page.items) {
             if (infoItem is StreamInfoItem) {
@@ -33,6 +37,14 @@ class PlaylistItemPager(
                 result.add(playlistItemDomain)
             }
         }
+
+        if (result.isEmpty()) {
+            Logger.e(
+                "PLAYLIST_ITEMS_EMPTY_AFTER_MAPPING rawCount=${page.items.size} " +
+                    "types=$itemTypeCounts hasNext=${page.hasNextPage()}"
+            )
+        }
+
         return result
     }
 

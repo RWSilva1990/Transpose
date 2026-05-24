@@ -6,6 +6,7 @@
     <string name="Type_based_playlist_text">Typed</string>
     <string name="notify_video_added_to_playlist">The Video has been added to the playlist</string>
     <string name="retry_button">Retry</string>
+    <string name="playlist_load_error">Unable to load playlists. Please check your connection and try again.</string>
     <string name="no_playlists_available">No playlists available</string>
     <string name="ready_to_load">Ready to load playlists</string>
 </resources>

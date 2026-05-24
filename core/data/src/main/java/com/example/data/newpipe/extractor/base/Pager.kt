@@ -12,7 +12,8 @@ import org.schabi.newpipe.extractor.linkhandler.ListLinkHandlerFactory
 
 abstract class Pager<I : InfoItem, O>(
     protected val streamingService: StreamingService,
-    private val extractor: ListExtractor<out InfoItem>
+    private val extractor: ListExtractor<out InfoItem>,
+    private val initialPageFetched: Boolean = false
 ) {
     private var nextPage: Page? = null
     private var hasNextPage = true
@@ -29,7 +30,9 @@ abstract class Pager<I : InfoItem, O>(
         }
         return try {
             if (nextPage == null) {
-                extractor.fetchPage()
+                if (!initialPageFetched) {
+                    extractor.fetchPage()
+                }
                 process(extractor.initialPage)
             } else {
                 process(extractor.getPage(nextPage))

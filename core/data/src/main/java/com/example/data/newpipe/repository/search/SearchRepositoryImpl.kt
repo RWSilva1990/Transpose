@@ -22,7 +22,11 @@ class SearchRepositoryImpl @Inject constructor(
             try {
                 val searchExtractor = newPipeManager.youtubeService.getSearchExtractor(query)
                 searchExtractor.fetchPage()
-                val pager = ContentPager(newPipeManager.youtubeService, searchExtractor)
+                val pager = ContentPager(
+                    newPipeManager.youtubeService,
+                    searchExtractor,
+                    initialPageFetched = true
+                )
                 currentContentPager = pager
                 Result.success(pager.getNextPage())
             } catch (e: Exception) {
@@ -35,9 +39,7 @@ class SearchRepositoryImpl @Inject constructor(
         return withContext(ioDispatcher) {
             try {
                 val pager = currentContentPager
-                    ?: return@withContext Result.failure(
-                        IllegalStateException("No search pager initiated")
-                    )
+                    ?: throw IllegalStateException("No search pager initiated")
 
                 val nextPages = pager.getNextPage()
                 Result.success(nextPages)

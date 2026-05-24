@@ -1,20 +1,13 @@
 package com.example.convert.audio_edit.components.signalsmith
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -27,12 +20,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.convert.audio_edit.ConvertAudioEditViewModel
-import com.example.convert.audio_edit.components.ExpandableSectionTitle
+import com.example.convert.audio_edit.components.common.EffectCard
+import com.example.convert.audio_edit.components.common.EffectCardHeader
+import com.example.convert.audio_edit.components.common.EffectPresetChip
 import com.example.media.audio_effect.data.eq.SignalsmithEqPresets
 import com.example.transpose.core.ui.R
 
@@ -50,65 +43,82 @@ fun EqSection(
     val band3Gain by convertAudioEditViewModel.eqBand3Gain.collectAsStateWithLifecycle()
     val band4Gain by convertAudioEditViewModel.eqBand4Gain.collectAsStateWithLifecycle()
     val band5Gain by convertAudioEditViewModel.eqBand5Gain.collectAsStateWithLifecycle()
-    var isExpanded by rememberSaveable { mutableStateOf(false) }
 
+    EqSectionContent(
+        title = title,
+        isEnabled = isEnabled,
+        currentPreset = currentPreset,
+        band1Gain = band1Gain,
+        band2Gain = band2Gain,
+        band3Gain = band3Gain,
+        band4Gain = band4Gain,
+        band5Gain = band5Gain,
+        onToggleEnable = { convertAudioEditViewModel.updateIsEqEnabled() },
+        onResetAll = { convertAudioEditViewModel.initEqValues() },
+        onPresetSelected = { convertAudioEditViewModel.updateEqPreset(it) },
+        onBandGainChange = { band, value -> convertAudioEditViewModel.updateEqBandGain(band, value) },
+        onExpandChanged = onExpandChanged,
+        modifier = modifier,
+    )
+}
+
+@Composable
+private fun EqSectionContent(
+    title: String,
+    isEnabled: Boolean,
+    currentPreset: Int,
+    band1Gain: Float,
+    band2Gain: Float,
+    band3Gain: Float,
+    band4Gain: Float,
+    band5Gain: Float,
+    onToggleEnable: () -> Unit,
+    onResetAll: () -> Unit,
+    onPresetSelected: (Int) -> Unit,
+    onBandGainChange: (Int, Float) -> Unit,
+    onExpandChanged: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var isExpanded by rememberSaveable { mutableStateOf(false) }
     val isKorean = LocalConfiguration.current.locales[0].language == "ko"
 
-    Column(
-        modifier = modifier
-            .clickable {
-                isExpanded = !isExpanded
-                onExpandChanged(isExpanded)
-            }
-            .fillMaxWidth()
-    ) {
-        ExpandableSectionTitle(
-            isExpanded = isExpanded,
-            title = title,
-            isEnabled = isEnabled,
-            onSwitchChange = { convertAudioEditViewModel.updateIsEqEnabled() },
-            onInitButton = { convertAudioEditViewModel.initEqValues() }
-        )
+    val activePreset = SignalsmithEqPresets.getPreset(currentPreset)
+    val presetName = if (isKorean) activePreset.nameKo else activePreset.name
+    val toggle = {
+        isExpanded = !isExpanded
+        onExpandChanged(isExpanded)
+    }
 
-        AnimatedVisibility(
-            modifier = Modifier
-                .background(Color.White)
-                .fillMaxSize(),
-            visible = isExpanded,
-        ) {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                // Preset Selection Section
+    EffectCard(modifier = modifier, onClick = toggle) {
+        EffectCardHeader(
+            title = title,
+            presetName = presetName,
+            isExpanded = isExpanded,
+            isEnabled = isEnabled,
+            onToggleExpand = toggle,
+            onToggleEnable = { onToggleEnable() },
+            onReset = onResetAll,
+        )
+        if (isExpanded) {
+            Column(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
+                Text(
+                    text = if (isKorean) activePreset.descriptionKo else activePreset.description,
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                )
                 EqPresetSection(
                     currentPreset = currentPreset,
                     isKorean = isKorean,
-                    onPresetSelected = { convertAudioEditViewModel.updateEqPreset(it) }
+                    onPresetSelected = onPresetSelected
                 )
 
-                // Current preset indicator
-                if (currentPreset >= 0) {
-                    val preset = SignalsmithEqPresets.getPreset(currentPreset)
-                    Text(
-                        text = if (isKorean) "현재: ${preset.nameKo}" else "Current: ${preset.name}",
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-                    )
-                } else {
-                    Text(
-                        text = if (isKorean) "현재: 사용자 정의" else "Current: Custom",
-                        fontSize = 12.sp,
-                        color = Color.Gray,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-                    )
-                }
-
-                // Fine-tune sliders
                 FloatSliderSection(
                     title = stringResource(id = R.string.eq_band_60hz),
                     displayValueText = String.format("%.0f dB", band1Gain),
-                    onValueChange = { convertAudioEditViewModel.updateEqBandGain(0, it) },
+                    onValueChange = { onBandGainChange(0, it) },
                     onValueChangeFinished = { },
-                    onReset = { convertAudioEditViewModel.updateEqBandGain(0, 0f) },
+                    onReset = { onBandGainChange(0, activePreset.gains[0]) },
                     currentValue = band1Gain,
                     valueRange = -12f..12f
                 )
@@ -116,9 +126,9 @@ fun EqSection(
                 FloatSliderSection(
                     title = stringResource(id = R.string.eq_band_250hz),
                     displayValueText = String.format("%.0f dB", band2Gain),
-                    onValueChange = { convertAudioEditViewModel.updateEqBandGain(1, it) },
+                    onValueChange = { onBandGainChange(1, it) },
                     onValueChangeFinished = { },
-                    onReset = { convertAudioEditViewModel.updateEqBandGain(1, 0f) },
+                    onReset = { onBandGainChange(1, activePreset.gains[1]) },
                     currentValue = band2Gain,
                     valueRange = -12f..12f
                 )
@@ -126,9 +136,9 @@ fun EqSection(
                 FloatSliderSection(
                     title = stringResource(id = R.string.eq_band_1khz),
                     displayValueText = String.format("%.0f dB", band3Gain),
-                    onValueChange = { convertAudioEditViewModel.updateEqBandGain(2, it) },
+                    onValueChange = { onBandGainChange(2, it) },
                     onValueChangeFinished = { },
-                    onReset = { convertAudioEditViewModel.updateEqBandGain(2, 0f) },
+                    onReset = { onBandGainChange(2, activePreset.gains[2]) },
                     currentValue = band3Gain,
                     valueRange = -12f..12f
                 )
@@ -136,9 +146,9 @@ fun EqSection(
                 FloatSliderSection(
                     title = stringResource(id = R.string.eq_band_4khz),
                     displayValueText = String.format("%.0f dB", band4Gain),
-                    onValueChange = { convertAudioEditViewModel.updateEqBandGain(3, it) },
+                    onValueChange = { onBandGainChange(3, it) },
                     onValueChangeFinished = { },
-                    onReset = { convertAudioEditViewModel.updateEqBandGain(3, 0f) },
+                    onReset = { onBandGainChange(3, activePreset.gains[3]) },
                     currentValue = band4Gain,
                     valueRange = -12f..12f
                 )
@@ -146,9 +156,9 @@ fun EqSection(
                 FloatSliderSection(
                     title = stringResource(id = R.string.eq_band_12khz),
                     displayValueText = String.format("%.0f dB", band5Gain),
-                    onValueChange = { convertAudioEditViewModel.updateEqBandGain(4, it) },
+                    onValueChange = { onBandGainChange(4, it) },
                     onValueChangeFinished = { },
-                    onReset = { convertAudioEditViewModel.updateEqBandGain(4, 0f) },
+                    onReset = { onBandGainChange(4, activePreset.gains[4]) },
                     currentValue = band5Gain,
                     valueRange = -12f..12f
                 )
@@ -189,13 +199,12 @@ private fun EqPresetSection(
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             listOf(
-                SignalsmithEqPresets.PRESET_FLAT,
                 SignalsmithEqPresets.PRESET_BASS_BOOST,
                 SignalsmithEqPresets.PRESET_TREBLE_BOOST,
                 SignalsmithEqPresets.PRESET_VOCAL_BOOST
             ).forEach { presetIndex ->
                 val preset = SignalsmithEqPresets.getPreset(presetIndex)
-                EqPresetButton(
+                EffectPresetChip(
                     label = if (isKorean) preset.nameKo else preset.name,
                     isSelected = currentPreset == presetIndex,
                     onClick = { onPresetSelected(presetIndex) }
@@ -224,7 +233,7 @@ private fun EqPresetSection(
                 SignalsmithEqPresets.PRESET_ELECTRONIC
             ).forEach { presetIndex ->
                 val preset = SignalsmithEqPresets.getPreset(presetIndex)
-                EqPresetButton(
+                EffectPresetChip(
                     label = if (isKorean) preset.nameKo else preset.name,
                     isSelected = currentPreset == presetIndex,
                     onClick = { onPresetSelected(presetIndex) }
@@ -246,7 +255,7 @@ private fun EqPresetSection(
                 SignalsmithEqPresets.PRESET_R_AND_B
             ).forEach { presetIndex ->
                 val preset = SignalsmithEqPresets.getPreset(presetIndex)
-                EqPresetButton(
+                EffectPresetChip(
                     label = if (isKorean) preset.nameKo else preset.name,
                     isSelected = currentPreset == presetIndex,
                     onClick = { onPresetSelected(presetIndex) }
@@ -269,47 +278,16 @@ private fun EqPresetSection(
         ) {
             listOf(
                 SignalsmithEqPresets.PRESET_LOUDNESS,
-                SignalsmithEqPresets.PRESET_SPOKEN_WORD
+                SignalsmithEqPresets.PRESET_SPOKEN_WORD,
+                SignalsmithEqPresets.PRESET_FLAT
             ).forEach { presetIndex ->
                 val preset = SignalsmithEqPresets.getPreset(presetIndex)
-                EqPresetButton(
+                EffectPresetChip(
                     label = if (isKorean) preset.nameKo else preset.name,
                     isSelected = currentPreset == presetIndex,
                     onClick = { onPresetSelected(presetIndex) }
                 )
             }
         }
-    }
-}
-
-@Composable
-private fun EqPresetButton(
-    label: String,
-    isSelected: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        modifier = modifier
-            .clickable { onClick() }
-            .border(
-                width = if (isSelected) 2.dp else 1.dp,
-                color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Gray.copy(alpha = 0.5f),
-                shape = RoundedCornerShape(8.dp)
-            ),
-        shape = RoundedCornerShape(8.dp),
-        color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.White
-    ) {
-        Text(
-            text = label,
-            modifier = Modifier
-                .padding(vertical = 10.dp, horizontal = 12.dp),
-            textAlign = TextAlign.Center,
-            fontSize = 13.sp,
-            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-            color = if (isSelected) MaterialTheme.colorScheme.primary else Color.DarkGray,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
     }
 }

@@ -3,8 +3,9 @@ package com.example.main.components.bottomsheet
 import android.widget.ImageButton
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -16,10 +17,12 @@ import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -27,7 +30,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.res.stringResource
@@ -41,7 +48,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
-import com.example.ui.util.getDisplayStringResId
 import com.example.main.MainViewModel
 import com.example.main.components.bottomsheet.GraphicsLayerConstants.PEEK_HEIGHT
 import com.example.main.components.bottomsheet.item.PlayerBottomSheetHeader
@@ -49,9 +55,11 @@ import com.example.main.components.bottomsheet.item.PlayerLoadingIndicator
 import com.example.main.components.bottomsheet.item.PlayerThumbnailView
 import com.example.main.components.bottomsheet.item.PlaylistFloatingButton
 import com.example.main.components.bottomsheet.item.VideoDetailPanel
+import com.example.ui.util.getDisplayStringResId
 import com.example.util.constants.AppColors
 import kotlinx.coroutines.launch
 import kotlin.math.pow
+import kotlin.math.roundToInt
 
 
 object GraphicsLayerConstants {
@@ -60,7 +68,7 @@ object GraphicsLayerConstants {
     const val MIN_SCALE = 0.3f
 
     val PEEK_HEIGHT = 56.dp
-    val DEFAULT_HEIGHT = 250.dp
+    const val PLAYER_ASPECT_RATIO = 16f / 9f
 }
 
 
@@ -71,13 +79,18 @@ fun PlayerBottomSheet(
     mainViewModel: MainViewModel,
     bottomSheetState: SheetState,
     bottomSheetOffset: () -> Float,
-    onNavigateToChannelScreen: (String) -> Unit
+    onNavigateToChannelScreen: (String) -> Unit,
+    onVideoDetailTouchActiveChanged: (Boolean) -> Unit,
 ) = trace("PlayerBottomSheet") {
 
     // ===== Collect all states here =====
     val mediaController by mainViewModel.mediaControllerFlow.collectAsStateWithLifecycle()
     val isPlaying by mainViewModel.isPlaying.collectAsStateWithLifecycle()
     val currentItem by mainViewModel.currentItem.collectAsStateWithLifecycle()
+
+    if (currentItem == null && bottomSheetState.currentValue == SheetValue.Hidden) {
+        return@trace
+    }
     val videoDetailUiState by mainViewModel.videoDetailUiState.collectAsStateWithLifecycle()
     val pitchValue by mainViewModel.pitchValue.collectAsStateWithLifecycle()
     val tempoValue by mainViewModel.tempoValue.collectAsStateWithLifecycle()
@@ -85,11 +98,18 @@ fun PlayerBottomSheet(
     val currentPlaylist by mainViewModel.currentPlaylist.collectAsStateWithLifecycle()
     val currentPlaylistInfo by mainViewModel.currentPlaylistInfo.collectAsStateWithLifecycle()
     val videoQuality by mainViewModel.videoQuality.collectAsStateWithLifecycle()
+    val appliedVideoQuality by mainViewModel.appliedVideoQuality.collectAsStateWithLifecycle()
 
     val coroutineScope = rememberCoroutineScope()
     var showPlaylistModal by remember { mutableStateOf(false) }
     var showQualityModal by remember { mutableStateOf(false) }
     var isControllerVisible by remember { mutableStateOf(false) }
+    val playerHeight = LocalConfiguration.current.screenWidthDp.dp / GraphicsLayerConstants.PLAYER_ASPECT_RATIO
+    val onVideoDetailTouchActiveChangedState by rememberUpdatedState(onVideoDetailTouchActiveChanged)
+
+    val isSheetExpanded by remember(bottomSheetState) {
+        derivedStateOf { bottomSheetState.currentValue == SheetValue.Expanded }
+    }
 
     var playerViewHeight by remember { mutableIntStateOf(0) }
 
@@ -120,9 +140,9 @@ fun PlayerBottomSheet(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(GraphicsLayerConstants.DEFAULT_HEIGHT)
+                    .height(playerHeight)
                     .graphicsLayer {
-                        scaleY = calculateScaleFactorY(bottomSheetOffset())
+                        scaleY = calculateScaleFactorY(bottomSheetOffset(), playerHeight)
                         transformOrigin = TransformOrigin(0.5f, 0f)
                     }
                     .background(AppColors.BlueBackground)
@@ -142,111 +162,139 @@ fun PlayerBottomSheet(
             onStop = mainViewModel::stopPlayback
         )
 
-        Column(
-            modifier = Modifier.fillMaxSize(),
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(playerHeight)
+                .onGloballyPositioned { coordinates ->
+                    playerViewHeight = coordinates.size.height
+                }
+                .graphicsLayer {
+                    scaleX = when {
+                        bottomSheetOffset() < 0f -> GraphicsLayerConstants.MIN_SCALE
+                        bottomSheetOffset() < 0.2f -> calculateDefaultScaleX(bottomSheetOffset())
+                        else -> 1f
+                    }
+                    scaleY = calculateScaleFactorY(bottomSheetOffset(), playerHeight)
+                    transformOrigin = TransformOrigin(0f, 0f)
+                }
         ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(GraphicsLayerConstants.DEFAULT_HEIGHT)
-                    .onGloballyPositioned { coordinates ->
-                        playerViewHeight = coordinates.size.height
-                    }
-                    .graphicsLayer {
-                        scaleX = when {
-                            bottomSheetOffset() < 0f -> GraphicsLayerConstants.MIN_SCALE
-                            bottomSheetOffset() < 0.2f -> calculateDefaultScaleX(bottomSheetOffset())
-                            else -> 1f
-                        }
-                        scaleY = calculateScaleFactorY(bottomSheetOffset())
-                        transformOrigin = TransformOrigin(0f, 0f)
-                    }
-            ) {
-                trace("PlayerView") {
-                    AndroidView(
-                        factory = { ctx ->
-                            PlayerView(ctx).apply {
-                                resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FILL
-                                keepScreenOn = true
-                                setControllerVisibilityListener(
-                                    PlayerView.ControllerVisibilityListener { visibility ->
-                                        isControllerVisible = visibility == android.view.View.VISIBLE
-                                    }
-                                )
+            trace("PlayerView") {
+                AndroidView(
+                    factory = { ctx ->
+                        PlayerView(ctx).apply {
+                            setBackgroundColor(android.graphics.Color.BLACK)
+                            resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+                            setShutterBackgroundColor(android.graphics.Color.BLACK)
+                            keepScreenOn = true
+                            setControllerVisibilityListener(
+                                PlayerView.ControllerVisibilityListener { visibility ->
+                                    isControllerVisible = visibility == android.view.View.VISIBLE
+                                }
+                            )
 
-                                post {
-                                    val settingButtons = findViewById<ImageButton>(
-                                        androidx.media3.ui.R.id.exo_settings
-                                    )
-                                    settingButtons.setOnClickListener {
-                                        showQualityModal = true
-                                    }
+                            post {
+                                val settingButtons = findViewById<ImageButton>(
+                                    androidx.media3.ui.R.id.exo_settings
+                                )
+                                settingButtons.setOnClickListener {
+                                    showQualityModal = true
                                 }
                             }
-                        }, update = { view ->
-                            val controller = mediaController
-                            if (view.player != controller) {
-                                view.player = controller
-                            }
-                            val shouldShowController = bottomSheetState.currentValue == SheetValue.Expanded
-                            if (view.useController != shouldShowController) {
-                                view.useController = shouldShowController
-                            }
-                        }, modifier = Modifier.fillMaxSize()
-                    )
-                }
-                trace("PlayerThumbnailView") {
-                    PlayerThumbnailView(
-                        videoDetailUiState = videoDetailUiState,
-                        currentItem = currentItem,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .semantics { contentDescription = "PlayerThumbnailView" })
-                }
-                trace("PlayerLoadingIndicator") {
-                    PlayerLoadingIndicator(
-                        videoDetailUiState = videoDetailUiState,
-                        currentItem = currentItem,
-                        modifier = Modifier.align(Alignment.Center)
-                    )
-                }
-                if (isControllerVisible && bottomSheetState.currentValue == SheetValue.Expanded) {
-                    QualityIndicatorButton(
-                        videoQuality = videoQuality,
-                        onClick = { showQualityModal = true },
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(end = 12.dp, top = 12.dp)
-                    )
-                }
+                        }
+                    }, update = { view ->
+                        val controller = mediaController
+                        if (view.player != controller) {
+                            view.player = controller
+                        }
+                        if (view.useController != isSheetExpanded) {
+                            view.useController = isSheetExpanded
+                        }
+                    }, modifier = Modifier.fillMaxSize()
+                )
             }
-            VideoDetailPanel(
-                videoDetailUiState = videoDetailUiState,
-                currentItem = currentItem,
-                myPlaylists = myPlaylists,
-                pitchValue = pitchValue,
-                tempoValue = tempoValue,
-                onPlayVideo = mainViewModel::playVideo,
-                onPitchPlusOne = mainViewModel::pitchPlusOne,
-                onPitchMinusOne = mainViewModel::pitchMinusOne,
-                onPitchInit = mainViewModel::initPitchValue,
-                onTempoPlusOne = mainViewModel::tempoPlusOne,
-                onTempoMinusOne = mainViewModel::tempoMinusOne,
-                onTempoInit = mainViewModel::initTempoValue,
-                onAddItemToPlaylist = mainViewModel::addItemToPlaylist,
-                onNavigateToChannelScreen = onNavigateToChannelScreen,
-                bottomSheetState = bottomSheetState,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .graphicsLayer {
-                        translationY = -playerViewHeight * (1 - calculateScaleFactorY(
-                            bottomSheetOffset()
-                        ))
-                        alpha = if (bottomSheetOffset() < 0) 1f else bottomSheetOffset().pow(3)
-                            .coerceAtLeast(0f)
-                    }
-            )
+            trace("PlayerThumbnailView") {
+                PlayerThumbnailView(
+                    videoDetailUiState = videoDetailUiState,
+                    currentItem = currentItem,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .semantics { contentDescription = "PlayerThumbnailView" })
+            }
+            trace("PlayerLoadingIndicator") {
+                PlayerLoadingIndicator(
+                    videoDetailUiState = videoDetailUiState,
+                    currentItem = currentItem,
+                    modifier = Modifier.align(Alignment.Center)
+                )
+            }
+            if (isControllerVisible && isSheetExpanded) {
+                QualityIndicatorButton(
+                    videoQuality = appliedVideoQuality,
+                    onClick = { showQualityModal = true },
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(end = 12.dp, top = 12.dp)
+                )
+            }
         }
+        VideoDetailPanel(
+            videoDetailUiState = videoDetailUiState,
+            currentItem = currentItem,
+            myPlaylists = myPlaylists,
+            pitchValue = pitchValue,
+            tempoValue = tempoValue,
+            onPlayVideo = mainViewModel::playVideo,
+            onPitchPlusOne = mainViewModel::pitchPlusOne,
+            onPitchMinusOne = mainViewModel::pitchMinusOne,
+            onPitchInit = mainViewModel::initPitchValue,
+            onTempoPlusOne = mainViewModel::tempoPlusOne,
+            onTempoMinusOne = mainViewModel::tempoMinusOne,
+            onTempoInit = mainViewModel::initTempoValue,
+            onAddItemToPlaylist = mainViewModel::addItemToPlaylist,
+            onNavigateToChannelScreen = onNavigateToChannelScreen,
+            bottomSheetState = bottomSheetState,
+            reservePlaylistButtonSpace = currentPlaylist.isNotEmpty(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .layout { measurable, constraints ->
+                    val visiblePlayerHeight = (playerViewHeight * calculateScaleFactorY(
+                        bottomSheetOffset(),
+                        playerHeight
+                    )).roundToInt()
+                    val detailTop = visiblePlayerHeight.coerceIn(0, constraints.maxHeight)
+                    val detailHeight = (constraints.maxHeight - detailTop).coerceAtLeast(0)
+                    val placeable = measurable.measure(
+                        constraints.copy(
+                            minHeight = 0,
+                            maxHeight = detailHeight
+                        )
+                    )
+                    layout(constraints.maxWidth, constraints.maxHeight) {
+                        placeable.placeRelative(0, detailTop)
+                    }
+                }
+                .pointerInput(Unit) {
+                    awaitEachGesture {
+                        awaitFirstDown(
+                            requireUnconsumed = false,
+                            pass = PointerEventPass.Initial
+                        )
+                        onVideoDetailTouchActiveChangedState(true)
+                        try {
+                            do {
+                                val event = awaitPointerEvent(PointerEventPass.Initial)
+                            } while (event.changes.any { it.pressed })
+                        } finally {
+                            onVideoDetailTouchActiveChangedState(false)
+                        }
+                    }
+                }
+                .graphicsLayer {
+                    alpha = if (bottomSheetOffset() < 0) 1f else bottomSheetOffset().pow(3)
+                        .coerceAtLeast(0f)
+                }
+        )
         PlaylistFloatingButton(
             currentPlaylist = currentPlaylist,
             playlistTitle = currentPlaylistInfo?.title,
@@ -273,8 +321,8 @@ private fun calculateDefaultScaleX(bottomSheetOffset: Float): Float {
     return GraphicsLayerConstants.MIN_SCALE + (1f - GraphicsLayerConstants.MIN_SCALE) * easedT
 }
 
-private fun calculateScaleFactorY(bottomSheetOffset: Float): Float {
-    val minScale = PEEK_HEIGHT.value / GraphicsLayerConstants.DEFAULT_HEIGHT.value
+private fun calculateScaleFactorY(bottomSheetOffset: Float, playerHeight: androidx.compose.ui.unit.Dp): Float {
+    val minScale = PEEK_HEIGHT.value / playerHeight.value
     return when {
         bottomSheetOffset <= GraphicsLayerConstants.FULLY_EXPANDED -> minScale
         else -> lerp(start = minScale, stop = 1f, fraction = bottomSheetOffset)

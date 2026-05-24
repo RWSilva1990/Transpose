@@ -19,3 +19,24 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# Optional JVM integrations referenced by parser/runtime dependencies but not
+# available on Android. They are not required by the app's runtime paths.
+-dontwarn com.google.re2j.Matcher
+-dontwarn com.google.re2j.Pattern
+-dontwarn java.beans.BeanDescriptor
+-dontwarn java.beans.BeanInfo
+-dontwarn java.beans.IntrospectionException
+-dontwarn java.beans.Introspector
+-dontwarn java.beans.PropertyDescriptor
+-dontwarn javax.script.ScriptEngineFactory
+
+# NewPipe's YouTube protobuf helpers access generated message members by their
+# original field names through reflection/protobuf internals.
+-keep class org.schabi.newpipe.extractor.services.youtube.protos.** {
+    *;
+}
+
+-keepclassmembers class * extends com.google.protobuf.GeneratedMessageLite {
+    <fields>;
+}

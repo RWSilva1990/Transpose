@@ -13,8 +13,9 @@ import org.schabi.newpipe.extractor.playlist.PlaylistInfoItem
 
 class PlaylistPager(
     streamingService: StreamingService,
-    extractor: ListExtractor<out InfoItem>
-) : Pager<InfoItem, Playlist>(streamingService, extractor) {
+    extractor: ListExtractor<out InfoItem>,
+    initialPageFetched: Boolean = false
+) : Pager<InfoItem, Playlist>(streamingService, extractor, initialPageFetched) {
 
     override fun extract(page: ListExtractor.InfoItemsPage<out InfoItem>): List<Playlist> {
         val result = ArrayList<Playlist>()

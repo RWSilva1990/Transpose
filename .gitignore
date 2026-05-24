@@ -108,6 +108,16 @@ intermediate/
 temp/
 tmp/
 
+# Local model experiments
+experiments/
+experiments/**/models/
+experiments/**/downloads/
+experiments/**/.venv/
+experiments/**/results/
+
+# Legacy local model artifact; release uses media/src/main/assets/UVR_MDXNET_3_9662_dynT.onnx.
+/UVR-MDX-NET-Inst_Main_fp16_dynT.onnx
+
 # Java bytecode
 *.jar.cache
 

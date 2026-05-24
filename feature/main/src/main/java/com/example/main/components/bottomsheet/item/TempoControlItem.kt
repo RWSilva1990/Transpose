@@ -15,9 +15,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -35,8 +35,8 @@ fun TempoControlItem(
     onInit: () -> Unit
 ) {
     val context = LocalContext.current
-    val actualValue = remember(tempoValue) {
-        (tempoValue * 0.1) - 10.0
+    val showUnavailable = {
+        ToastUtil.showShort(context, context.getString(R.string.tempo_disabled_message))
     }
     Column(
         modifier = Modifier
@@ -52,7 +52,8 @@ fun TempoControlItem(
                 .height(48.dp)
                 .border(1.dp, Color.Gray, RoundedCornerShape(18.dp))
                 .clip(RoundedCornerShape(18.dp))
-                .background(Color.White),
+                .background(Color.White)
+                .alpha(0.62f),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
 
@@ -61,11 +62,7 @@ fun TempoControlItem(
                     .weight(1f)
                     .fillMaxHeight()
                     .clickable {
-                        onMinusOne()
-                        ToastUtil.showShort(
-                            context,
-                            context.getString(R.string.tempo_minus_text, actualValue - 1)
-                        )
+                        showUnavailable()
                     },
                 contentAlignment = Alignment.Center
             ) {
@@ -79,8 +76,7 @@ fun TempoControlItem(
                     .weight(1f)
                     .fillMaxHeight()
                     .clickable {
-                        onInit()
-                        ToastUtil.showShort(context, context.getString(R.string.tempo_init_text, 0.0))
+                        showUnavailable()
                     },
                 contentAlignment = Alignment.Center
             ) {
@@ -95,12 +91,7 @@ fun TempoControlItem(
                     .weight(1f)
                     .fillMaxHeight()
                     .clickable {
-                        onPlusOne()
-                        ToastUtil.showShort(
-                            context,
-                            context.getString(R.string.tempo_plus_text, actualValue + 1)
-                        )
-
+                        showUnavailable()
                     },
                 contentAlignment = Alignment.Center
             ) {

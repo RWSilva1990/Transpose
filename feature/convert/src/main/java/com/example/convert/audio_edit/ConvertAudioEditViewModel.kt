@@ -9,6 +9,10 @@ import javax.inject.Inject
 class ConvertAudioEditViewModel @Inject constructor(
     private val audioEffectsManager: AudioEffectsManager
 ) : ViewModel() {
+    init {
+        // Preload model when edit screen/viewmodel is created to reduce first-enable hitch.
+        audioEffectsManager.prewarmVocalRemovalModel()
+    }
 
     // Pitch / Tempo
     val pitchValue = audioEffectsManager.pitchValue
@@ -46,26 +50,21 @@ class ConvertAudioEditViewModel @Inject constructor(
         audioEffectsManager.setChorusParams()
     }
 
-    // Signalsmith Limiter
-    val isLimiterEnabled = audioEffectsManager.isLimiterEnabled
-    val limiterInputGainDb = audioEffectsManager.limiterInputGainDb
-    val limiterLimitDb = audioEffectsManager.limiterLimitDb
-    val limiterAttackMs = audioEffectsManager.limiterAttackMs
-    val limiterReleaseMs = audioEffectsManager.limiterReleaseMs
-    fun updateIsLimiterEnabled() = audioEffectsManager.updateIsLimiterEnabled()
-    fun updateLimiterInputGainDb(value: Float) = audioEffectsManager.updateLimiterInputGainDb(value)
-    fun updateLimiterLimitDb(value: Float) = audioEffectsManager.updateLimiterLimitDb(value)
-    fun updateLimiterAttackMs(value: Float) = audioEffectsManager.updateLimiterAttackMs(value)
-    fun updateLimiterReleaseMs(value: Float) = audioEffectsManager.updateLimiterReleaseMs(value)
-    fun setLimiterParams() = audioEffectsManager.setLimiterParams()
-    fun initLimiterValues() = audioEffectsManager.initLimiterValues()
-    fun applyLimiterPreset(inputGainDb: Float, limitDb: Float, attackMs: Float, releaseMs: Float) {
-        audioEffectsManager.updateLimiterInputGainDb(inputGainDb)
-        audioEffectsManager.updateLimiterLimitDb(limitDb)
-        audioEffectsManager.updateLimiterAttackMs(attackMs)
-        audioEffectsManager.updateLimiterReleaseMs(releaseMs)
-        audioEffectsManager.setLimiterParams()
-    }
+    // Reverb+
+    val isReverbPlusEnabled = audioEffectsManager.isReverbPlusEnabled
+    val reverbPlusPreset = audioEffectsManager.reverbPlusPreset
+    val reverbPlusDry = audioEffectsManager.reverbPlusDry
+    val reverbPlusWet = audioEffectsManager.reverbPlusWet
+    val reverbPlusRoomSize = audioEffectsManager.reverbPlusRoomSize
+    val reverbPlusDamping = audioEffectsManager.reverbPlusDamping
+    fun updateIsReverbPlusEnabled() = audioEffectsManager.updateIsReverbPlusEnabled()
+    fun updateReverbPlusPreset(presetIndex: Int) = audioEffectsManager.updateReverbPlusPreset(presetIndex)
+    fun updateReverbPlusDry(value: Float) = audioEffectsManager.updateReverbPlusDry(value)
+    fun updateReverbPlusWet(value: Float) = audioEffectsManager.updateReverbPlusWet(value)
+    fun updateReverbPlusRoomSize(value: Float) = audioEffectsManager.updateReverbPlusRoomSize(value)
+    fun updateReverbPlusDamping(value: Float) = audioEffectsManager.updateReverbPlusDamping(value)
+    fun setReverbPlusParams() = audioEffectsManager.setReverbPlusParams()
+    fun initReverbPlusValues() = audioEffectsManager.initReverbPlusValues()
 
     // Signalsmith Reverb
     val isSignalsmithReverbEnabled = audioEffectsManager.isSignalsmithReverbEnabled
@@ -74,14 +73,42 @@ class ConvertAudioEditViewModel @Inject constructor(
     val signalsmithReverbWet = audioEffectsManager.signalsmithReverbWet
     val signalsmithReverbRoomMs = audioEffectsManager.signalsmithReverbRoomMs
     val signalsmithReverbDecaySec = audioEffectsManager.signalsmithReverbDecaySec
+    val signalsmithReverbEarly = audioEffectsManager.signalsmithReverbEarly
+    val signalsmithReverbDetune = audioEffectsManager.signalsmithReverbDetune
+    val signalsmithReverbLowCutHz = audioEffectsManager.signalsmithReverbLowCutHz
+    val signalsmithReverbHighCutHz = audioEffectsManager.signalsmithReverbHighCutHz
+    val signalsmithReverbLowDampRate = audioEffectsManager.signalsmithReverbLowDampRate
+    val signalsmithReverbHighDampRate = audioEffectsManager.signalsmithReverbHighDampRate
     fun updateIsSignalsmithReverbEnabled() = audioEffectsManager.updateIsSignalsmithReverbEnabled()
     fun updateSignalsmithReverbPreset(presetIndex: Int) = audioEffectsManager.updateSignalsmithReverbPreset(presetIndex)
     fun updateSignalsmithReverbDry(value: Float) = audioEffectsManager.updateSignalsmithReverbDry(value)
     fun updateSignalsmithReverbWet(value: Float) = audioEffectsManager.updateSignalsmithReverbWet(value)
     fun updateSignalsmithReverbRoomMs(value: Float) = audioEffectsManager.updateSignalsmithReverbRoomMs(value)
     fun updateSignalsmithReverbDecaySec(value: Float) = audioEffectsManager.updateSignalsmithReverbDecaySec(value)
+    fun updateSignalsmithReverbEarly(value: Float) = audioEffectsManager.updateSignalsmithReverbEarly(value)
+    fun updateSignalsmithReverbDetune(value: Float) = audioEffectsManager.updateSignalsmithReverbDetune(value)
+    fun updateSignalsmithReverbLowCutHz(value: Float) = audioEffectsManager.updateSignalsmithReverbLowCutHz(value)
+    fun updateSignalsmithReverbHighCutHz(value: Float) = audioEffectsManager.updateSignalsmithReverbHighCutHz(value)
+    fun updateSignalsmithReverbLowDampRate(value: Float) = audioEffectsManager.updateSignalsmithReverbLowDampRate(value)
+    fun updateSignalsmithReverbHighDampRate(value: Float) = audioEffectsManager.updateSignalsmithReverbHighDampRate(value)
     fun setSignalsmithReverbParams() = audioEffectsManager.setSignalsmithReverbParams()
     fun initSignalsmithReverbValues() = audioEffectsManager.initSignalsmithReverbValues()
+
+    // Tone Filter
+    val isToneFilterEnabled = audioEffectsManager.isToneFilterEnabled
+    val toneFilterPreset = audioEffectsManager.toneFilterPreset
+    val toneFilterLowCutHz = audioEffectsManager.toneFilterLowCutHz
+    val toneFilterHighCutHz = audioEffectsManager.toneFilterHighCutHz
+    val toneFilterLowShelfDb = audioEffectsManager.toneFilterLowShelfDb
+    val toneFilterHighShelfDb = audioEffectsManager.toneFilterHighShelfDb
+    fun updateIsToneFilterEnabled() = audioEffectsManager.updateIsToneFilterEnabled()
+    fun updateToneFilterPreset(presetIndex: Int) = audioEffectsManager.updateToneFilterPreset(presetIndex)
+    fun updateToneFilterLowCutHz(value: Float) = audioEffectsManager.updateToneFilterLowCutHz(value)
+    fun updateToneFilterHighCutHz(value: Float) = audioEffectsManager.updateToneFilterHighCutHz(value)
+    fun updateToneFilterLowShelfDb(value: Float) = audioEffectsManager.updateToneFilterLowShelfDb(value)
+    fun updateToneFilterHighShelfDb(value: Float) = audioEffectsManager.updateToneFilterHighShelfDb(value)
+    fun setToneFilterParams() = audioEffectsManager.setToneFilterParams()
+    fun initToneFilterValues() = audioEffectsManager.initToneFilterValues()
 
     // Signalsmith EQ
     val isEqEnabled = audioEffectsManager.isEqEnabled
@@ -96,53 +123,13 @@ class ConvertAudioEditViewModel @Inject constructor(
     fun updateEqBandGain(band: Int, gain: Float) = audioEffectsManager.updateEqBandGain(band, gain)
     fun initEqValues() = audioEffectsManager.initEqValues()
 
-    // Signalsmith Compressor
-    val isCompressorEnabled = audioEffectsManager.isCompressorEnabled
-    val compThresholdDb = audioEffectsManager.compThresholdDb
-    val compRatio = audioEffectsManager.compRatio
-    val compAttackMs = audioEffectsManager.compAttackMs
-    val compReleaseMs = audioEffectsManager.compReleaseMs
-    val compMakeupGainDb = audioEffectsManager.compMakeupGainDb
-    fun updateIsCompressorEnabled() = audioEffectsManager.updateIsCompressorEnabled()
-    fun updateCompThresholdDb(value: Float) = audioEffectsManager.updateCompThresholdDb(value)
-    fun updateCompRatio(value: Float) = audioEffectsManager.updateCompRatio(value)
-    fun updateCompAttackMs(value: Float) = audioEffectsManager.updateCompAttackMs(value)
-    fun updateCompReleaseMs(value: Float) = audioEffectsManager.updateCompReleaseMs(value)
-    fun updateCompMakeupGainDb(value: Float) = audioEffectsManager.updateCompMakeupGainDb(value)
-    fun setCompressorParams() = audioEffectsManager.setCompressorParams()
-    fun initCompressorValues() = audioEffectsManager.initCompressorValues()
-    fun applyCompressorPreset(thresholdDb: Float, ratio: Float, attackMs: Float, releaseMs: Float, makeupGainDb: Float) {
-        audioEffectsManager.updateCompThresholdDb(thresholdDb)
-        audioEffectsManager.updateCompRatio(ratio)
-        audioEffectsManager.updateCompAttackMs(attackMs)
-        audioEffectsManager.updateCompReleaseMs(releaseMs)
-        audioEffectsManager.updateCompMakeupGainDb(makeupGainDb)
-        audioEffectsManager.setCompressorParams()
-    }
-
-    // Signalsmith Pitch Detection
-    val isPitchDetectionEnabled = audioEffectsManager.isPitchDetectionEnabled
-    fun updateIsPitchDetectionEnabled() = audioEffectsManager.updateIsPitchDetectionEnabled()
-    fun getDetectedPitch(): Float = audioEffectsManager.getDetectedPitch()
-
-    // Signalsmith HRTF
-    val isHrtfEnabled = audioEffectsManager.isHrtfEnabled
-    val hrtfIntensity = audioEffectsManager.hrtfIntensity
-    val hrtfAzimuth = audioEffectsManager.hrtfAzimuth
-    fun updateIsHrtfEnabled() = audioEffectsManager.updateIsHrtfEnabled()
-    fun updateHrtfIntensity(value: Float) = audioEffectsManager.updateHrtfIntensity(value)
-    fun updateHrtfAzimuth(azimuth: Int) = audioEffectsManager.updateHrtfAzimuth(azimuth)
-    fun initHrtfValues() = audioEffectsManager.initHrtfValues()
-
-    // Stereo Widener
-    val isStereoWidenerEnabled = audioEffectsManager.isStereoWidenerEnabled
-    val stereoWidenerWidth = audioEffectsManager.stereoWidenerWidth
-    fun updateIsStereoWidenerEnabled() = audioEffectsManager.updateIsStereoWidenerEnabled()
-    fun updateStereoWidenerWidth(value: Float) = audioEffectsManager.updateStereoWidenerWidth(value)
-    fun setStereoWidenerParams() = audioEffectsManager.setStereoWidenerParams()
-    fun initStereoWidenerValues() = audioEffectsManager.initStereoWidenerValues()
-    fun applyStereoWidenerPreset(width: Float) {
-        audioEffectsManager.updateStereoWidenerWidth(width)
-        audioEffectsManager.setStereoWidenerParams()
-    }
+    // Vocal Removal
+    val isVocalRemovalEnabled = audioEffectsManager.isVocalRemovalEnabled
+    val isVocalRemovalSupported = audioEffectsManager.isVocalRemovalSupported
+    val vocalRemovalMix = audioEffectsManager.vocalRemovalMix
+    val isVocalOnlyMode = audioEffectsManager.isVocalOnlyMode
+    fun updateIsVocalRemovalEnabled() = audioEffectsManager.updateIsVocalRemovalEnabled()
+    fun updateIsVocalOnlyMode() = audioEffectsManager.updateIsVocalOnlyMode()
+    fun updateVocalRemovalMix(value: Float) = audioEffectsManager.updateVocalRemovalMix(value)
+    fun initVocalRemovalValues() = audioEffectsManager.initVocalRemovalValues()
 }

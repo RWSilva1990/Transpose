@@ -2,11 +2,13 @@ package com.example.main.components.bottomsheet.item
 
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.SheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import com.example.domain.model.library.MyPlaylist
 import com.example.domain.model.playable.PlayableItem
 import com.example.domain.model.youtube.video.Video
@@ -32,6 +34,7 @@ fun VideoDetailPanel(
     onAddItemToPlaylist: (PlayableItem, Long) -> Unit,
     onNavigateToChannelScreen: (String) -> Unit,
     bottomSheetState: SheetState,
+    reservePlaylistButtonSpace: Boolean,
     modifier: Modifier,
 ) {
 
@@ -42,7 +45,10 @@ fun VideoDetailPanel(
 
     LazyColumn(
         modifier = modifier,
-        state = listState
+        state = listState,
+        contentPadding = PaddingValues(
+            bottom = if (reservePlaylistButtonSpace) 96.dp else 0.dp
+        )
     ) {
         item(key = "header") {
             VideoInfoHeader(
@@ -76,7 +82,8 @@ fun VideoDetailPanel(
                     items?.let { videoList ->
                         items(
                             count = videoList.size,
-                            key = { index -> videoList[index].id }
+                            key = { index -> "${videoList[index].id}-$index" },
+                            contentType = { "related_video" }
                         ) { index ->
                             val item = videoList[index]
                             CommonVideoItem(

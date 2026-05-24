@@ -27,7 +27,8 @@ fun FloatSliderSection(
     onValueChangeFinished: () -> Unit,
     onReset: () -> Unit,
     currentValue: Float,
-    valueRange: ClosedFloatingPointRange<Float>
+    valueRange: ClosedFloatingPointRange<Float>,
+    enabled: Boolean = true
 ) {
     ConstraintLayout(
         modifier = Modifier
@@ -40,7 +41,7 @@ fun FloatSliderSection(
         Text(
             text = title,
             fontSize = 14.sp,
-            color = AppColors.BlueBackground,
+            color = if (enabled) AppColors.BlueBackground else AppColors.DescriptionColor,
             modifier = Modifier.constrainAs(titleText) {
                 start.linkTo(parent.start)
                 top.linkTo(parent.top)
@@ -52,7 +53,7 @@ fun FloatSliderSection(
         Text(
             text = displayValueText,
             fontSize = 14.sp,
-            color = AppColors.BlueBackground,
+            color = if (enabled) AppColors.BlueBackground else AppColors.DescriptionColor,
             textAlign = TextAlign.End,
             modifier = Modifier
                 .constrainAs(valueText) {
@@ -67,6 +68,7 @@ fun FloatSliderSection(
 
         IconButton(
             onClick = onReset,
+            enabled = enabled,
             modifier = Modifier.constrainAs(resetButton) {
                 end.linkTo(parent.end)
                 top.linkTo(parent.top)
@@ -76,13 +78,14 @@ fun FloatSliderSection(
             Icon(
                 imageVector = Icons.Default.Refresh,
                 contentDescription = "Reset $title",
-                tint = AppColors.BlueBackground
+                tint = if (enabled) AppColors.BlueBackground else AppColors.DescriptionColor
             )
         }
 
         Slider(
             value = currentValue,
             valueRange = valueRange,
+            enabled = enabled,
             onValueChange = { onValueChange(it) },
             onValueChangeFinished = { onValueChangeFinished() },
             colors = SliderDefaults.colors(

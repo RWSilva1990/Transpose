@@ -93,7 +93,14 @@ class CustomMediaSourceFactory(
                 .createMediaSource(mediaItem)
         }
 
-        if (uri?.contains("30-seconds-of-silence") == true || uri?.startsWith("asset:///") == true) {
+        if (PendingMediaItemResolver.isPendingUri(mediaItem.localConfiguration?.uri)) {
+            Logger.d("CustomMediaSourceFactory: Using pending source for mediaId=${mediaItem.mediaId}")
+            return ProgressiveMediaSource.Factory(
+                PendingMediaDataSource.Factory(DefaultHttpDataSource.Factory())
+            ).createMediaSource(mediaItem)
+        }
+
+        if (uri?.startsWith("asset:///") == true) {
             return ProgressiveMediaSource.Factory(DefaultDataSource.Factory(context))
                 .createMediaSource(mediaItem)
         }
@@ -161,9 +168,8 @@ class CustomMediaSourceFactory(
                 "CustomMediaSourceFactory.createMediaSource: Failed to create video media source",
                 e
             )
-            Logger.e("Exception type: ${e.javaClass.simpleName}")
-            Logger.e("Exception message: ${e.message}")
-            Logger.e("Stack trace:", e)
+            Logger.d("Exception type: ${e.javaClass.simpleName}")
+            Logger.d("Exception message: ${e.message}")
             throw RuntimeException("Failed to create video media source", e)
         }
         val audioMediaSource = if (!audioManifestString.isNullOrEmpty()) {
@@ -187,9 +193,8 @@ class CustomMediaSourceFactory(
                     "CustomMediaSourceFactory.createMediaSource: Failed to create audio media source",
                     e
                 )
-                Logger.e("Exception type: ${e.javaClass.simpleName}")
-                Logger.e("Exception message: ${e.message}")
-                Logger.e("Stack trace:", e)
+                Logger.d("Exception type: ${e.javaClass.simpleName}")
+                Logger.d("Exception message: ${e.message}")
                 throw RuntimeException("Failed to create audio media source", e)
             }
         } else {
@@ -250,7 +255,7 @@ class CustomMediaSourceFactory(
             return manifest
         } catch (e: Exception) {
             Logger.e("CustomMediaSourceFactory.createDashManifest: Failed to parse manifest", e)
-            Logger.e("Manifest content preview: ${manifestContent?.take(500)}")
+            Logger.d("Manifest content preview: ${manifestContent?.take(500)}")
             throw RuntimeException("Failed to parse DASH manifest: ${e.message}", e)
         }
     }

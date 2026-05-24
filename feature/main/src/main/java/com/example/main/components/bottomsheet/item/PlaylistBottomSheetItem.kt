@@ -4,11 +4,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -18,16 +16,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.painter.ColorPainter
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
 import com.example.domain.model.playable.PlayableItem
 import com.example.main.R
+import com.example.ui.components.image.ThumbnailImage
 import com.example.util.TextFormatUtil
 
 @Composable
@@ -46,11 +42,12 @@ fun PlaylistBottomSheetItem(
     val detailText = remember(item) {
         when (item) {
             is PlayableItem.Remote -> {
-                val viewCount = TextFormatUtil.viewCountCalculator(
-                    myStringArray,
-                    item.video.viewCount.toString()
+                TextFormatUtil.formatVideoMeta(
+                    viewCountStringArray = myStringArray,
+                    viewCount = item.video.viewCount,
+                    textualUploadDate = item.video.textualUploadDate,
+                    publishTimestamp = item.video.publishTimestamp
                 )
-                "$viewCount • ${item.video.textualUploadDate}"
             }
             is PlayableItem.Local -> item.album ?: ""
         }
@@ -64,16 +61,12 @@ fun PlaylistBottomSheetItem(
             .background(if (isCurrentlyPlaying) Color(0xFFE1E9F5) else Color.Transparent)
             .padding(vertical = 10.dp, horizontal = 10.dp)
     ) {
-        AsyncImage(
-            model = item.thumbnailUri,
+        ThumbnailImage(
+            url = item.thumbnailUri,
             contentDescription = "Thumbnail",
-            modifier = Modifier
-                .width(150.dp)
-                .fillMaxHeight()
-                .clip(RoundedCornerShape(8.dp)),
-            contentScale = ContentScale.Crop,
-            placeholder = ColorPainter(Color.LightGray),
-            error = ColorPainter(Color.LightGray)
+            width = 142.dp,
+            height = 80.dp,
+            modifier = Modifier.clip(RoundedCornerShape(8.dp)),
         )
         Column(
             modifier = Modifier

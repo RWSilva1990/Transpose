@@ -14,8 +14,9 @@ import org.schabi.newpipe.extractor.stream.StreamInfoItem
 class ChannelTabPager(
     streamingService: StreamingService,
     extractor: ListExtractor<out InfoItem>,
-    private val tabType: String
-) : Pager<InfoItem, ChannelTabResult>(streamingService, extractor) {
+    private val tabType: String,
+    initialPageFetched: Boolean = false
+) : Pager<InfoItem, ChannelTabResult>(streamingService, extractor, initialPageFetched) {
 
     override fun extract(page: ListExtractor.InfoItemsPage<out InfoItem>): List<ChannelTabResult> {
         val result = ArrayList<ChannelTabResult>(page.items.size)

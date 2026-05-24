@@ -18,6 +18,7 @@ import com.example.domain.model.playable.PlayableItem
 import com.example.domain.model.preferences.RepeatMode
 import com.example.domain.model.preferences.VideoQuality
 import com.example.domain.model.youtube.video.Video
+import com.example.media.PendingMediaItemResolver
 import com.example.media.state_holder.NowPlayingStateHolder
 import com.example.media.state_holder.PlaybackError
 import com.example.media.state_holder.PlaybackType
@@ -83,11 +84,9 @@ class MediaPlaybackManager @Inject constructor(
             val isPlaylist = nowPlayingStateHolder.playbackType.value == PlaybackType.PLAYLIST
             val hasNext = nowPlayingStateHolder.hasNext()
 
-            Logger.e("🔴 Player Error:")
-            Logger.e("  - Item: ${currentItem?.id} - ${currentItem?.title}")
-            Logger.e("  - Error code: ${error.errorCode}")
-            Logger.e("  - Message: ${error.message}")
-            Logger.e("  - Cause: ${error.cause}")
+            Logger.e("Player error: code=${error.errorCode}")
+            Logger.d("Player error item=${currentItem?.id} title=${currentItem?.title}")
+            Logger.d("Player error message=${error.message} cause=${error.cause}")
 
             crashReporter.setCustomKey("error_item_id", currentItem?.id ?: "unknown")
             crashReporter.setCustomKey("error_item_title", currentItem?.title ?: "unknown")
@@ -99,9 +98,9 @@ class MediaPlaybackManager @Inject constructor(
 
             error.cause?.let { cause ->
                 if (cause is BehindLiveWindowException) {
-                    Logger.e("  - Behind live window")
+                    Logger.e("Player error cause: behind live window")
                 } else if (cause is HttpDataSource.HttpDataSourceException) {
-                    Logger.e("  - HTTP error: ${cause.type}")
+                    Logger.e("Player error cause: HTTP type=${cause.type}")
                 }
             }
 
@@ -240,6 +239,7 @@ class MediaPlaybackManager @Inject constructor(
         val shouldPlayWhenReady = ctrl.playWhenReady
 
         updateMediaItemJob?.cancel()
+        PendingMediaItemResolver.resolve(itemId, videoDefaultStreamUrl)
 
         ctrl.addListener(object : Player.Listener {
             override fun onTimelineChanged(timeline: Timeline, reason: Int) {
@@ -325,6 +325,10 @@ class MediaPlaybackManager @Inject constructor(
                 }
             }
         }
+    }
+
+    fun failPendingMediaItem(itemId: String, message: String) {
+        PendingMediaItemResolver.fail(itemId, message)
     }
 
     fun playPause() {
@@ -498,7 +502,7 @@ class MediaPlaybackManager @Inject constructor(
     }
 
     private fun createMediaItem(video: Video): MediaItem {
-        val uri = Uri.parse("asset:///30-seconds-of-silence.mp3")
+        val uri = PendingMediaItemResolver.createPendingUri(video.id)
         return MediaItem.Builder()
             .setMediaId(video.id)
             .setUri(uri)
@@ -514,11 +518,10 @@ class MediaPlaybackManager @Inject constructor(
     }
 
     private fun createMediaItems(videoList: List<Video>): List<MediaItem> {
-        val uri = Uri.parse("asset:///30-seconds-of-silence.mp3")
         return videoList.map {
             MediaItem.Builder()
                 .setMediaId(it.id)
-                .setUri(uri)
+                .setUri(PendingMediaItemResolver.createPendingUri(it.id))
                 .setTag(it)
                 .setMediaMetadata(
                     MediaMetadata.Builder()
@@ -563,6 +566,7 @@ class MediaPlaybackManager @Inject constructor(
         ctrl.clearMediaItems()
         nowPlayingStateHolder.clearAll()
         mediaItemCache.clear()
+        PendingMediaItemResolver.clearAll()
     }
 
     private fun updatePlaybackState(controller: MediaController) {
@@ -580,6 +584,7 @@ class MediaPlaybackManager @Inject constructor(
             controllerProvider.mediaController.value?.removeListener(playerListener)
             controllerProvider.release()
             mediaItemCache.clear()
+            PendingMediaItemResolver.clearAll()
         }
     }
 }

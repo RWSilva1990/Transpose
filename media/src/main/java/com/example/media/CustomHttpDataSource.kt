@@ -163,11 +163,8 @@ class CustomHttpDataSource(
         try {
             return readInternal(buffer, offset, length)
         } catch (e: IOException) {
-            Logger.e("CustomHttpDataSource.read: Read failed", e)
-            Logger.e("  Exception type: ${e.javaClass.simpleName}")
-            Logger.e("  Exception message: ${e.message}")
-            Logger.e("  Offset: $offset, Length: $length")
-            Logger.e("  BytesRead: $bytesRead, BytesToRead: $bytesToRead")
+            Logger.e("CustomHttpDataSource.read failed: ${e.javaClass.simpleName}", e)
+            Logger.d("CustomHttpDataSource.read state: offset=$offset length=$length bytesRead=$bytesRead bytesToRead=$bytesToRead")
             throw HttpDataSourceException.createForIOException(
                 e, Util.castNonNull(dataSpec), HttpDataSourceException.TYPE_READ
             )
@@ -241,9 +238,7 @@ class CustomHttpDataSource(
             responseMessage = httpURLConnection.responseMessage
             Logger.d("CustomHttpDataSource: Connection successful - Response code: $responseCode, message: $responseMessage")
         } catch (e: IOException) {
-            Logger.e("CustomHttpDataSource: Connection failed", e)
-            Logger.e("Exception type: ${e.javaClass.simpleName}")
-            Logger.e("Exception message: ${e.message}")
+            Logger.e("CustomHttpDataSource.open failed: ${e.javaClass.simpleName}", e)
             closeConnectionQuietly()
             throw HttpDataSourceException.createForIOException(
                 e,
@@ -254,11 +249,11 @@ class CustomHttpDataSource(
 
         if (responseCode < 200 || responseCode > 299) {
             Logger.e("CustomHttpDataSource: HTTP Error - Code: $responseCode, Message: $responseMessage")
-            Logger.e("Request URL: ${dataSpec.uri}")
-            Logger.e("Request position: ${dataSpec.position}, length: ${dataSpec.length}")
+            Logger.d("Request URL: ${dataSpec.uri}")
+            Logger.d("Request position: ${dataSpec.position}, length: ${dataSpec.length}")
 
             val headers = httpURLConnection.headerFields
-            Logger.e("Response headers: $headers")
+            Logger.d("Response headers: $headers")
 
             if (responseCode == 416) {
                 val contentRangeHeader = httpURLConnection.getHeaderField(HttpHeaders.CONTENT_RANGE)
@@ -277,7 +272,7 @@ class CustomHttpDataSource(
             val errorResponseBody = try {
                 val errorBytes = errorStream?.readBytes() ?: ByteArray(0)
                 if (errorBytes.isNotEmpty()) {
-                    Logger.e("CustomHttpDataSource: Error response body: ${String(errorBytes)}")
+                    Logger.d("CustomHttpDataSource: Error response body: ${String(errorBytes)}")
                 }
                 errorBytes
             } catch (e: IOException) {

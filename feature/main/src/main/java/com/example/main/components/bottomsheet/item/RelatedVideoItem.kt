@@ -4,33 +4,40 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.painter.ColorPainter
-import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
 import com.example.domain.model.youtube.video.Video
+import com.example.main.R
+import com.example.ui.components.image.ThumbnailImage
+import com.example.util.TextFormatUtil
 
 @Composable
 fun RelatedVideoItem(relatedVideo: Video, onClick: () -> Unit) {
+    val viewCountFormats = stringArrayResource(id = R.array.view_count_formats)
+    val metadata = TextFormatUtil.formatVideoMeta(
+        viewCountStringArray = viewCountFormats,
+        viewCount = relatedVideo.viewCount,
+        textualUploadDate = relatedVideo.textualUploadDate,
+        publishTimestamp = relatedVideo.publishTimestamp
+    )
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -38,17 +45,12 @@ fun RelatedVideoItem(relatedVideo: Video, onClick: () -> Unit) {
             .clickable { onClick() }
             .padding(vertical = 10.dp, horizontal = 10.dp)
     ) {
-        AsyncImage(
-            model = relatedVideo.thumbnailUrl,
+        ThumbnailImage(
+            url = relatedVideo.thumbnailUrl,
             contentDescription = "Thumbnail",
-            modifier = Modifier
-                .width(150.dp)
-                .fillMaxHeight()
-                .clip(RoundedCornerShape(8.dp)),
-            contentScale = ContentScale.Crop,
-            placeholder = ColorPainter(Color.LightGray),
-            error = ColorPainter(Color.LightGray)
-
+            width = 142.dp,
+            height = 80.dp,
+            modifier = Modifier.clip(RoundedCornerShape(8.dp)),
         )
         Column(
             modifier = Modifier
@@ -64,9 +66,9 @@ fun RelatedVideoItem(relatedVideo: Video, onClick: () -> Unit) {
             )
             Spacer(modifier = Modifier.height(10.dp))
             Text(
-                text = "relatedVideo",
+                text = metadata,
                 fontSize = 10.sp,
-                color = Color.Black,
+                color = MaterialTheme.colorScheme.onSurface,
                 fontWeight = FontWeight.Bold,
                 maxLines = 1
             )

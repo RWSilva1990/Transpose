@@ -15,22 +15,28 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.util.trace
 import com.example.main.MainViewModel
 import com.example.main.components.appbar.SearchBarState
 
 private fun Modifier.scrimOverlay(bottomSheetOffset: () -> Float): Modifier = this.drawBehind {
-    val offset = bottomSheetOffset()
-    if (offset > 0f) {
-        val alpha = 0.7f * offset.coerceIn(0f, 1f)
-        drawRect(Color.Black.copy(alpha = alpha))
+    trace("PlayerBottomSheetScaffold.scrimOverlay.draw") {
+        val offset = bottomSheetOffset()
+        if (offset > 0f) {
+            val alpha = 0.7f * offset.coerceIn(0f, 1f)
+            drawRect(Color.Black.copy(alpha = alpha))
+        }
     }
 }
 
@@ -68,6 +74,7 @@ fun PlayerBottomSheetScaffold(
     val scaffoldState = rememberBottomSheetScaffoldState(
         bottomSheetState = bottomSheetState
     )
+    var isSheetSwipeEnabled by remember { mutableStateOf(true) }
 
     val sheetPeekHeight = remember(bottomSheetState.currentValue, searchBarState, isLocalSearchActive) {
         when (bottomSheetState.currentValue) {
@@ -118,7 +125,11 @@ fun PlayerBottomSheetScaffold(
         sheetContainerColor = Color.White,
         scaffoldState = scaffoldState,
         modifier = Modifier
-            .drawBehind { updateIsSheetLayoutComplete(true) }
+            .onGloballyPositioned { coordinates ->
+                if (coordinates.size.height > 0) {
+                    updateIsSheetLayoutComplete(true)
+                }
+            }
             .padding(bottom = scaffoldBottomPadding),
         sheetContent = {
             PlayerBottomSheet(
@@ -126,6 +137,9 @@ fun PlayerBottomSheetScaffold(
                 bottomSheetState = bottomSheetState,
                 bottomSheetOffset = bottomSheetOffset,
                 onNavigateToChannelScreen = onNavigateToChannelScreen,
+                onVideoDetailTouchActiveChanged = { isActive ->
+                    isSheetSwipeEnabled = !isActive
+                },
             )
         },
         sheetShape = RectangleShape,
@@ -136,7 +150,7 @@ fun PlayerBottomSheetScaffold(
                 Box(modifier = Modifier.matchParentSize().scrimOverlay(bottomSheetOffset))
             }
         },
-        sheetSwipeEnabled = true,
+        sheetSwipeEnabled = isSheetSwipeEnabled,
         sheetDragHandle = null,
     ) { playerBottomSheetInnerPadding ->
         Box {

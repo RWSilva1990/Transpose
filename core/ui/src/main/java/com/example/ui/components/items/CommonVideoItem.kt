@@ -37,10 +37,10 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
 import com.example.domain.model.youtube.video.Video
 import com.example.transpose.core.ui.R
 import com.example.ui.components.dropdown_menu.DropDownMenu
+import com.example.ui.components.image.ThumbnailImage
 import com.example.util.TextFormatUtil
 
 @Composable
@@ -67,16 +67,12 @@ fun CommonVideoItem(
                     Trace.endSection()}
                 .padding(vertical = 10.dp, horizontal = 10.dp)
         ) {
-            AsyncImage(
-                model = item.thumbnailUrl,
+            ThumbnailImage(
+                url = item.thumbnailUrl,
                 contentDescription = "Thumbnail",
-                modifier = Modifier
-                    .width(150.dp)
-                    .fillMaxHeight()
-                    .clip(RoundedCornerShape(8.dp)),
-                contentScale = ContentScale.Crop,
-                placeholder = ColorPainter(Color.LightGray),
-                error = ColorPainter(Color.LightGray)
+                width = 142.dp,
+                height = 80.dp,
+                modifier = Modifier.clip(RoundedCornerShape(8.dp)),
             )
             Column(
                 modifier = Modifier
@@ -98,7 +94,12 @@ fun CommonVideoItem(
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = "${TextFormatUtil.viewCountCalculator(myStringArray, item.viewCount.toString())} • ${item.textualUploadDate}",
+                    text = TextFormatUtil.formatVideoMeta(
+                        viewCountStringArray = myStringArray,
+                        viewCount = item.viewCount,
+                        textualUploadDate = item.textualUploadDate,
+                        publishTimestamp = item.publishTimestamp
+                    ),
                     fontSize = 10.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1
