@@ -28,6 +28,10 @@ captures/
 *.iml
 .idea/
 
+# Eclipse / Buildship project settings
+.settings/
+**/.settings/
+
 # Keystore files
 *.jks
 *.keystore
