@@ -18,6 +18,9 @@ local.properties
 # Benchmark results (large trace files)
 benchmark-results/
 
+# Local release artifacts
+releases/
+
 # Android Studio Navigation editor temp files
 .navigation/
 
