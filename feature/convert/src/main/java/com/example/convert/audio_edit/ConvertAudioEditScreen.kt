@@ -68,16 +68,16 @@ fun ConvertAudioEditScreen(
             )
         }
 
-        item(key = "signalsmith_reverb") {
-            SignalsmithReverbSection(
-                title = stringResource(id = CoreUiR.string.signalsmith_reverb_text),
+        item(key = "reverb_plus") {
+            ReverbPlusSection(
+                title = stringResource(id = CoreUiR.string.reverb_plus_text),
                 convertAudioEditViewModel = convertAudioEditViewModel
             )
         }
 
-        item(key = "reverb_plus") {
-            ReverbPlusSection(
-                title = stringResource(id = CoreUiR.string.reverb_plus_text),
+        item(key = "signalsmith_reverb") {
+            SignalsmithReverbSection(
+                title = stringResource(id = CoreUiR.string.signalsmith_reverb_text),
                 convertAudioEditViewModel = convertAudioEditViewModel
             )
         }
