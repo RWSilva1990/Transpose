@@ -35,7 +35,7 @@ class VocalRemovalProcessor @Inject constructor(
     companion object {
         private const val TAG = "VocalRT"
         private const val PIPE_TAG = "AudioPipe"
-        // UVR_MDXNET_3_9662 dynamic-T vocal spectrogram candidate:
+        // MDX-style dynamic-T vocal spectrogram model:
         // input/output [1,4,2048,T] = L_real, L_imag, R_real, R_imag.
         // The model output is vocals; instrumental is computed as dry - vocals.
         private const val USE_WAVEFORM_MODEL = false
@@ -46,7 +46,8 @@ class VocalRemovalProcessor @Inject constructor(
         private const val DEFAULT_DIM_F = 2048
         private const val DEFAULT_TARGET_T = 32
         private const val DEFAULT_OUTPUT_T = 24
-        private const val DEFAULT_MODEL_ASSET_FILE = "UVR_MDXNET_3_9662_dynT.onnx"
+        private const val DEFAULT_MODEL_ASSET_FILE = "vocal_separation_core.bin"
+        private const val MODEL_LOG_NAME = "vocal_separation_core"
         private const val MODEL_OUTPUTS_VOCAL = true
         private const val VOCAL_SUBTRACT_GAIN = 1.00f
         private const val VOCAL_CONFIDENCE_FILTER_ENABLED = true
@@ -55,7 +56,7 @@ class VocalRemovalProcessor @Inject constructor(
         private const val VOCAL_CONFIDENCE_MAX_REDUCTION = 0.28f
         private const val VOCAL_CONFIDENCE_MIN_FREQ_HZ = 150f
         private const val VOCAL_CONFIDENCE_MAX_FREQ_HZ = 6500f
-        private const val PROCESSOR_NAME = "uvr_mdxnet_3_9662"
+        private const val PROCESSOR_NAME = "vocal_separator"
         private const val BACKEND_REQUEST = "XNNPACK"
 
         private const val MODEL_CHANNELS = 2
@@ -104,7 +105,7 @@ class VocalRemovalProcessor @Inject constructor(
             processingGeneration.incrementAndGet()
             logVocal(
                 "EVENT enabled=$value processor=$PROCESSOR_NAME modelReady=${isModelReady()} " +
-                    "canProcess=$canProcessFormat backend=Native_ONNXRuntime requested=$BACKEND_REQUEST model=$DEFAULT_MODEL_ASSET_FILE"
+                    "canProcess=$canProcessFormat backend=Native_ONNXRuntime requested=$BACKEND_REQUEST model=$MODEL_LOG_NAME"
             )
             if (value) {
                 cancelSessionRelease()
@@ -298,7 +299,7 @@ class VocalRemovalProcessor @Inject constructor(
                     "enabled=$enabled state=$outputState nativeHandle=$nativeHandle modelReady=${isModelReady()} " +
                     "inputAvail=${synchronized(inputLock) { inputRing.availableBytes() }} " +
                     "outputAvail=${synchronized(outputLock) { outputRing.availableBytes() }} " +
-                    "model=$DEFAULT_MODEL_ASSET_FILE reason=same_format"
+                    "model=$MODEL_LOG_NAME reason=same_format"
             )
             return outputAudioFormat
         }
@@ -316,7 +317,7 @@ class VocalRemovalProcessor @Inject constructor(
         logVocal(
                 "CONFIG processor=$PROCESSOR_NAME sampleRate=${inputAudioFormat.sampleRate} " +
                     "channels=${inputAudioFormat.channelCount} encoding=${inputAudioFormat.encoding} " +
-                    "enabled=$enabled model=$DEFAULT_MODEL_ASSET_FILE backend=Native_ONNXRuntime requested=$BACKEND_REQUEST"
+                    "enabled=$enabled model=$MODEL_LOG_NAME backend=Native_ONNXRuntime requested=$BACKEND_REQUEST"
             )
         logPipe(
             "CONFIG_APPLY stage=vocal processor=$PROCESSOR_NAME sampleRate=${inputAudioFormat.sampleRate} " +
@@ -662,7 +663,7 @@ class VocalRemovalProcessor @Inject constructor(
 
         logVocal(
                 "BACKEND_CONFIG processor=$PROCESSOR_NAME mode=LEGACY_MDX requested=$BACKEND_REQUEST " +
-                "actualHardware=CPU runtime=Native_ONNXRuntime model=$DEFAULT_MODEL_ASSET_FILE " +
+                "actualHardware=CPU runtime=Native_ONNXRuntime model=$MODEL_LOG_NAME " +
                 "dimF=$modelDimF T=$modelTargetT outputT=$DEFAULT_OUTPUT_T intervalMs=${processIntervalMs.toInt()} " +
                 "pipelineLatencyMs=${pipelineLatencyMs.toInt()} preBufferMs=${(preBufferBytes * 1000f / (format.sampleRate * bytesPerFrame)).toInt()} " +
                 "vocalSubtractGain=$VOCAL_SUBTRACT_GAIN"
@@ -972,26 +973,31 @@ class VocalRemovalProcessor @Inject constructor(
         closeCurrentModelSession()
 
         val modelDir = File(context.filesDir, "mdx").apply { if (!exists()) mkdirs() }
+        modelDir.listFiles()?.forEach { cachedFile ->
+            if (cachedFile.isFile && cachedFile.name != DEFAULT_MODEL_ASSET_FILE) {
+                cachedFile.delete()
+            }
+        }
         val modelFile = File(modelDir, DEFAULT_MODEL_ASSET_FILE)
         val assetSize = context.assets.open(DEFAULT_MODEL_ASSET_FILE).use { it.available().toLong() }
         if (!modelFile.exists() || modelFile.length() != assetSize) {
-            logVocal("MODEL_COPY start asset=$DEFAULT_MODEL_ASSET_FILE expectedBytes=$assetSize")
+            logVocal("MODEL_COPY start asset=$MODEL_LOG_NAME expectedBytes=$assetSize")
             context.assets.open(DEFAULT_MODEL_ASSET_FILE).use { input ->
                 modelFile.outputStream().use { output -> input.copyTo(output) }
             }
-            logVocal("MODEL_COPY done asset=$DEFAULT_MODEL_ASSET_FILE bytes=${modelFile.length()}")
+            logVocal("MODEL_COPY done asset=$MODEL_LOG_NAME bytes=${modelFile.length()}")
         } else {
-            logVocal("MODEL_COPY skip asset=$DEFAULT_MODEL_ASSET_FILE bytes=${modelFile.length()}")
+            logVocal("MODEL_COPY skip asset=$MODEL_LOG_NAME bytes=${modelFile.length()}")
         }
 
         logVocal("BACKEND_ATTACH runtime=Native_ONNXRuntime requested=$BACKEND_REQUEST cpuFallback=disabled")
         val handle = nativeInitMdxModel(modelFile.absolutePath, mdxThreads, modelDimF, 4)
         if (handle == 0L) {
-            throw IllegalStateException("nativeInitMdxModel returned 0 for $DEFAULT_MODEL_ASSET_FILE")
+            throw IllegalStateException("nativeInitMdxModel returned 0 for $MODEL_LOG_NAME")
         }
         mdxModelHandle = handle
         val modelIo = if (MODEL_OUTPUTS_VOCAL) "spectrogram_vocals" else "spectrogram_instrumental"
-        logVocal("BACKEND_READY processor=$PROCESSOR_NAME runtime=Native_ONNXRuntime requested=$BACKEND_REQUEST model=$DEFAULT_MODEL_ASSET_FILE dimF=$modelDimF T=$modelTargetT io=$modelIo")
+        logVocal("BACKEND_READY processor=$PROCESSOR_NAME runtime=Native_ONNXRuntime requested=$BACKEND_REQUEST model=$MODEL_LOG_NAME dimF=$modelDimF T=$modelTargetT io=$modelIo")
     }
 
     private fun closeCurrentModelSession() {

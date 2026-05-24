@@ -1,99 +1,73 @@
 # Transpose
 
-Transpose is an open-source, ad-free YouTube client for Android, built with Kotlin and Jetpack Compose. It offers a unique feature set focused on audio manipulation and an enhanced viewing experience.
+Real-time pitch, vocal removal, reverb, and EQ controls for YouTube playback on Android.
+
+Transpose is an open-source Android app that lets you shape the sound of YouTube videos while they play. Shift pitch, remove vocals, isolate vocals, add reverb, apply filters, and adjust audio effects directly during playback.
+
+No export. No conversion. No separate audio editor.
 
 [한국어 버전 (Korean version)](README_KO.md)
 
+## Download
 
+[![Latest release](https://img.shields.io/github/v/release/joh9911/Transpose_Compose?include_prereleases)](https://github.com/joh9911/Transpose_Compose/releases/latest)
+![Total downloads](https://img.shields.io/github/downloads/joh9911/Transpose_Compose/total)
 
+Download the latest APK from [GitHub Releases](https://github.com/joh9911/Transpose_Compose/releases).
 
-| Home Screen | Convert Screen | Library Screen |
-|:-----------:|:--------------:|:--------------:|
-| <img src="assets/home_screen.jpeg" alt="Home Screen" width="100%"> | <img src="assets/convert_screen.jpeg" alt="Convert Screen" width="100%"> | <img src="assets/library_screen.jpeg" alt="Library Screen" width="100%"> |
+Want the same real-time audio effects on desktop? Install [Transpose Live from the Chrome Web Store](https://chromewebstore.google.com/detail/transpose-live-real-time/kieeaonfgnemfoimiiighmmajeihggcj).
 
+## Screenshots
 
-## Installation
+| Playing | Audio Effects | Channel |
+|:-------:|:-------------:|:-------:|
+| <img src="assets/playing.jpeg" alt="YouTube playback in Transpose" width="100%"> | <img src="assets/audio-effect.jpeg" alt="Real-time audio effects panel" width="100%"> | <img src="assets/channel.jpeg" alt="Channel and video browsing" width="100%"> |
 
-The latest beta version of Transpose is now available!
+## Main Feature
 
-[![GitHub release (latest by date including pre-releases)](https://img.shields.io/github/v/release/joh9911/Transpose?include_prereleases)](https://github.com/joh9911/Transpose/releases/latest) ![GitHub all releases](https://img.shields.io/github/downloads/joh9911/Transpose/total)
+### Real-Time Audio Effects for YouTube
 
-You can download the latest APK from my [GitHub Releases page](https://github.com/joh9911/Transpose/releases)
+Apply audio effects while playing YouTube videos:
 
-Please note that this is a beta release and may contain bugs. We appreciate your feedback to help improve Transpose!
+- Pitch control
+- Real-time vocal removal
+- Vocal-only listening mode
+- Reverb
+- Reverb+
+- Filter
+- Chorus
+- Equalizer
 
-## Features
+Real-time vocal removal is available on supported 64-bit devices. It works while the app is visible on screen and automatically turns off in the background to keep playback stable.
 
-### 🎵 Real-time Audio Effects (No Download Required!)
-Our standout feature is the ability to apply audio effects to YouTube videos in real-time, without downloading the audio file:
-- **Pitch Adjustment**: Modify the pitch of the audio
-- **Tempo Control**: Speed up or slow down the playback without affecting pitch
-- **Equalizer**: Fine-tune the audio frequencies
-- **Preset Reverb**: Add space and depth to the sound
-- **Bass Boost**: Enhance the low-end frequencies
-- **Loudness Enhancer**: Increase the perceived volume
-- **3D Audio Effects**: Create an immersive sound experience
-- **Audio-reactive Vibration**: Feel the music with vibration effects
+## YouTube Playback
 
-### 🔍 Comprehensive Search
-- Search for any video within YouTube's vast library
+Search, play, and manage YouTube content inside the app.
 
-### 🎨 Customizable Playback
-- Background playback: Continue listening with the screen off or while using other apps
-- Adjust audio effects from the notification bar during background playback
+- YouTube video search
+- Playlist playback
+- Related videos
+- Background playback
+- Media notification controls
+- Video quality selection
+- Personal playlists
 
-### 📋 Playlist Management
-- Create and manage playlists of your favorite videos
-- Add videos to playlists for easy access
+## Supported Devices
 
-### 🚫 Ad-Free Experience
-- Enjoy YouTube content without any advertisements
+- Android 7.1 or later
+- ARM64 Android device recommended
+- Real-time vocal removal is available on supported 64-bit devices
+- Recent mid-range or flagship devices are recommended for stable real-time vocal processing
 
-### 💾 Local File Playback
-- Browse and play local video and audio files
-- Apply the same powerful audio effects to your local media
-
-
-
-## Upcoming Features (Todo List)
-
-- [ ] Instrumental Effect (Vocal Removal)
-- [ ] Like functionality
-- [ ] Viewing history
-- [ ] Channel browsing
-- [ ] Playlist overview
-
-## Technology Stack
-
-- Kotlin
-- Jetpack Compose
-- Android Jetpack Components:
-  - ViewModel
-  - Navigation
-  - Room
-  - LiveData
-- RxJava
-- Retrofit2
-- Media3 (ExoPlayer)
-- MVVM + Repository pattern
-
-## Contributing
-
-We welcome contributions! If you'd like to contribute, please follow these steps:
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+Basic playback and general audio effects are lighter than vocal removal. Vocal removal is the most CPU-intensive feature and may vary depending on CPU performance, thermal state, and current system load.
 
 ## License
 
-This project is licensed under GPL-3.0 license. See the `LICENSE` file for details.
+This project is licensed under the GPL-3.0 license. See the `LICENSE` file for details.
 
 ## Disclaimer
 
-This project is not affiliated with, endorsed by, or sponsored by YouTube or any of its affiliates or subsidiaries. Any trademark, service mark, trade name, or other intellectual property rights used in this project are owned by the respective owners.
+This project is not affiliated with, endorsed by, or sponsored by YouTube or any of its affiliates or subsidiaries. All trademarks and intellectual property rights belong to their respective owners.
 
 ## Contact
 
