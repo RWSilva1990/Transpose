@@ -1,8 +1,8 @@
-# Transpose - YouTube Pitch Changer & Vocal Remover
+# Transpose - YouTube Pitch Changer & Vocal Remover for Android
 
-Real-time YouTube pitch changer, vocal remover, vocal isolation, reverb, EQ, and audio effects for Android.
+A real-time mobile YouTube pitch changer, vocal remover, reverb, EQ, and audio effects app for Android.
 
-Transpose is an open-source Android app that lets you change the key of YouTube videos, remove vocals, isolate vocals, add reverb, apply filters, and adjust equalizer settings directly during playback.
+Transpose is an open-source Android mobile app that lets you change the key of YouTube videos, remove vocals, isolate vocals, add reverb, apply filters, and adjust equalizer settings directly during playback.
 
 Use it as a YouTube pitch shifter, karaoke practice app, vocal remover, MR/backing track helper, or real-time audio effects player.
 
