@@ -1,4 +1,4 @@
-# Transpose - YouTube Pitch Changer & Vocal Remover for Android
+# Transpose - YouTube Pitch Changer & Vocal Remover
 
 Real-time YouTube pitch changer, vocal remover, vocal isolation, reverb, EQ, and audio effects for Android.
 
