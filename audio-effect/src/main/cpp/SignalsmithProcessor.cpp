@@ -27,6 +27,7 @@
 
 namespace {
 const int PROCESS_BLOCK_FRAMES = 512;
+const int MAX_OUTPUT_BLOCK_FRAMES = PROCESS_BLOCK_FRAMES * 2 + 16;
 }
 
 class SignalsmithProcessor {
@@ -76,26 +77,26 @@ public:
 
         inputLeft_.resize(PROCESS_BLOCK_FRAMES);
         inputRight_.resize(PROCESS_BLOCK_FRAMES);
-        outputLeft_.resize(PROCESS_BLOCK_FRAMES);
-        outputRight_.resize(PROCESS_BLOCK_FRAMES);
+        outputLeft_.resize(MAX_OUTPUT_BLOCK_FRAMES);
+        outputRight_.resize(MAX_OUTPUT_BLOCK_FRAMES);
 
-        effectsBufferLeft_.resize(PROCESS_BLOCK_FRAMES);
-        effectsBufferRight_.resize(PROCESS_BLOCK_FRAMES);
-        effectOutputL_.resize(PROCESS_BLOCK_FRAMES);
-        effectOutputR_.resize(PROCESS_BLOCK_FRAMES);
+        effectsBufferLeft_.resize(MAX_OUTPUT_BLOCK_FRAMES);
+        effectsBufferRight_.resize(MAX_OUTPUT_BLOCK_FRAMES);
+        effectOutputL_.resize(MAX_OUTPUT_BLOCK_FRAMES);
+        effectOutputR_.resize(MAX_OUTPUT_BLOCK_FRAMES);
 
         chorusEffect_ = std::make_unique<signalsmith::basics::ChorusFloat>(50.0f);
-        chorusEffect_->configure(sampleRate_, PROCESS_BLOCK_FRAMES, channelCount_);
+        chorusEffect_->configure(sampleRate_, MAX_OUTPUT_BLOCK_FRAMES, channelCount_);
         chorusEffect_->reset();
 
         reverbPlusEffect_.initialize(sampleRate_, channelCount_);
 
         reverbEffect_ = std::make_unique<signalsmith::basics::ReverbFloat>(200.0f, 2.0f);
-        reverbEffect_->configure(sampleRate_, PROCESS_BLOCK_FRAMES, channelCount_ == 2 ? 2 : 1);
+        reverbEffect_->configure(sampleRate_, MAX_OUTPUT_BLOCK_FRAMES, channelCount_ == 2 ? 2 : 1);
         reverbEffect_->reset();
 
         outputLimiter_ = std::make_unique<signalsmith::basics::LimiterFloat>(50.0f);
-        outputLimiter_->configure(sampleRate_, PROCESS_BLOCK_FRAMES, channelCount_);
+        outputLimiter_->configure(sampleRate_, MAX_OUTPUT_BLOCK_FRAMES, channelCount_);
         outputLimiter_->reset();
         outputLimiter_->inputGain = 1.0f;
         outputLimiter_->outputLimit = 0.95f;
@@ -111,31 +112,78 @@ public:
         const int inputFrames = inputSamples / channelCount_;
         if (inputFrames <= 0) return 0;
 
-        const int framesToProcess = std::min(inputFrames, maxOutputFrames);
-        if (framesToProcess <= 0) return 0;
+        const float playbackRate = std::clamp(
+            tempoRate_.load(std::memory_order_relaxed),
+            0.5f,
+            2.0f
+        );
 
         const int samplesPerFrame = channelCount_;
-        int processed = 0;
-        while (processed < framesToProcess) {
-            const int framesRemaining = framesToProcess - processed;
-            const int blockFrames = std::min(PROCESS_BLOCK_FRAMES, framesRemaining);
+        int processedInput = 0;
+        int generatedOutput = 0;
+        while (processedInput < inputFrames && generatedOutput < maxOutputFrames) {
+            const int inputFramesRemaining = inputFrames - processedInput;
+            const int blockInputFrames = std::min(PROCESS_BLOCK_FRAMES, inputFramesRemaining);
+            const double exactOutputFrames =
+                    static_cast<double>(blockInputFrames) / static_cast<double>(playbackRate) +
+                    outputFrameRemainder_;
+            int blockOutputFrames = std::max(1, static_cast<int>(std::floor(exactOutputFrames)));
+            outputFrameRemainder_ = exactOutputFrames - static_cast<double>(blockOutputFrames);
+
+            const int outputCapacityRemaining = maxOutputFrames - generatedOutput;
+            if (blockOutputFrames > outputCapacityRemaining) {
+                outputFrameRemainder_ += static_cast<double>(blockOutputFrames - outputCapacityRemaining);
+                blockOutputFrames = outputCapacityRemaining;
+            }
+            if (blockOutputFrames <= 0) break;
 
             processBlock(
-                input + processed * samplesPerFrame,
-                output + processed * samplesPerFrame,
-                blockFrames
+                input + processedInput * samplesPerFrame,
+                output + generatedOutput * samplesPerFrame,
+                blockInputFrames,
+                blockOutputFrames
             );
-            processed += blockFrames;
+            processedInput += blockInputFrames;
+            generatedOutput += blockOutputFrames;
         }
 
-        return framesToProcess;
+        return generatedOutput;
     }
 
     int flushAndGetRemaining(short* output, int maxOutputFrames) {
-        (void)output;
-        (void)maxOutputFrames;
+        if (maxOutputFrames <= 0) {
+            stretch_.reset();
+            outputFrameRemainder_ = 0.0;
+            return 0;
+        }
+
+        const float playbackRate = std::clamp(
+            tempoRate_.load(std::memory_order_relaxed),
+            0.5f,
+            2.0f
+        );
+        const int outputFrames = std::min(
+            maxOutputFrames,
+            std::max(1, stretch_.outputLatency())
+        );
+
+        ensureBufferCapacity(1, outputFrames);
+        float* outputPtrs[2] = {outputLeft_.data(), outputRight_.data()};
+        stretch_.flush(outputPtrs, outputFrames, playbackRate);
+
+        std::memcpy(effectsBufferLeft_.data(), outputLeft_.data(), outputFrames * sizeof(float));
+        std::memcpy(effectsBufferRight_.data(), outputRight_.data(), outputFrames * sizeof(float));
+        applyEffects(outputFrames);
+        floatToShortInterleaved(
+            effectsBufferLeft_.data(),
+            effectsBufferRight_.data(),
+            output,
+            outputFrames
+        );
+
         stretch_.reset();
-        return 0;
+        outputFrameRemainder_ = 0.0;
+        return outputFrames;
     }
 
     void setPitchSemitones(float semitones) {
@@ -144,12 +192,14 @@ public:
     }
 
     void setTempoRate(float rate) {
-        tempoRate_.store(rate, std::memory_order_relaxed);
-        LOGD("setTempoRate: %f", rate);
+        const float safeRate = std::clamp(rate, 0.5f, 2.0f);
+        tempoRate_.store(safeRate, std::memory_order_relaxed);
+        LOGD("setTempoRate: %f", safeRate);
     }
 
     void flush() {
         stretch_.reset();
+        outputFrameRemainder_ = 0.0;
         LOGD("flush");
     }
 
@@ -289,6 +339,7 @@ private:
 
     bool shouldBypass() const {
         if (pitchSemitones_.load(std::memory_order_relaxed) != 0.0f) return false;
+        if (std::fabs(tempoRate_.load(std::memory_order_relaxed) - 1.0f) > 0.0001f) return false;
 
         if (isWetActive(chorusWetCurrent_, chorusWetTarget_.load(std::memory_order_relaxed))) return false;
         if (isWetActive(reverbPlusWetCurrent_, reverbPlusWetTarget_.load(std::memory_order_relaxed))) return false;
@@ -299,22 +350,34 @@ private:
         return true;
     }
 
-    void processBlock(const short* input, short* output, int frames) {
-        shortToFloatDeinterleaved(input, frames);
+    void processBlock(const short* input, short* output, int inputFrames, int outputFrames) {
+        ensureBufferCapacity(inputFrames, outputFrames);
+        shortToFloatDeinterleaved(input, inputFrames);
 
         const float pitch = pitchSemitones_.load(std::memory_order_relaxed);
         stretch_.setTransposeSemitones(pitch);
 
         float* inputPtrs[2] = {inputLeft_.data(), inputRight_.data()};
         float* outputPtrs[2] = {outputLeft_.data(), outputRight_.data()};
-        stretch_.process(inputPtrs, frames, outputPtrs, frames);
+        stretch_.process(inputPtrs, inputFrames, outputPtrs, outputFrames);
 
-        std::memcpy(effectsBufferLeft_.data(), outputLeft_.data(), static_cast<size_t>(frames) * sizeof(float));
-        std::memcpy(effectsBufferRight_.data(), outputRight_.data(), static_cast<size_t>(frames) * sizeof(float));
+        std::memcpy(effectsBufferLeft_.data(), outputLeft_.data(), static_cast<size_t>(outputFrames) * sizeof(float));
+        std::memcpy(effectsBufferRight_.data(), outputRight_.data(), static_cast<size_t>(outputFrames) * sizeof(float));
 
-        applyEffects(frames);
+        applyEffects(outputFrames);
 
-        floatToShortInterleaved(effectsBufferLeft_.data(), effectsBufferRight_.data(), output, frames);
+        floatToShortInterleaved(effectsBufferLeft_.data(), effectsBufferRight_.data(), output, outputFrames);
+    }
+
+    void ensureBufferCapacity(int inputFrames, int outputFrames) {
+        if (static_cast<int>(inputLeft_.size()) < inputFrames) inputLeft_.resize(inputFrames);
+        if (static_cast<int>(inputRight_.size()) < inputFrames) inputRight_.resize(inputFrames);
+        if (static_cast<int>(outputLeft_.size()) < outputFrames) outputLeft_.resize(outputFrames);
+        if (static_cast<int>(outputRight_.size()) < outputFrames) outputRight_.resize(outputFrames);
+        if (static_cast<int>(effectsBufferLeft_.size()) < outputFrames) effectsBufferLeft_.resize(outputFrames);
+        if (static_cast<int>(effectsBufferRight_.size()) < outputFrames) effectsBufferRight_.resize(outputFrames);
+        if (static_cast<int>(effectOutputL_.size()) < outputFrames) effectOutputL_.resize(outputFrames);
+        if (static_cast<int>(effectOutputR_.size()) < outputFrames) effectOutputR_.resize(outputFrames);
     }
 
     void applyEffects(int frames) {
@@ -526,6 +589,7 @@ private:
 
     std::atomic<float> pitchSemitones_;
     std::atomic<float> tempoRate_;
+    double outputFrameRemainder_ = 0.0;
 
     std::vector<float> inputLeft_;
     std::vector<float> inputRight_;

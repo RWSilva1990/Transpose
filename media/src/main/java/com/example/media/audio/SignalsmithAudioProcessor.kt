@@ -14,6 +14,10 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.math.abs
+import kotlin.math.ln
+import kotlin.math.pow
+import kotlin.math.roundToInt
 
 @OptIn(UnstableApi::class)
 @Singleton
@@ -24,11 +28,23 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
         private const val PIPE_TAG = "AudioPipe"
         private const val EFFECT_TRANSITION_MS = 36
         private const val ENABLE_OUTPUT_TRANSITION = false
+        private const val STARTUP_FADE_MS = 5
+        private const val EOS_FADE_OUT_MS = 8
+        private const val MIN_TEMPO_RATE = 0.5f
+        private const val MAX_TEMPO_RATE = 2.0f
+        private const val MAX_TEMPO_SEMITONES = 12f
+        private const val MICROS_PER_SECOND = 1_000_000.0
 
         init {
             System.loadLibrary("signalsmith_audio")
         }
     }
+
+    private data class TempoMappingSegment(
+        val outputStartFrames: Long,
+        val mediaStartFrames: Long,
+        val tempoRate: Float
+    )
 
     private var inputAudioFormat: AudioFormat = AudioFormat.NOT_SET
     private var outputAudioFormat: AudioFormat = AudioFormat.NOT_SET
@@ -40,12 +56,15 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
     private var processingBuffer: ByteBuffer? = null
     private var scratchInputBuffer: ByteBuffer? = null
     private var pendingOutputBuffer: ByteBuffer? = null
+    private var eosOutputBuffer: ByteBuffer? = null
     @Volatile private var transitionRequested = false
     private var transitionActive = false
     private var transitionPositionBytes = 0
     private var transitionTotalBytes = 0
     private var transitionTail = ByteArray(0)
     private var transitionScratch = ByteArray(0)
+    private var startupFadeTotalFrames = 0
+    private var startupFadeRemainingFrames = 0
 
     @Volatile
     private var nativeHandle: Long = 0
@@ -58,6 +77,10 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
 
     @Volatile
     private var tempoRate: Float = 1.0f
+    private val tempoMappingLock = Any()
+    private val tempoMappingSegments = mutableListOf<TempoMappingSegment>()
+    private var processedMediaFrames = 0L
+    private var processedOutputFrames = 0L
 
     private var chorusEnabled: Boolean = false
     private var chorusMix: Float = 0.5f
@@ -139,7 +162,8 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
     }
 
     fun setTempoRate(rate: Float) {
-        tempoRate = rate.coerceIn(0.5f, 2.0f)
+        tempoRate = rate.coerceIn(MIN_TEMPO_RATE, MAX_TEMPO_RATE)
+        _tempoSemitones.value = rateToTempoSemitones(tempoRate)
         requestOutputTransition()
         if (nativeHandle != 0L) {
             nativeSetTempoRate(nativeHandle, tempoRate)
@@ -148,8 +172,8 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
     }
 
     fun setTempoSemitones(semitones: Float) {
-        _tempoSemitones.value = semitones.coerceIn(-24f, 24f)
-        tempoRate = Math.pow(2.0, semitones.toDouble() / 12.0).toFloat()
+        _tempoSemitones.value = semitones.coerceIn(-MAX_TEMPO_SEMITONES, MAX_TEMPO_SEMITONES)
+        tempoRate = tempoSemitonesToRate(_tempoSemitones.value)
         requestOutputTransition()
         if (nativeHandle != 0L) {
             nativeSetTempoRate(nativeHandle, tempoRate)
@@ -167,6 +191,30 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
 
     fun resetTempo() {
         setTempoSemitones(0f)
+    }
+
+    fun getMediaDurationUs(playoutDurationUs: Long): Long {
+        if (playoutDurationUs <= 0L || inputAudioFormat == AudioFormat.NOT_SET) {
+            return playoutDurationUs
+        }
+
+        val sampleRate = inputAudioFormat.sampleRate
+        if (sampleRate <= 0) return playoutDurationUs
+
+        val outputFramesAtPosition = playoutDurationUs * sampleRate / MICROS_PER_SECOND
+        val mediaFrames = synchronized(tempoMappingLock) {
+            if (tempoMappingSegments.isEmpty()) {
+                outputFramesAtPosition
+            } else {
+                val index = tempoMappingSegments.indexOfLast {
+                    it.outputStartFrames <= outputFramesAtPosition
+                }.coerceAtLeast(0)
+                val segment = tempoMappingSegments[index]
+                val outputDelta = outputFramesAtPosition - segment.outputStartFrames
+                segment.mediaStartFrames + outputDelta * segment.tempoRate
+            }
+        }
+        return (mediaFrames * MICROS_PER_SECOND / sampleRate).toLong()
     }
 
     fun setChorusEnabled(enabled: Boolean) {
@@ -337,6 +385,9 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
         transitionTotalBytes =
             ((inputAudioFormat.sampleRate * inputAudioFormat.channelCount * 2 * EFFECT_TRANSITION_MS) / 1000)
                 .coerceAtLeast(inputAudioFormat.channelCount * 2 * 8)
+        startupFadeTotalFrames = ((inputAudioFormat.sampleRate * STARTUP_FADE_MS) / 1000)
+            .coerceAtLeast(1)
+        startupFadeRemainingFrames = startupFadeTotalFrames
         transitionTail = ByteArray(transitionTotalBytes)
         transitionScratch = ByteArray(0)
         transitionActive = false
@@ -385,6 +436,7 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
             nativeSetToneFilterParams(nativeHandle, toneFilterLowCutHz, toneFilterHighCutHz, toneFilterLowShelfDb, toneFilterHighShelfDb)
         }
 
+        resetTempoMapping()
         logDebug("configure: nativeHandle=$nativeHandle")
         return outputAudioFormat
     }
@@ -393,6 +445,58 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
         return a.sampleRate == b.sampleRate &&
             a.channelCount == b.channelCount &&
             a.encoding == b.encoding
+    }
+
+    private fun tempoSemitonesToRate(semitones: Float): Float {
+        return 2.0.pow(semitones.toDouble() / 12.0)
+            .toFloat()
+            .coerceIn(MIN_TEMPO_RATE, MAX_TEMPO_RATE)
+    }
+
+    private fun rateToTempoSemitones(rate: Float): Float {
+        val safeRate = rate.coerceIn(MIN_TEMPO_RATE, MAX_TEMPO_RATE).toDouble()
+        return (12.0 * ln(safeRate) / ln(2.0))
+            .toFloat()
+            .coerceIn(-MAX_TEMPO_SEMITONES, MAX_TEMPO_SEMITONES)
+    }
+
+    private fun resetTempoMapping() {
+        synchronized(tempoMappingLock) {
+            processedMediaFrames = 0L
+            processedOutputFrames = 0L
+            tempoMappingSegments.clear()
+            tempoMappingSegments.add(
+                TempoMappingSegment(
+                    outputStartFrames = 0L,
+                    mediaStartFrames = 0L,
+                    tempoRate = tempoRate
+                )
+            )
+        }
+    }
+
+    private fun recordProcessedFrames(inputFrames: Int, outputFrames: Int, rate: Float) {
+        if (inputFrames <= 0 || outputFrames <= 0) return
+
+        val safeRate = rate.coerceIn(MIN_TEMPO_RATE, MAX_TEMPO_RATE)
+        synchronized(tempoMappingLock) {
+            val lastSegment = tempoMappingSegments.lastOrNull()
+            if (lastSegment == null || abs(lastSegment.tempoRate - safeRate) > 0.0001f) {
+                tempoMappingSegments.add(
+                    TempoMappingSegment(
+                        outputStartFrames = processedOutputFrames,
+                        mediaStartFrames = processedMediaFrames,
+                        tempoRate = safeRate
+                    )
+                )
+            }
+            processedMediaFrames += inputFrames.toLong()
+            processedOutputFrames += outputFrames.toLong()
+        }
+    }
+
+    private fun estimateMaxOutputFrames(inputFrames: Int): Int {
+        return ((inputFrames / MIN_TEMPO_RATE).roundToInt() + 1024).coerceAtLeast(inputFrames)
     }
 
     override fun isActive(): Boolean {
@@ -425,6 +529,9 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
         val bytesPerFrame = inputAudioFormat.channelCount * 2
         val inputFrames = inputBytes / bytesPerFrame
         val processBytes = inputFrames * bytesPerFrame
+        val tempoRateForProcess = tempoRate
+        val maxOutputFrames = estimateMaxOutputFrames(inputFrames)
+        val maxOutputBytes = maxOutputFrames * bytesPerFrame
         if (processBytes == 0) {
             logPipelineWarning(
                 "QUEUE_DROP stage=signalsmith reason=partial_frame inputBytes=$inputBytes bytesPerFrame=$bytesPerFrame"
@@ -456,32 +563,38 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
 
         inputBuffer.position(inputBuffer.limit())
 
-        if (processingBuffer == null || processingBuffer!!.capacity() < processBytes) {
-            processingBuffer = ByteBuffer.allocateDirect(processBytes)
+        if (processingBuffer == null || processingBuffer!!.capacity() < maxOutputBytes) {
+            processingBuffer = ByteBuffer.allocateDirect(maxOutputBytes)
                 .order(ByteOrder.nativeOrder())
         }
         processingBuffer!!.clear()
-        processingBuffer!!.limit(processBytes)
+        processingBuffer!!.limit(maxOutputBytes)
 
         val actualOutputFrames = nativeProcess(
             nativeHandle,
             nativeInputBuffer,
             processBytes,
             processingBuffer!!,
-            inputFrames
+            maxOutputFrames
         )
 
         if (actualOutputFrames > 0) {
             val actualOutputBytes = actualOutputFrames * bytesPerFrame
+            recordProcessedFrames(
+                inputFrames = inputFrames,
+                outputFrames = actualOutputFrames,
+                rate = inputFrames.toFloat() / actualOutputFrames.toFloat()
+            )
             if (actualOutputFrames != inputFrames) {
                 logPipeline(
                     "QUEUE_RATE_CHANGE stage=signalsmith inputFrames=$inputFrames outputFrames=$actualOutputFrames " +
-                        "inputBytes=$inputBytes outputBytes=$actualOutputBytes tempo=$tempoRate pitch=${_pitchSemitones.value}"
+                        "inputBytes=$inputBytes outputBytes=$actualOutputBytes tempo=$tempoRateForProcess pitch=${_pitchSemitones.value}"
                 )
             }
             processingBuffer!!.position(0)
             processingBuffer!!.limit(actualOutputBytes)
             maybeStartOutputTransition()
+            applyStartupFade(processingBuffer!!, actualOutputBytes)
             applyOutputTransition(processingBuffer!!, actualOutputBytes)
             saveTransitionTail(processingBuffer!!, actualOutputBytes)
             processingBuffer!!.position(0)
@@ -515,41 +628,55 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
                 "outputRemaining=${outputBuffer.remaining()}"
         )
 
-        if (!outputBuffer.hasRemaining()) {
-            outputBuffer = AudioProcessor.EMPTY_BUFFER
-        }
-
+        var producedTail = false
         if (nativeHandle != 0L) {
             val bytesPerFrame = inputAudioFormat.channelCount * 2
             val maxRemainingFrames = 4096
             val maxRemainingBytes = maxRemainingFrames * bytesPerFrame
 
-            if (processingBuffer == null || processingBuffer!!.capacity() < maxRemainingBytes) {
-                processingBuffer = ByteBuffer.allocateDirect(maxRemainingBytes)
+            if (eosOutputBuffer == null || eosOutputBuffer!!.capacity() < maxRemainingBytes) {
+                eosOutputBuffer = ByteBuffer.allocateDirect(maxRemainingBytes)
                     .order(ByteOrder.nativeOrder())
             }
-            processingBuffer!!.clear()
+            eosOutputBuffer!!.clear()
 
-            val remainingFrames = nativeFlushAndGetRemaining(nativeHandle, processingBuffer!!, maxRemainingFrames)
+            val remainingFrames = nativeFlushAndGetRemaining(nativeHandle, eosOutputBuffer!!, maxRemainingFrames)
             if (remainingFrames > 0) {
+                val remainingBytes = remainingFrames * bytesPerFrame
+                eosOutputBuffer!!.position(0)
+                eosOutputBuffer!!.limit(remainingBytes)
+                applyEndFadeOut(eosOutputBuffer!!)
+                pendingOutputBuffer = eosOutputBuffer!!
+                producedTail = true
                 logPipeline(
-                    "EOS_DROP_REMAINING stage=signalsmith frames=$remainingFrames bytes=${remainingFrames * bytesPerFrame}"
+                    "EOS_DRAIN_REMAINING stage=signalsmith frames=$remainingFrames bytes=$remainingBytes"
                 )
             }
-            pendingOutputBuffer = null
+        }
+
+        if (!producedTail) {
+            if (outputBuffer.hasRemaining()) {
+                applyEndFadeOut(outputBuffer)
+            } else {
+                outputBuffer = AudioProcessor.EMPTY_BUFFER
+            }
+            pendingOutputBuffer?.takeIf { it.hasRemaining() }?.let(::applyEndFadeOut)
         }
     }
 
     override fun getOutput(): ByteBuffer {
-        if (pendingOutputBuffer != null && pendingOutputBuffer!!.hasRemaining()) {
-            val output = pendingOutputBuffer!!
+        if (outputBuffer.hasRemaining()) {
+            val output = outputBuffer
+            outputBuffer = AudioProcessor.EMPTY_BUFFER
+            return output
+        }
+
+        pendingOutputBuffer?.takeIf { it.hasRemaining() }?.let { output ->
             pendingOutputBuffer = null
             return output
         }
 
-        val output = outputBuffer
-        outputBuffer = AudioProcessor.EMPTY_BUFFER
-        return output
+        return AudioProcessor.EMPTY_BUFFER
     }
 
     override fun isEnded(): Boolean {
@@ -570,10 +697,12 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
         inputEnded = false
         transitionActive = false
         transitionPositionBytes = 0
+        startupFadeRemainingFrames = startupFadeTotalFrames
 
         if (nativeHandle != 0L) {
             nativeFlush(nativeHandle)
         }
+        resetTempoMapping()
     }
 
     override fun reset() {
@@ -592,11 +721,77 @@ class SignalsmithAudioProcessor @Inject constructor() : AudioProcessor {
         inputAudioFormat = AudioFormat.NOT_SET
         outputAudioFormat = AudioFormat.NOT_SET
         processingBuffer = null
+        eosOutputBuffer = null
     }
 
     private fun requestOutputTransition() {
         if (!ENABLE_OUTPUT_TRANSITION) return
         transitionRequested = true
+    }
+
+    private fun applyStartupFade(buffer: ByteBuffer, outputBytes: Int) {
+        if (startupFadeRemainingFrames <= 0 || outputBytes <= 0) return
+
+        val channelCount = inputAudioFormat.channelCount
+        if (channelCount <= 0) return
+
+        val bytesPerFrame = channelCount * 2
+        val outputFrames = outputBytes / bytesPerFrame
+        val fadeFrames = minOf(startupFadeRemainingFrames, outputFrames)
+        if (fadeFrames <= 0) return
+
+        val fadeTotal = startupFadeTotalFrames.coerceAtLeast(1)
+        val completedFrames = fadeTotal - startupFadeRemainingFrames
+        val view = buffer.duplicate().order(ByteOrder.nativeOrder())
+
+        for (frame in 0 until fadeFrames) {
+            val gain = (completedFrames + frame + 1).toFloat() / fadeTotal.toFloat()
+            val frameOffsetBytes = frame * bytesPerFrame
+            for (channel in 0 until channelCount) {
+                val sampleOffset = frameOffsetBytes + channel * 2
+                val sample = view.getShort(sampleOffset)
+                val faded = (sample * gain)
+                    .toInt()
+                    .coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt())
+                    .toShort()
+                view.putShort(sampleOffset, faded)
+            }
+        }
+
+        startupFadeRemainingFrames -= fadeFrames
+    }
+
+    private fun applyEndFadeOut(buffer: ByteBuffer) {
+        if (inputAudioFormat == AudioFormat.NOT_SET || !buffer.hasRemaining()) return
+
+        val channelCount = inputAudioFormat.channelCount
+        if (channelCount <= 0) return
+
+        val bytesPerFrame = channelCount * 2
+        val outputFrames = buffer.remaining() / bytesPerFrame
+        if (outputFrames <= 0) return
+
+        val fadeFrames = minOf(
+            outputFrames,
+            ((inputAudioFormat.sampleRate * EOS_FADE_OUT_MS) / 1000).coerceAtLeast(1)
+        )
+        val basePosition = buffer.position()
+        val fadeStartFrame = outputFrames - fadeFrames
+        val view = buffer.duplicate().order(ByteOrder.nativeOrder())
+
+        for (frame in 0 until fadeFrames) {
+            val gain = 1f - ((frame + 1).toFloat() / fadeFrames.toFloat())
+            val frameOffsetBytes = basePosition + (fadeStartFrame + frame) * bytesPerFrame
+            for (channel in 0 until channelCount) {
+                val sampleOffset = frameOffsetBytes + channel * 2
+                val sample = view.getShort(sampleOffset)
+                val faded = (sample * gain)
+                    .roundToInt()
+                    .coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt())
+                    .toShort()
+                view.putShort(sampleOffset, faded)
+            }
+        }
     }
 
     private fun maybeStartOutputTransition() {

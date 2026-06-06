@@ -16,14 +16,14 @@ import androidx.media3.session.CommandButton
 import androidx.media3.session.MediaSession
 import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionResult
-import com.example.media.audio.SignalsmithAudioProcessor
+import com.example.media.manager.AudioEffectsManager
 import com.google.common.util.concurrent.ListenableFuture
 import javax.inject.Inject
 
 @UnstableApi
 class CustomMediaSessionCallback @Inject constructor(
     private val context: Context,
-    private val signalsmithAudioProcessor: SignalsmithAudioProcessor
+    private val audioEffectsManager: AudioEffectsManager
 ) : MediaSession.Callback {
 
     private fun createMyCustomCommands(): List<SessionCommand> {
@@ -112,22 +112,22 @@ class CustomMediaSessionCallback @Inject constructor(
     ): ListenableFuture<SessionResult> {
         when (customCommand.customAction) {
             MediaSessionCallback.PITCH_PLUS -> {
-                signalsmithAudioProcessor.addPitchSemitone()
+                audioEffectsManager.pitchPlusOne()
             }
             MediaSessionCallback.PITCH_MINUS -> {
-                signalsmithAudioProcessor.subtractPitchSemitone()
+                audioEffectsManager.pitchMinusOne()
             }
             MediaSessionCallback.INIT_PITCH_VALUE -> {
-                signalsmithAudioProcessor.resetPitch()
+                audioEffectsManager.initPitchValue()
             }
             MediaSessionCallback.TEMPO_PLUS -> {
-                // Tempo controls are disabled until native time-stretching is wired end-to-end.
+                audioEffectsManager.tempoPlusOne()
             }
             MediaSessionCallback.TEMPO_MINUS -> {
-                // Tempo controls are disabled until native time-stretching is wired end-to-end.
+                audioEffectsManager.tempoMinusOne()
             }
             MediaSessionCallback.INIT_TEMPO_VALUE -> {
-                // Tempo controls are disabled until native time-stretching is wired end-to-end.
+                audioEffectsManager.initTempoValue()
             }
         }
         return super.onCustomCommand(session, controller, customCommand, args)
