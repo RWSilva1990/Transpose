@@ -54,6 +54,8 @@ class MediaPlaybackManager @Inject constructor(
     private val stateUpdateThrottleMs = 100L
 
     private val mediaItemCache = mutableMapOf<String, PlayableItem>()
+    private var desiredRepeatMode: RepeatMode = RepeatMode.OFF
+    private var desiredShuffleMode: Boolean = false
 
     val mediaControllerFlow: StateFlow<MediaController?> = controllerProvider.mediaController
 
@@ -62,6 +64,7 @@ class MediaPlaybackManager @Inject constructor(
             controllerProvider.mediaController
                 .filterNotNull()
                 .collect { ctrl ->
+                    applyPlaybackModes(ctrl)
                     ctrl.addListener(playerListener)
                     throttledUpdatePlaybackState(ctrl)
                 }
@@ -170,10 +173,24 @@ class MediaPlaybackManager @Inject constructor(
     private fun handleTrackEnded() {
         val ctrl = mediaControllerFlow.value ?: return
 
-        ctrl.seekTo(0, 0)
-        ctrl.pause()
-
-        nowPlayingStateHolder.setCurrentPlaylistIndex(0)
+        when (ctrl.repeatMode) {
+            Player.REPEAT_MODE_ONE -> {
+                val index = ctrl.currentMediaItemIndex.coerceAtLeast(0)
+                ctrl.seekTo(index, 0L)
+                ctrl.play()
+                nowPlayingStateHolder.setCurrentPlaylistIndex(index)
+            }
+            Player.REPEAT_MODE_ALL -> {
+                ctrl.seekTo(0, 0L)
+                ctrl.play()
+                nowPlayingStateHolder.setCurrentPlaylistIndex(0)
+            }
+            else -> {
+                ctrl.seekTo(0, 0L)
+                ctrl.pause()
+                nowPlayingStateHolder.setCurrentPlaylistIndex(0)
+            }
+        }
     }
 
     private suspend fun handleMediaItemTransition(mediaItem: MediaItem?) {
@@ -342,20 +359,29 @@ class MediaPlaybackManager @Inject constructor(
     }
 
     fun setRepeatMode(repeatMode: RepeatMode) {
+        desiredRepeatMode = repeatMode
         val ctrl = mediaControllerFlow.value ?: return
 
-        val exoPlayerRepeatMode = when (repeatMode) {
+        ctrl.repeatMode = repeatMode.toPlayerRepeatMode()
+    }
+
+    fun setShuffleMode(enabled: Boolean) {
+        desiredShuffleMode = enabled
+        val ctrl = mediaControllerFlow.value ?: return
+        ctrl.shuffleModeEnabled = enabled
+    }
+
+    private fun applyPlaybackModes(ctrl: MediaController) {
+        ctrl.repeatMode = desiredRepeatMode.toPlayerRepeatMode()
+        ctrl.shuffleModeEnabled = desiredShuffleMode
+    }
+
+    private fun RepeatMode.toPlayerRepeatMode(): Int {
+        return when (this) {
             RepeatMode.OFF -> Player.REPEAT_MODE_OFF
             RepeatMode.ALL -> Player.REPEAT_MODE_ALL
             RepeatMode.ONE -> Player.REPEAT_MODE_ONE
         }
-
-        ctrl.repeatMode = exoPlayerRepeatMode
-    }
-
-    fun setShuffleMode(enabled: Boolean) {
-        val ctrl = mediaControllerFlow.value ?: return
-        ctrl.shuffleModeEnabled = enabled
     }
 
     fun setPlaybackSpeed(rate: Float) {

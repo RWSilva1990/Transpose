@@ -50,6 +50,7 @@ import kotlinx.coroutines.launch
 import org.schabi.newpipe.extractor.services.youtube.dashmanifestcreators.YoutubeProgressiveDashManifestCreator
 import org.schabi.newpipe.extractor.stream.VideoStream
 import javax.inject.Inject
+import kotlin.math.abs
 
 private const val SEARCH_QUERY = "search_query"
 private const val MANUAL_UPDATE_CHECK_COOLDOWN_MS = 30_000L
@@ -211,6 +212,27 @@ class MainViewModel @Inject constructor(
 
 
         if (videoStream == null || audioStream == null) {
+            val progressiveStream = videoDetail.selectProgressiveStream(currentVideoQuality)
+            if (progressiveStream != null) {
+                Logger.i(
+                    "VIDEO_QUALITY_USE_PROGRESSIVE videoId=${videoDetail.id} " +
+                        "requested=${currentVideoQuality.displayName} " +
+                        "selected=${progressiveStream.streamSummary()} " +
+                        "videoStreamFound=${videoStream != null} audioStreamFound=${audioStream != null}"
+                )
+                _appliedVideoQuality.value = progressiveStream.toVideoQuality() ?: VideoQuality.AUTO
+                mediaPlaybackManager.updateMediaItemWithFullInfo(
+                    itemId = videoDetail.id,
+                    videoQuality = currentVideoQuality,
+                    videoDefaultStreamUrl = progressiveStream.content,
+                    videoOnlyStreamUrl = null,
+                    audioOnlyStreamUrl = null,
+                    videoManifestString = null,
+                    audioManifestsString = null,
+                )
+                return
+            }
+
             Logger.e(
                 "VIDEO_QUALITY_FALLBACK_TO_PROGRESSIVE videoId=${videoDetail.id} " +
                     "requested=${currentVideoQuality.displayName} " +
@@ -320,6 +342,17 @@ class MainViewModel @Inject constructor(
 
     private fun VideoDetail.progressiveVideoQuality(): VideoQuality? {
         return videoStreams?.firstOrNull()?.toVideoQuality()
+    }
+
+    private fun VideoDetail.selectProgressiveStream(videoQuality: VideoQuality): VideoStream? {
+        val streams = videoStreams.orEmpty()
+        if (streams.isEmpty()) return null
+        val targetHeight = videoQuality.height ?: return streams.firstOrNull()
+        return streams.firstOrNull { it.toVideoQuality()?.height == targetHeight }
+            ?: streams.minByOrNull { stream ->
+                val streamHeight = stream.toVideoQuality()?.height ?: stream.height
+                if (streamHeight <= 0) Int.MAX_VALUE else abs(streamHeight - targetHeight)
+            }
     }
 
     private fun VideoStream.toVideoQuality(): VideoQuality? {
@@ -445,6 +478,16 @@ class MainViewModel @Inject constructor(
                     }
                 }
                 _playbackErrorMessage.value = errorMessage
+            }
+        }
+        viewModelScope.launch {
+            repeatMode.collectLatest { mode ->
+                mediaPlaybackManager.setRepeatMode(mode)
+            }
+        }
+        viewModelScope.launch {
+            shuffleMode.collectLatest { enabled ->
+                mediaPlaybackManager.setShuffleMode(enabled)
             }
         }
     }

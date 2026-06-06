@@ -41,12 +41,14 @@ fun VideoQualityBottomSheet(
 ) {
     when (val state = videoDetailUiState) {
         is VideoDetailUiState.Success -> {
-            val availableQualities = state.videoDetail?.videoOnlyStreams
-                ?.filter { it.isVideoOnly() }
-                ?.mapNotNull { it.toVideoQuality() }
-                ?.distinct()
-                ?.sortedBy { qualitySortOrder.indexOf(it).takeIf { index -> index >= 0 } ?: Int.MAX_VALUE }
-                ?: emptyList()
+            val videoDetail = state.videoDetail
+            val availableQualities = (
+                videoDetail?.videoOnlyStreams.orEmpty().filter { it.isVideoOnly() } +
+                    videoDetail?.videoStreams.orEmpty()
+                )
+                .mapNotNull { it.toVideoQuality() }
+                .distinct()
+                .sortedBy { qualitySortOrder.indexOf(it).takeIf { index -> index >= 0 } ?: Int.MAX_VALUE }
 
             ModalBottomSheet(
                 onDismissRequest = onDismiss,
