@@ -1,7 +1,10 @@
 package com.example.media.state_holder
 
 import com.example.domain.model.local_file.LocalFileData
+import com.example.domain.model.playable.PlayerMode
 import com.example.domain.model.playable.PlayableItem
+import com.example.domain.model.playable.defaultPlayerMode
+import com.example.domain.model.playable.supportedPlayerModes
 import com.example.domain.model.youtube.playlist.Playlist
 import com.example.domain.model.youtube.video.Video
 import com.example.domain.model.youtube.video_detail.VideoDetail
@@ -47,6 +50,9 @@ class NowPlayingStateHolder @Inject constructor() {
 
     private val _playbackType = MutableStateFlow(PlaybackType.SINGLE)
     val playbackType: StateFlow<PlaybackType> = _playbackType.asStateFlow()
+
+    private val _playerMode = MutableStateFlow(PlayerMode.VIDEO)
+    val playerMode: StateFlow<PlayerMode> = _playerMode.asStateFlow()
 
     private val _isPlaying = MutableStateFlow(false)
     val isPlaying: StateFlow<Boolean> = _isPlaying.asStateFlow()
@@ -101,6 +107,7 @@ class NowPlayingStateHolder @Inject constructor() {
     fun setCurrentItem(item: PlayableItem?) {
         Logger.d("NowPlayingStateHolder.setCurrentItem - item: ${item?.id}, isLocal: ${item?.isLocal}")
         _currentItem.value = item
+        _playerMode.value = item?.defaultPlayerMode() ?: PlayerMode.VIDEO
         when (item) {
             is PlayableItem.Remote -> {
                 Logger.d("NowPlayingStateHolder.setCurrentItem - setting currentVideo: ${item.video.id}")
@@ -120,10 +127,19 @@ class NowPlayingStateHolder @Inject constructor() {
         }
     }
 
+    fun setPlayerMode(mode: PlayerMode) {
+        val item = _currentItem.value ?: return
+        if (mode in item.supportedPlayerModes()) {
+            _playerMode.value = mode
+        }
+    }
+
     fun setCurrentVideoData(video: Video?) {
         _currentVideo.value = video
         if (video != null) {
-            _currentItem.value = PlayableItem.Remote(video)
+            val item = PlayableItem.Remote(video)
+            _currentItem.value = item
+            _playerMode.value = item.defaultPlayerMode()
             _currentLocalFile.value = null
         }
     }
@@ -131,7 +147,9 @@ class NowPlayingStateHolder @Inject constructor() {
     fun setCurrentLocalFileData(localFile: LocalFileData?) {
         _currentLocalFile.value = localFile
         if (localFile != null) {
-            _currentItem.value = PlayableItem.Local(localFile)
+            val item = PlayableItem.Local(localFile)
+            _currentItem.value = item
+            _playerMode.value = item.defaultPlayerMode()
             _currentVideo.value = null
         }
     }
@@ -155,6 +173,7 @@ class NowPlayingStateHolder @Inject constructor() {
         _currentPosition.value = 0L
         _duration.value = 0L
         _currentItem.value = null
+        _playerMode.value = PlayerMode.VIDEO
         _currentVideo.value = null
         _currentLocalFile.value = null
         _currentPlaylistItems.value = emptyList()

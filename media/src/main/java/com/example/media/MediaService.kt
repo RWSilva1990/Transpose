@@ -12,7 +12,7 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
-import com.example.media.audio.SignalsmithAudioProcessor
+import com.example.media.manager.AudioEffectsManager
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 
@@ -20,12 +20,12 @@ import javax.inject.Inject
 class MediaService : MediaSessionService() {
     private var mediaSession: MediaSession? = null
     @Inject lateinit var exoPlayer: ExoPlayer
-    @Inject lateinit var signalsmithAudioProcessor: SignalsmithAudioProcessor
+    @Inject lateinit var audioEffectsManager: AudioEffectsManager
 
     @OptIn(UnstableApi::class)
     override fun onCreate() {
         super.onCreate()
-        val customCallback = CustomMediaSessionCallback(this, signalsmithAudioProcessor)
+        val customCallback = CustomMediaSessionCallback(this, audioEffectsManager)
         mediaSession = MediaSession.Builder(this, exoPlayer)
             .setCallback(customCallback)
             .build()

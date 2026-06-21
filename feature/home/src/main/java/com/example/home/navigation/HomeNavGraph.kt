@@ -20,6 +20,7 @@ fun NavGraphBuilder.homeNavGraph(
     bottomSheetState: SheetState,
     onUpdateCheckClick: () -> Unit,
     onContactClick: () -> Unit,
+    onChromeExtensionClick: () -> Unit,
     homeNavigationHelper: HomeNavigationHelper
 ) {
 
@@ -102,7 +103,8 @@ fun NavGraphBuilder.homeNavGraph(
     ) {
         SettingsScreen(
             onUpdateCheckClick = onUpdateCheckClick,
-            onContactClick = onContactClick
+            onContactClick = onContactClick,
+            onChromeExtensionClick = onChromeExtensionClick
         )
     }
 }

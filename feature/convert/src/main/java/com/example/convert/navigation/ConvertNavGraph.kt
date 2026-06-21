@@ -20,6 +20,7 @@ fun NavGraphBuilder.convertNavGraph(
     bottomSheetState: SheetState,
     onUpdateCheckClick: () -> Unit,
     onContactClick: () -> Unit,
+    onChromeExtensionClick: () -> Unit,
     convertNavigationHelper: ConvertNavigationHelper,
     navigateToHomeTab: () -> Unit
 ) {
@@ -103,7 +104,8 @@ fun NavGraphBuilder.convertNavGraph(
     ) {
         SettingsScreen(
             onUpdateCheckClick = onUpdateCheckClick,
-            onContactClick = onContactClick
+            onContactClick = onContactClick,
+            onChromeExtensionClick = onChromeExtensionClick
         )
     }
 }

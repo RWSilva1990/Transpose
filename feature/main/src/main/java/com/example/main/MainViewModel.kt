@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.media3.session.MediaController
 import com.example.domain.model.local_file.LocalFileData
 import com.example.domain.model.playable.PlayableItem
+import com.example.domain.model.playable.PlayerMode
 import com.example.domain.model.preferences.AudioQuality
 import com.example.domain.model.preferences.RepeatMode
 import com.example.domain.model.preferences.VideoQuality
@@ -50,6 +51,7 @@ import kotlinx.coroutines.launch
 import org.schabi.newpipe.extractor.services.youtube.dashmanifestcreators.YoutubeProgressiveDashManifestCreator
 import org.schabi.newpipe.extractor.stream.VideoStream
 import javax.inject.Inject
+import kotlin.math.abs
 
 private const val SEARCH_QUERY = "search_query"
 private const val MANUAL_UPDATE_CHECK_COOLDOWN_MS = 30_000L
@@ -211,6 +213,27 @@ class MainViewModel @Inject constructor(
 
 
         if (videoStream == null || audioStream == null) {
+            val progressiveStream = videoDetail.selectProgressiveStream(currentVideoQuality)
+            if (progressiveStream != null) {
+                Logger.i(
+                    "VIDEO_QUALITY_USE_PROGRESSIVE videoId=${videoDetail.id} " +
+                        "requested=${currentVideoQuality.displayName} " +
+                        "selected=${progressiveStream.streamSummary()} " +
+                        "videoStreamFound=${videoStream != null} audioStreamFound=${audioStream != null}"
+                )
+                _appliedVideoQuality.value = progressiveStream.toVideoQuality() ?: VideoQuality.AUTO
+                mediaPlaybackManager.updateMediaItemWithFullInfo(
+                    itemId = videoDetail.id,
+                    videoQuality = currentVideoQuality,
+                    videoDefaultStreamUrl = progressiveStream.content,
+                    videoOnlyStreamUrl = null,
+                    audioOnlyStreamUrl = null,
+                    videoManifestString = null,
+                    audioManifestsString = null,
+                )
+                return
+            }
+
             Logger.e(
                 "VIDEO_QUALITY_FALLBACK_TO_PROGRESSIVE videoId=${videoDetail.id} " +
                     "requested=${currentVideoQuality.displayName} " +
@@ -322,6 +345,17 @@ class MainViewModel @Inject constructor(
         return videoStreams?.firstOrNull()?.toVideoQuality()
     }
 
+    private fun VideoDetail.selectProgressiveStream(videoQuality: VideoQuality): VideoStream? {
+        val streams = videoStreams.orEmpty()
+        if (streams.isEmpty()) return null
+        val targetHeight = videoQuality.height ?: return streams.firstOrNull()
+        return streams.firstOrNull { it.toVideoQuality()?.height == targetHeight }
+            ?: streams.minByOrNull { stream ->
+                val streamHeight = stream.toVideoQuality()?.height ?: stream.height
+                if (streamHeight <= 0) Int.MAX_VALUE else abs(streamHeight - targetHeight)
+            }
+    }
+
     private fun VideoStream.toVideoQuality(): VideoQuality? {
         return VideoQuality.entries.firstOrNull { it.height == height }
             ?: getQuality().toVideoQuality()
@@ -388,6 +422,7 @@ class MainViewModel @Inject constructor(
     val isPlaying = nowPlayingStateHolder.isPlaying
     val currentVideo = nowPlayingStateHolder.currentVideo
     val currentItem = nowPlayingStateHolder.currentItem
+    val playerMode = nowPlayingStateHolder.playerMode
     val currentLocalFile = nowPlayingStateHolder.currentLocalFile
     val currentPlaylist = nowPlayingStateHolder.currentPlaylist
     val currentPlaylistIndex = nowPlayingStateHolder.currentPlaylistIndex
@@ -445,6 +480,16 @@ class MainViewModel @Inject constructor(
                     }
                 }
                 _playbackErrorMessage.value = errorMessage
+            }
+        }
+        viewModelScope.launch {
+            repeatMode.collectLatest { mode ->
+                mediaPlaybackManager.setRepeatMode(mode)
+            }
+        }
+        viewModelScope.launch {
+            shuffleMode.collectLatest { enabled ->
+                mediaPlaybackManager.setShuffleMode(enabled)
             }
         }
     }
@@ -558,6 +603,8 @@ class MainViewModel @Inject constructor(
     }
 
     val mediaControllerFlow: StateFlow<MediaController?> = mediaPlaybackManager.mediaControllerFlow
+    val currentPosition = nowPlayingStateHolder.currentPosition
+    val duration = nowPlayingStateHolder.duration
 
 
     val myPlaylists = myPlaylistDBRepository.getAllPlaylists()
@@ -588,6 +635,22 @@ class MainViewModel @Inject constructor(
         mediaPlaybackManager.playPause()
     }
 
+    fun seekTo(positionMs: Long) {
+        mediaPlaybackManager.seekTo(positionMs)
+    }
+
+    fun seekBy(deltaMs: Long) {
+        mediaPlaybackManager.seekBy(deltaMs)
+    }
+
+    fun seekToPreviousItem() {
+        mediaPlaybackManager.seekToPreviousItem()
+    }
+
+    fun seekToNextItem() {
+        mediaPlaybackManager.seekToNextItem()
+    }
+
     fun stopPlayback() {
         mediaPlaybackManager.clearCurrentPlayback()
         videoDetailCache.clear()
@@ -614,6 +677,10 @@ class MainViewModel @Inject constructor(
 
     fun playItem(item: PlayableItem) {
         mediaPlaybackManager.playSingleItem(item)
+    }
+
+    fun setPlayerMode(mode: PlayerMode) {
+        nowPlayingStateHolder.setPlayerMode(mode)
     }
 
     fun playPlaylistItems(playlist: List<PlayableItem>, startIndex: Int = 0) {

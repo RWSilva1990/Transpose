@@ -19,10 +19,17 @@
     <string name="pitch_plus_text">Increase pitch. Current state: %1$.1f</string>
     <string name="pitch_minus_text">Decrease pitch. Current state: %1$.1f</string>
     <string name="pitch_initialize_text">Reset pitch. Current state: %1$.1f</string>
-    <string name="tempo_plus_text">Increase tempo. Current state: %1$.1f</string>
-    <string name="tempo_minus_text">Decrease tempo. Current state: %1$.1f</string>
-    <string name="tempo_init_text">Reset tempo. Current state: %1$.1f</string>
+    <string name="tempo_plus_text">Increase tempo. Current speed: %1$.2fx</string>
+    <string name="tempo_minus_text">Decrease tempo. Current speed: %1$.2fx</string>
+    <string name="tempo_init_text">Reset tempo. Current speed: %1$.2fx</string>
     <string name="tempo_disabled_message">Tempo control is unavailable to preserve high-quality audio processing.</string>
+    <string name="player_mode_audio">Audio</string>
+    <string name="player_mode_video">Video</string>
+    <string name="audio_adjust_title">Audio Adjust</string>
+    <string name="audio_adjust_reset">Reset</string>
+    <string name="fullscreen_mode_coming_soon">Fullscreen mode is planned for a future update.</string>
+    <string name="player_seek_backward_feedback">↺ 5s</string>
+    <string name="player_seek_forward_feedback">5s ↻</string>
 
     <!-- 문자열 배열 -->
     <string-array name="subscriber_count_formats">
@@ -60,6 +67,7 @@
     <string name="update_check_failed">Unable to check for updates. Please try again later.</string>
     <string name="update_check_latest">You are using the latest version.</string>
     <string name="contact_mail_unavailable">No mail app is available on this device.</string>
+    <string name="chrome_extension_unavailable">Unable to open the Chrome Web Store on this device.</string>
 
     <!-- Playback Errors -->
     <string name="playback_error">This video can\'t be played. Check your connection and try again.</string>

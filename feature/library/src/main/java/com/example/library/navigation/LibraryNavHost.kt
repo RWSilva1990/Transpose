@@ -16,6 +16,7 @@ fun LibraryNavHost(
     bottomSheetState: SheetState,
     onUpdateCheckClick: () -> Unit,
     onContactClick: () -> Unit,
+    onChromeExtensionClick: () -> Unit,
     navigateToHomeTab: () -> Unit,
     localSearchQuery: String = "",
     isLocalSearchActive: Boolean = false,
@@ -35,6 +36,7 @@ fun LibraryNavHost(
             navigateToHomeTab = navigateToHomeTab,
             onContactClick = onContactClick,
             onUpdateCheckClick = onUpdateCheckClick,
+            onChromeExtensionClick = onChromeExtensionClick,
             localSearchQuery = localSearchQuery,
             isLocalSearchActive = isLocalSearchActive,
             onCloseLocalSearch = onCloseLocalSearch

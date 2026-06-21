@@ -46,54 +46,67 @@ class AudioEffectsManager @Inject constructor(
 
     private fun semitonesToUiValue(semitones: Float): Int = ((semitones * 10) + 100).toInt()
 
-    val pitchValue: StateFlow<Int> = signalsmithAudioProcessor.pitchSemitonesFlow
+    private val _pitchSemitones = MutableStateFlow(0f)
+    private val _tempoSemitones = MutableStateFlow(0f)
+
+    val pitchValue: StateFlow<Int> = _pitchSemitones
         .map { semitonesToUiValue(it) }
         .stateIn(scope, SharingStarted.Eagerly, 100)
 
     private fun uiValueToSemitones(uiValue: Int): Float = (uiValue - 100) / 10f
 
     fun pitchPlusOne() {
-        signalsmithAudioProcessor.addPitchSemitone()
+        setPitchSemitones(_pitchSemitones.value + 1f)
     }
 
     fun pitchMinusOne() {
-        signalsmithAudioProcessor.subtractPitchSemitone()
+        setPitchSemitones(_pitchSemitones.value - 1f)
     }
 
     fun initPitchValue() {
-        signalsmithAudioProcessor.resetPitch()
+        setPitchSemitones(0f)
     }
 
     fun updatePitchValue(uiValue: Int) {
-        signalsmithAudioProcessor.setPitchSemitones(uiValueToSemitones(uiValue))
+        setPitchSemitones(uiValueToSemitones(uiValue))
     }
 
     fun setPitch() {
     }
-
-    private val _tempoSemitones = MutableStateFlow(0f)
 
     val tempoValue: StateFlow<Int> = _tempoSemitones
         .map { semitonesToUiValue(it) }
         .stateIn(scope, SharingStarted.Eagerly, 100)
 
     fun tempoPlusOne() {
-        // Tempo is intentionally disabled until the native Signalsmith tempo path is complete.
+        setTempoSemitones(_tempoSemitones.value + 1f)
     }
 
     fun tempoMinusOne() {
-        // Tempo is intentionally disabled until the native Signalsmith tempo path is complete.
+        setTempoSemitones(_tempoSemitones.value - 1f)
     }
 
     fun initTempoValue() {
-        _tempoSemitones.value = 0f
+        setTempoSemitones(0f)
     }
 
     fun updateTempoValue(uiValue: Int) {
-        // Tempo is intentionally disabled until the native Signalsmith tempo path is complete.
+        setTempoSemitones(uiValueToSemitones(uiValue))
     }
 
     fun setTempo() {
+    }
+
+    private fun setPitchSemitones(semitones: Float) {
+        val safeValue = semitones.coerceIn(-24f, 24f)
+        _pitchSemitones.value = safeValue
+        signalsmithAudioProcessor.setPitchSemitones(safeValue)
+    }
+
+    private fun setTempoSemitones(semitones: Float) {
+        val safeValue = semitones.coerceIn(-12f, 12f)
+        _tempoSemitones.value = safeValue
+        signalsmithAudioProcessor.setTempoSemitones(safeValue)
     }
 
     private val _isVocalRemovalEnabled = MutableStateFlow(false)

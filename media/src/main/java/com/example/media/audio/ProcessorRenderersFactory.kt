@@ -20,11 +20,13 @@ class ProcessorRenderersFactory(
         enableAudioTrackPlaybackParams: Boolean
     ): AudioSink {
         return DefaultAudioSink.Builder(context)
-            .setAudioProcessors(arrayOf(vocalRemovalProcessor, signalsmithProcessor))
+            .setAudioProcessorChain(
+                SignalsmithAudioProcessorChain(vocalRemovalProcessor, signalsmithProcessor)
+            )
             // Our custom processors currently support PCM_16BIT only.
             // For correctness, force 16-bit output from the sink.
             .setEnableFloatOutput(false)
-            .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
+            .setEnableAudioTrackPlaybackParams(false)
             .build()
     }
 }

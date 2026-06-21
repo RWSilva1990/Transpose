@@ -16,6 +16,7 @@ fun ConvertNavHost(
     bottomSheetState: SheetState,
     onUpdateCheckClick: () -> Unit,
     onContactClick: () -> Unit,
+    onChromeExtensionClick: () -> Unit,
     navigateToHomeTab: () -> Unit
 ) {
     val convertNavigationHelper = remember {
@@ -31,7 +32,8 @@ fun ConvertNavHost(
             convertNavigationHelper = convertNavigationHelper,
             navigateToHomeTab = navigateToHomeTab,
             onUpdateCheckClick = onUpdateCheckClick,
-            onContactClick = onContactClick
+            onContactClick = onContactClick,
+            onChromeExtensionClick = onChromeExtensionClick
         )
     }
 }

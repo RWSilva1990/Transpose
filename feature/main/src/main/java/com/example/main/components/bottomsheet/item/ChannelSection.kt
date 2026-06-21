@@ -1,9 +1,8 @@
 package com.example.main.components.bottomsheet.item
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -11,13 +10,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SheetState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -124,61 +123,54 @@ fun ChannelSectionContent(
         )
     }
 
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 5.dp)
-            .clip(RoundedCornerShape(4.dp))
-            .clickable {
-                onNavigateToChannelScreen(videoDetail.uploaderId ?: "")
-                coroutineScope.launch {
-                    bottomSheetState.partialExpand()
-                }
-            },
-        verticalAlignment = Alignment.CenterVertically
+    Surface(
+        onClick = {
+            onNavigateToChannelScreen(videoDetail.uploaderId ?: "")
+            coroutineScope.launch {
+                bottomSheetState.partialExpand()
+            }
+        },
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 1.dp,
+        shadowElevation = 0.dp
     ) {
-        AsyncImage(
-            model = videoDetail.uploaderAvatarUrl ?: "",
-            contentDescription = "Channel Avatar",
+        Row(
             modifier = Modifier
-                .width(60.dp)
-                .height(60.dp)
-                .padding(10.dp),
-            contentScale = ContentScale.Crop
-        )
-        Text(
-            text = videoDetail.uploaderName ?: "",
-            modifier = Modifier
-                .widthIn(max = 150.dp),
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            color = MaterialTheme.colorScheme.onSurface
-        )
-        Text(
-            text = formattedSubscriberCount,
-            modifier = Modifier
-                .padding(start = 10.dp, end = 20.dp),
-            maxLines = 1,
-            color = AppColors.DescriptionColor
-        )
-        Spacer(modifier = Modifier.weight(1f))
-        Button(
-            onClick = onAddButtonClicked,
-            colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
-            elevation = ButtonDefaults.buttonElevation(0.dp),
-            shape = RoundedCornerShape(10.dp),
-            border = BorderStroke(1.dp, Color.Gray),
-            contentPadding = PaddingValues(0.dp),
-            modifier = Modifier
-                .padding(end = 15.dp)
-                .width(60.dp)
-                .height(30.dp)
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = stringResource(id = R.string.add_button_text),
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
+            AsyncImage(
+                model = videoDetail.uploaderAvatarUrl ?: "",
+                contentDescription = "Channel Avatar",
+                modifier = Modifier
+                    .width(48.dp)
+                    .height(48.dp)
+                    .clip(RoundedCornerShape(10.dp)),
+                contentScale = ContentScale.Crop
             )
+            Spacer(modifier = Modifier.width(10.dp))
+            ColumnTextBlock(
+                title = videoDetail.uploaderName ?: "",
+                subtitle = formattedSubscriberCount,
+                modifier = Modifier.weight(1f)
+            )
+            Button(
+                onClick = onAddButtonClicked,
+                colors = ButtonDefaults.buttonColors(containerColor = AppColors.BlueBackground),
+                elevation = ButtonDefaults.buttonElevation(0.dp),
+                shape = RoundedCornerShape(18.dp),
+                contentPadding = PaddingValues(horizontal = 12.dp),
+                modifier = Modifier.height(34.dp)
+            ) {
+                Text(
+                    text = stringResource(id = R.string.add_button_text),
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+            }
         }
     }
 }
@@ -191,76 +183,129 @@ fun LocalFileSectionContent(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 5.dp),
+            .padding(0.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(
-            modifier = Modifier
-                .width(60.dp)
-                .height(60.dp)
-                .padding(10.dp)
-                .background(AppColors.GrayBackground, RoundedCornerShape(4.dp))
-        )
-        Text(
-            text = localItem.artist ?: "",
-            modifier = Modifier
-                .widthIn(max = 150.dp),
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            color = MaterialTheme.colorScheme.onSurface
-        )
-        Text(
-            text = localItem.album ?: "",
-            modifier = Modifier
-                .padding(start = 10.dp, end = 20.dp),
-            maxLines = 1,
-            color = AppColors.DescriptionColor
-        )
-        Spacer(modifier = Modifier.weight(1f))
-        Button(
-            onClick = onAddButtonClicked,
-            colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
-            elevation = ButtonDefaults.buttonElevation(0.dp),
-            shape = RoundedCornerShape(10.dp),
-            border = BorderStroke(1.dp, Color.Gray),
-            contentPadding = PaddingValues(0.dp),
-            modifier = Modifier
-                .padding(end = 15.dp)
-                .width(60.dp)
-                .height(30.dp)
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(14.dp),
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 1.dp,
+            shadowElevation = 0.dp
         ) {
-            Text(
-                text = stringResource(id = R.string.add_button_text),
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .width(48.dp)
+                        .height(48.dp)
+                        .background(AppColors.GrayBackground, RoundedCornerShape(10.dp))
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                ColumnTextBlock(
+                    title = localItem.title,
+                    subtitle = localItem.artist ?: localItem.album ?: "",
+                    modifier = Modifier.weight(1f)
+                )
+                Button(
+                    onClick = onAddButtonClicked,
+                    colors = ButtonDefaults.buttonColors(containerColor = AppColors.BlueBackground),
+                    elevation = ButtonDefaults.buttonElevation(0.dp),
+                    shape = RoundedCornerShape(18.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp),
+                    modifier = Modifier.height(34.dp)
+                ) {
+                    Text(
+                        text = stringResource(id = R.string.add_button_text),
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                }
+            }
         }
     }
 }
 
 @Composable
+private fun ColumnTextBlock(
+    title: String,
+    subtitle: String,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier = modifier) {
+        Text(
+            text = title,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            color = MaterialTheme.colorScheme.onSurface,
+            fontWeight = FontWeight.Bold
+        )
+        Text(
+            text = subtitle,
+            modifier = Modifier.padding(top = 2.dp),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            color = AppColors.DescriptionColor
+        )
+    }
+}
+
+@Composable
 fun ChannelSectionShimmer() {
-    Row(
+    Surface(
         modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 5.dp)
-            .shimmer(),
-        verticalAlignment = Alignment.CenterVertically
+            .fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 1.dp,
+        shadowElevation = 0.dp
     ) {
-        Box(
+        Row(
             modifier = Modifier
-                .width(60.dp)
-                .height(60.dp)
-                .padding(10.dp)
-                .background(Color.LightGray)
-        )
-        Box(
-            modifier = Modifier
-                .weight(1f)
-                .height(20.dp)
-                .padding(end = 15.dp)
-                .background(AppColors.GrayBackground)
-        )
-        Spacer(modifier = Modifier.weight(1f))
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 10.dp)
+                .shimmer(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .width(48.dp)
+                    .height(48.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Color.LightGray)
+            )
+            Spacer(modifier = Modifier.width(10.dp))
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(0.56f)
+                        .height(16.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(Color.LightGray)
+                )
+                Spacer(modifier = Modifier.height(7.dp))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(0.38f)
+                        .height(13.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(Color.LightGray)
+                )
+            }
+            Spacer(modifier = Modifier.width(10.dp))
+            Box(
+                modifier = Modifier
+                    .width(68.dp)
+                    .height(34.dp)
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(Color.LightGray)
+            )
+        }
     }
 }

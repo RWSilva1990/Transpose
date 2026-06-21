@@ -19,10 +19,17 @@
     <string name="pitch_minus_text">음정 1 내림. 현재 상태: %1$.1f</string>
     <string name="pitch_initialize_text">음정 초기화. 현재 상태: %1$.1f</string>
     <string name="pitch_plus_text">음정 1 올림. 현재 상태: %1$.1f</string>
-    <string name="tempo_plus_text">템포 1 올림. 현재 상태: %1$.1f</string>
-    <string name="tempo_minus_text">템포 1 내림. 현재 상태: %1$.1f</string>
-    <string name="tempo_init_text">템포 초기화. 현재 상태: %1$.1f</string>
+    <string name="tempo_plus_text">템포 1 올림. 현재 속도: %1$.2fx</string>
+    <string name="tempo_minus_text">템포 1 내림. 현재 속도: %1$.2fx</string>
+    <string name="tempo_init_text">템포 초기화. 현재 속도: %1$.2fx</string>
     <string name="tempo_disabled_message">고품질 오디오 처리를 위해 템포 조절은 현재 제공되지 않습니다.</string>
+    <string name="player_mode_audio">오디오</string>
+    <string name="player_mode_video">비디오</string>
+    <string name="audio_adjust_title">Audio Adjust</string>
+    <string name="audio_adjust_reset">재설정</string>
+    <string name="fullscreen_mode_coming_soon">전체화면 모드는 추후 업데이트에서 제공될 예정입니다.</string>
+    <string name="player_seek_backward_feedback">↺ 5초</string>
+    <string name="player_seek_forward_feedback">5초 ↻</string>
 
     <string name="playlist_items_count">%d개 아이템</string>
 
@@ -41,6 +48,7 @@
     <string name="update_check_failed">업데이트 정보를 확인하지 못했습니다. 잠시 후 다시 시도해주세요.</string>
     <string name="update_check_latest">현재 최신 버전입니다.</string>
     <string name="contact_mail_unavailable">이 기기에서 사용할 수 있는 메일 앱이 없습니다.</string>
+    <string name="chrome_extension_unavailable">이 기기에서 Chrome 웹 스토어를 열 수 없습니다.</string>
 
     <!-- 재생 오류 -->
     <string name="playback_error">재생할 수 없는 영상입니다. 네트워크 상태를 확인한 뒤 다시 시도해 주세요.</string>

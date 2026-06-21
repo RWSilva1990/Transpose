@@ -178,6 +178,8 @@
     <string name="settings_info">정보</string>
     <string name="settings_check_update">업데이트 확인</string>
     <string name="settings_contact">문의하기</string>
+    <string name="settings_transpose_live">Chrome용 Transpose Live</string>
+    <string name="settings_transpose_live_subtitle">데스크톱에서도 동일한 실시간 음향 효과를 사용할 수 있습니다.</string>
 
     <!-- Signalsmith / DSP effect labels -->
     <string name="chorus_text">코러스</string>
