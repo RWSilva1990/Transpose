@@ -8,8 +8,7 @@ import com.example.domain.repository.PlaylistRepository
 import com.example.media.state_holder.NowPlayingStateHolder
 import com.example.ui.common.UiState
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -68,17 +67,12 @@ class HomePlaylistViewModel @Inject constructor(
     private fun fetchNationalPlaylists() = viewModelScope.launch {
         _nationalPlaylistDataState.value = UiState.Loading
 
-        val nationPlaylistUrls = MusicCategoryConstants().nationalPlaylistUrls
-        val firstBatch = nationPlaylistUrls.take(INITIAL_NATIONAL_PLAYLIST_COUNT)
-        val remainingBatch = nationPlaylistUrls.drop(INITIAL_NATIONAL_PLAYLIST_COUNT)
-        val firstPlaylists = fetchPlaylistsInBatches(firstBatch)
-
-        if (firstPlaylists.isNotEmpty()) {
-            _nationalPlaylistDataState.value = UiState.Success(firstPlaylists)
+        val nationPlaylistUrls = MusicCategoryConstants().nationalPlaylistUrls.toList()
+        val playlists = fetchPlaylistsInBatches(nationPlaylistUrls) { partialPlaylists ->
+            if (partialPlaylists.isNotEmpty()) {
+                _nationalPlaylistDataState.value = UiState.Success(partialPlaylists)
+            }
         }
-
-        val remainingPlaylists = fetchPlaylistsInBatches(remainingBatch)
-        val playlists = firstPlaylists + remainingPlaylists
 
         _nationalPlaylistDataState.value = if (playlists.isNotEmpty()) {
             UiState.Success(playlists)
@@ -87,21 +81,35 @@ class HomePlaylistViewModel @Inject constructor(
         }
     }
 
-    private suspend fun fetchPlaylistsInBatches(playlistIds: List<String>): List<Playlist> {
+    private suspend fun fetchPlaylistsInBatches(
+        playlistIds: List<String>,
+        onPartialResult: (List<Playlist>) -> Unit = {}
+    ): List<Playlist> {
         if (playlistIds.isEmpty()) return emptyList()
 
-        val playlists = mutableListOf<Playlist>()
-        playlistIds.chunked(PLAYLIST_FETCH_BATCH_SIZE).forEach { batch ->
-            val batchResult = coroutineScope {
-                batch.map { playlistId ->
-                    async {
-                        playlistRepository.fetchPlaylistResult(playlistId).getOrNull()
+        val playlistsByIndex = sortedMapOf<Int, Playlist>()
+        playlistIds.withIndex().chunked(PLAYLIST_FETCH_BATCH_SIZE).forEach { batch ->
+            coroutineScope {
+                val resultChannel = Channel<Pair<Int, Playlist?>>(capacity = batch.size)
+                batch.forEach { indexedPlaylist ->
+                    launch {
+                        val playlist = playlistRepository
+                            .fetchPlaylistResult(indexedPlaylist.value)
+                            .getOrNull()
+                        resultChannel.send(indexedPlaylist.index to playlist)
                     }
-                }.awaitAll().filterNotNull()
+                }
+                repeat(batch.size) {
+                    val (index, playlist) = resultChannel.receive()
+                    if (playlist != null) {
+                        playlistsByIndex[index] = playlist
+                        onPartialResult(playlistsByIndex.values.toList())
+                    }
+                }
+                resultChannel.close()
             }
-            playlists += batchResult
         }
-        return playlists
+        return playlistsByIndex.values.toList()
     }
 
     private fun fetchRecommendedPlaylists() = viewModelScope.launch {
@@ -130,7 +138,6 @@ class HomePlaylistViewModel @Inject constructor(
 
     private companion object {
         const val PLAYLIST_LOAD_ERROR = "playlist_load_error"
-        const val INITIAL_NATIONAL_PLAYLIST_COUNT = 2
         const val PLAYLIST_FETCH_BATCH_SIZE = 2
     }
 }

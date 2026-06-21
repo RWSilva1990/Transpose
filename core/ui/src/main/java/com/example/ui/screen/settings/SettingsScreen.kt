@@ -52,6 +52,7 @@ import com.example.util.ToastUtil
 fun SettingsScreen(
     onUpdateCheckClick: () -> Unit = {},
     onContactClick: () -> Unit = {},
+    onChromeExtensionClick: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
@@ -107,6 +108,18 @@ fun SettingsScreen(
                 SettingsItem(
                     title = stringResource(R.string.settings_contact),
                     onClick = onContactClick
+                )
+
+                HorizontalDivider(
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    thickness = 1.dp,
+                    color = Color(0xFFE0E0E0)
+                )
+
+                SettingsItem(
+                    title = stringResource(R.string.settings_transpose_live),
+                    subtitle = stringResource(R.string.settings_transpose_live_subtitle),
+                    onClick = onChromeExtensionClick
                 )
             }
         }

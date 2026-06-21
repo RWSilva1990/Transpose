@@ -19,7 +19,7 @@ object ToastUtil {
     }
 
     fun showShort(context: Context, @StringRes messageResId: Int) {
-        showToast(context, context.getString(messageResId), Toast.LENGTH_SHORT)
+        showShort(context, context.getString(messageResId))
     }
 
     fun showLong(context: Context, message: String) {

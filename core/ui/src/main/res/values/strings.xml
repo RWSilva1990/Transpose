@@ -270,6 +270,8 @@
     <string name="settings_info">Info</string>
     <string name="settings_check_update">Check for Updates</string>
     <string name="settings_contact">Contact Us</string>
+    <string name="settings_transpose_live">Transpose Live for Chrome</string>
+    <string name="settings_transpose_live_subtitle">Use the same real-time audio effects on desktop.</string>
 
     <string name="patch_title">Patch Notes</string>
     <string name="app_usage_guide">App Usage Guide</string>

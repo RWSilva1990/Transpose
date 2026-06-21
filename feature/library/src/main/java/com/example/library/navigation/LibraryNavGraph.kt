@@ -23,6 +23,7 @@ fun NavGraphBuilder.libraryNavGraph(
     libraryNavigationHelper: LibraryNavigationHelper,
     onUpdateCheckClick: () -> Unit,
     onContactClick: () -> Unit,
+    onChromeExtensionClick: () -> Unit,
     navigateToHomeTab: () -> Unit,
     localSearchQuery: String = "",
     isLocalSearchActive: Boolean = false,
@@ -148,7 +149,8 @@ fun NavGraphBuilder.libraryNavGraph(
     ) {
         SettingsScreen(
             onUpdateCheckClick = onUpdateCheckClick,
-            onContactClick = onContactClick
+            onContactClick = onContactClick,
+            onChromeExtensionClick = onChromeExtensionClick
         )
     }
 

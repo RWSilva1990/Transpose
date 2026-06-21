@@ -60,7 +60,10 @@ import com.example.util.Logger
 import com.example.util.ToastUtil
 import com.example.util.constants.AppColors
 import com.google.accompanist.systemuicontroller.rememberSystemUiController
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -86,6 +89,19 @@ fun MainScreen(
                 context.startActivity(intent)
             } catch (e: Exception) {
                 ToastUtil.showShort(context, R.string.contact_mail_unavailable)
+            }
+        }
+    }
+    val onChromeExtensionClick = remember(context) {
+        {
+            val intent = Intent(
+                Intent.ACTION_VIEW,
+                TRANSPOSE_LIVE_CHROME_WEB_STORE_URL.toUri()
+            )
+            try {
+                context.startActivity(intent)
+            } catch (e: Exception) {
+                ToastUtil.showShort(context, R.string.chrome_extension_unavailable)
             }
         }
     }
@@ -238,22 +254,29 @@ fun MainScreen(
             }
     }
 
-    val statusBarColor by remember {
-        derivedStateOf {
-            val ratio = bottomSheetOffset.coerceIn(0f, 1f)
-            blendColors(AppColors.StatusBarBackground, AppColors.CharcoalGray, ratio)
-        }
-    }
-    val navigationBarColor by remember {
-        derivedStateOf {
-            val ratio = bottomSheetOffset.coerceIn(0f, 1f)
-            blendColors(AppColors.BlueBackground, AppColors.CharcoalGray, ratio)
-        }
-    }
-
-    LaunchedEffect(statusBarColor, navigationBarColor) {
-        systemUiController.setStatusBarColor(color = statusBarColor)
-        systemUiController.setNavigationBarColor(color = navigationBarColor)
+    LaunchedEffect(Unit) {
+        snapshotFlow { bottomSheetOffset }
+            .map { progress ->
+                (progress.coerceIn(0f, 1f) * SYSTEM_BAR_COLOR_STEPS)
+                    .roundToInt() / SYSTEM_BAR_COLOR_STEPS
+            }
+            .distinctUntilChanged()
+            .collect { ratio ->
+                systemUiController.setStatusBarColor(
+                    color = blendColors(
+                        AppColors.StatusBarBackground,
+                        AppColors.CharcoalGray,
+                        ratio
+                    )
+                )
+                systemUiController.setNavigationBarColor(
+                    color = blendColors(
+                        AppColors.BlueBackground,
+                        AppColors.CharcoalGray,
+                        ratio
+                    )
+                )
+            }
     }
 
     when (val state = updateDialogState) {
@@ -361,11 +384,11 @@ fun MainScreen(
                             .nestedScroll(nestedScrollConnection)
                             .dynamicBottomPadding(
                                 bottomNavHeightPx = bottomNavHeightPx,
-                                bottomSheetOffset = { bottomSheetOffset },
                                 isBottomNavHidden = isLocalSearchActive
-                            ),
+                        ),
                         onUpdateCheckClick = onUpdateCheckClick,
                         onContactClick = onContactClick,
+                        onChromeExtensionClick = onChromeExtensionClick,
                         bottomSheetState = sheetState
                     )
                 }
@@ -379,13 +402,13 @@ fun MainScreen(
                             .nestedScroll(nestedScrollConnection)
                             .dynamicBottomPadding(
                                 bottomNavHeightPx = bottomNavHeightPx,
-                                bottomSheetOffset = { bottomSheetOffset },
                                 isBottomNavHidden = isLocalSearchActive
                             ),
                         bottomSheetState = sheetState,
                         navigateToHomeTab = { selectedTab = MainTab.Home },
                         onUpdateCheckClick = onUpdateCheckClick,
                         onContactClick = onContactClick,
+                        onChromeExtensionClick = onChromeExtensionClick,
                         localSearchQuery = localSearchQuery,
                         isLocalSearchActive = isLocalSearchActive,
                         onCloseLocalSearch = { mainViewModel.setLocalSearchActive(false) }
@@ -401,13 +424,13 @@ fun MainScreen(
                             .nestedScroll(nestedScrollConnection)
                             .dynamicBottomPadding(
                                 bottomNavHeightPx = bottomNavHeightPx,
-                                bottomSheetOffset = { bottomSheetOffset },
                                 isBottomNavHidden = isLocalSearchActive
                             ),
                         bottomSheetState = sheetState,
                         navigateToHomeTab = { selectedTab = MainTab.Home },
                         onUpdateCheckClick = onUpdateCheckClick,
                         onContactClick = onContactClick,
+                        onChromeExtensionClick = onChromeExtensionClick,
                     )
                 }
             }
@@ -524,6 +547,10 @@ private fun channelRouteFor(tab: MainTab, channelId: String) = when (tab) {
     MainTab.Convert -> ConvertRoutes.ChannelScreen.createRoute(channelId)
 }
 
+private const val SYSTEM_BAR_COLOR_STEPS = 24f
+private const val TRANSPOSE_LIVE_CHROME_WEB_STORE_URL =
+    "https://chromewebstore.google.com/detail/transpose-live-real-time/kieeaonfgnemfoimiiighmmajeihggcj"
+
 /**
 BottomSheet이 확장/축소될 때마다 Scaffold의 콘텐츠가 BottomNavigationBar에 가려지는 문제 해결을 위한 Modifier
 - bottomNavHeightPx: BottomNavigationBar의 높이 (px 단위)
@@ -531,7 +558,6 @@ BottomSheet이 확장/축소될 때마다 Scaffold의 콘텐츠가 BottomNavigat
  */
 private fun Modifier.dynamicBottomPadding(
     bottomNavHeightPx: Int,
-    bottomSheetOffset: () -> Float,
     isBottomNavHidden: Boolean = false
 ): Modifier = this.layout { measurable, constraints ->
 

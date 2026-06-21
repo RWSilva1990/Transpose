@@ -11,8 +11,9 @@ import com.example.media.state_holder.NowPlayingStateHolder
 import com.example.ui.common.PaginatedState
 import com.example.util.Logger
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
@@ -32,79 +33,64 @@ class PlaylistInfoViewModel @Inject constructor(
         MutableStateFlow<PaginatedState<PlaylistItem>>(PaginatedState.Initial)
     val playlistItemsState = _playlistItemsState.asStateFlow()
 
-    private val emptyRetryCounts = mutableMapOf<String, Int>()
     private var loadedPlaylistId: String? = null
+    private var initialLoadJob: Job? = null
 
     val currentPlaylistInfo = nowPlayingStateHolder.currentPlaylistInfo
 
     fun initializePlaylistPager(playlistId: String) {
-        if (playlistItemsState.value == PaginatedState.Initial || loadedPlaylistId != playlistId) {
-            Logger.i("PLAYLIST_ITEMS_INITIALIZE playlistId=$playlistId previousPlaylistId=$loadedPlaylistId")
-            loadedPlaylistId = playlistId
-            emptyRetryCounts.remove(playlistId)
-            loadInitialPlaylistItems(playlistId, allowEmptyRetry = true)
-        }
+        val currentState = playlistItemsState.value
+        val isSamePlaylist = loadedPlaylistId == playlistId
+        val isAlreadyResolved = currentState is PaginatedState.Success || currentState is PaginatedState.Loading
+
+        if (isSamePlaylist && isAlreadyResolved) return
+
+        Logger.i("PLAYLIST_ITEMS_INITIALIZE playlistId=$playlistId previousPlaylistId=$loadedPlaylistId")
+        loadedPlaylistId = playlistId
+        loadInitialPlaylistItems(playlistId)
     }
 
     fun retryPlaylistItems(playlistId: String) {
         loadedPlaylistId = playlistId
-        emptyRetryCounts.remove(playlistId)
-        loadInitialPlaylistItems(playlistId, allowEmptyRetry = true)
+        loadInitialPlaylistItems(playlistId)
     }
 
-    private fun loadInitialPlaylistItems(
-        playlistId: String,
-        allowEmptyRetry: Boolean
-    ) = viewModelScope.launch {
-        _playlistItemsState.value = PaginatedState.Loading
-        try {
-            var result = playlistRepository.fetchPlaylistItemsResult(playlistId)
-            val initialItems = result.getOrNull().orEmpty()
-            if (
-                result.isSuccess &&
-                initialItems.isEmpty() &&
-                allowEmptyRetry &&
-                shouldRetryEmptyPlaylist(playlistId)
-            ) {
-                Logger.e("PLAYLIST_ITEMS_INITIAL_EMPTY_RETRY playlistId=$playlistId")
-                delay(EMPTY_PLAYLIST_RETRY_DELAY_MS)
-                result = playlistRepository.fetchPlaylistItemsResult(playlistId)
-            }
+    private fun loadInitialPlaylistItems(playlistId: String) {
+        initialLoadJob?.cancel()
+        initialLoadJob = viewModelScope.launch {
+            _playlistItemsState.value = PaginatedState.Loading
+            try {
+                val result = playlistRepository.fetchPlaylistItemsResult(playlistId)
+                if (result.isSuccess) {
+                    val items = result.getOrElse { emptyList() }
+                    val hasMore = playlistRepository.canLoadMorePlaylistItems()
+                    Logger.i(
+                        "PLAYLIST_ITEMS_INITIAL_RESULT playlistId=$playlistId " +
+                            "count=${items.size} hasMore=$hasMore"
+                    )
 
-            if (result.isSuccess) {
-                val items = result.getOrElse { emptyList() }
-                val hasMore = playlistRepository.canLoadMorePlaylistItems()
-                Logger.i(
-                    "PLAYLIST_ITEMS_INITIAL_RESULT playlistId=$playlistId " +
-                        "count=${items.size} hasMore=$hasMore"
-                )
+                    if (items.isEmpty()) {
+                        Logger.e("PLAYLIST_ITEMS_INITIAL_EMPTY_FINAL playlistId=$playlistId hasMore=$hasMore")
+                    }
 
-                if (items.isEmpty()) {
-                    Logger.e("PLAYLIST_ITEMS_INITIAL_EMPTY_FINAL playlistId=$playlistId hasMore=$hasMore")
+                    _playlistItemsState.value = PaginatedState.Success(
+                        items = items,
+                        hasMore = hasMore,
+                        isLoadingMore = false
+                    )
+                } else {
+                    val exception = result.exceptionOrNull()
+                    val message = exception?.message ?: "Unknown error occurred"
+                    Logger.e("PLAYLIST_ITEMS_INITIAL_FAILED playlistId=$playlistId message=$message", exception)
+                    _playlistItemsState.value = PaginatedState.Error(message)
                 }
-
-                _playlistItemsState.value = PaginatedState.Success(
-                    items = items,
-                    hasMore = hasMore,
-                    isLoadingMore = false
-                )
-            } else {
-                val exception = result.exceptionOrNull()
-                val message = exception?.message ?: "Unknown error occurred"
-                Logger.e("PLAYLIST_ITEMS_INITIAL_FAILED playlistId=$playlistId message=$message", exception)
-                _playlistItemsState.value = PaginatedState.Error(message)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Logger.e("PLAYLIST_ITEMS_INITIAL_EXCEPTION playlistId=$playlistId", e)
+                _playlistItemsState.value = PaginatedState.Error(e.message ?: "Unknown error")
             }
-        } catch (e: Exception) {
-            Logger.e("PLAYLIST_ITEMS_INITIAL_EXCEPTION playlistId=$playlistId", e)
-            _playlistItemsState.value = PaginatedState.Error(e.message ?: "Unknown error")
         }
-    }
-
-    private fun shouldRetryEmptyPlaylist(playlistId: String): Boolean {
-        val retryCount = emptyRetryCounts[playlistId] ?: 0
-        if (retryCount >= MAX_EMPTY_PLAYLIST_RETRIES) return false
-        emptyRetryCounts[playlistId] = retryCount + 1
-        return true
     }
 
     fun loadMorePlaylistItems() = viewModelScope.launch {
@@ -163,6 +149,3 @@ class PlaylistInfoViewModel @Inject constructor(
     }
 
 }
-
-private const val MAX_EMPTY_PLAYLIST_RETRIES = 1
-private const val EMPTY_PLAYLIST_RETRY_DELAY_MS = 450L

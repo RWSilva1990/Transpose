@@ -353,6 +353,36 @@ class MediaPlaybackManager @Inject constructor(
         if (ctrl.isPlaying) ctrl.pause() else ctrl.play()
     }
 
+    fun seekTo(positionMs: Long) {
+        val ctrl = mediaControllerFlow.value ?: return
+        val duration = ctrl.duration.takeIf { it > 0 } ?: Long.MAX_VALUE
+        ctrl.seekTo(positionMs.coerceIn(0L, duration))
+        updatePlaybackState(ctrl)
+    }
+
+    fun seekBy(deltaMs: Long) {
+        val ctrl = mediaControllerFlow.value ?: return
+        val duration = ctrl.duration.takeIf { it > 0 } ?: Long.MAX_VALUE
+        ctrl.seekTo((ctrl.currentPosition + deltaMs).coerceIn(0L, duration))
+        updatePlaybackState(ctrl)
+    }
+
+    fun seekToPreviousItem() {
+        val ctrl = mediaControllerFlow.value ?: return
+        if (ctrl.hasPreviousMediaItem()) {
+            ctrl.seekToPreviousMediaItem()
+            updatePlaybackState(ctrl)
+        }
+    }
+
+    fun seekToNextItem() {
+        val ctrl = mediaControllerFlow.value ?: return
+        if (ctrl.hasNextMediaItem()) {
+            ctrl.seekToNextMediaItem()
+            updatePlaybackState(ctrl)
+        }
+    }
+
     fun stopPlayback() {
         val ctrl = mediaControllerFlow.value ?: return
         ctrl.stop()

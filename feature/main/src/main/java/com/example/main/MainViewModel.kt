@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.media3.session.MediaController
 import com.example.domain.model.local_file.LocalFileData
 import com.example.domain.model.playable.PlayableItem
+import com.example.domain.model.playable.PlayerMode
 import com.example.domain.model.preferences.AudioQuality
 import com.example.domain.model.preferences.RepeatMode
 import com.example.domain.model.preferences.VideoQuality
@@ -421,6 +422,7 @@ class MainViewModel @Inject constructor(
     val isPlaying = nowPlayingStateHolder.isPlaying
     val currentVideo = nowPlayingStateHolder.currentVideo
     val currentItem = nowPlayingStateHolder.currentItem
+    val playerMode = nowPlayingStateHolder.playerMode
     val currentLocalFile = nowPlayingStateHolder.currentLocalFile
     val currentPlaylist = nowPlayingStateHolder.currentPlaylist
     val currentPlaylistIndex = nowPlayingStateHolder.currentPlaylistIndex
@@ -601,6 +603,8 @@ class MainViewModel @Inject constructor(
     }
 
     val mediaControllerFlow: StateFlow<MediaController?> = mediaPlaybackManager.mediaControllerFlow
+    val currentPosition = nowPlayingStateHolder.currentPosition
+    val duration = nowPlayingStateHolder.duration
 
 
     val myPlaylists = myPlaylistDBRepository.getAllPlaylists()
@@ -631,6 +635,22 @@ class MainViewModel @Inject constructor(
         mediaPlaybackManager.playPause()
     }
 
+    fun seekTo(positionMs: Long) {
+        mediaPlaybackManager.seekTo(positionMs)
+    }
+
+    fun seekBy(deltaMs: Long) {
+        mediaPlaybackManager.seekBy(deltaMs)
+    }
+
+    fun seekToPreviousItem() {
+        mediaPlaybackManager.seekToPreviousItem()
+    }
+
+    fun seekToNextItem() {
+        mediaPlaybackManager.seekToNextItem()
+    }
+
     fun stopPlayback() {
         mediaPlaybackManager.clearCurrentPlayback()
         videoDetailCache.clear()
@@ -657,6 +677,10 @@ class MainViewModel @Inject constructor(
 
     fun playItem(item: PlayableItem) {
         mediaPlaybackManager.playSingleItem(item)
+    }
+
+    fun setPlayerMode(mode: PlayerMode) {
+        nowPlayingStateHolder.setPlayerMode(mode)
     }
 
     fun playPlaylistItems(playlist: List<PlayableItem>, startIndex: Int = 0) {

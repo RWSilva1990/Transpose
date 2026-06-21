@@ -15,6 +15,7 @@ fun HomeNavHost(
     modifier: Modifier,
     onUpdateCheckClick: () -> Unit,
     onContactClick: () -> Unit,
+    onChromeExtensionClick: () -> Unit,
     bottomSheetState: SheetState,
 ) {
 
@@ -31,7 +32,8 @@ fun HomeNavHost(
             bottomSheetState = bottomSheetState,
             homeNavigationHelper = homeNavigationHelper,
             onUpdateCheckClick = onUpdateCheckClick,
-            onContactClick = onContactClick
+            onContactClick = onContactClick,
+            onChromeExtensionClick = onChromeExtensionClick
         )
     }
 }

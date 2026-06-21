@@ -13,7 +13,6 @@ import com.example.domain.model.library.MyPlaylist
 import com.example.domain.model.playable.PlayableItem
 import com.example.domain.model.youtube.video.Video
 import com.example.main.components.bottomsheet.state.VideoDetailUiState
-import com.example.ui.components.items.CommonVideoItem
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -50,11 +49,23 @@ fun VideoDetailPanel(
             bottom = if (reservePlaylistButtonSpace) 96.dp else 0.dp
         )
     ) {
-        item(key = "header") {
-            VideoInfoHeader(
+        item(key = "video_info", contentType = "video_info") {
+            VideoInfoCardItem(currentItem = currentItem)
+        }
+
+        item(key = "channel", contentType = "channel") {
+            ChannelCardItem(
                 currentItem = currentItem,
                 videoDetailUiState = videoDetailUiState,
                 myPlaylists = myPlaylists,
+                onAddItemToPlaylist = onAddItemToPlaylist,
+                onNavigateToChannelScreen = onNavigateToChannelScreen,
+                bottomSheetState = bottomSheetState
+            )
+        }
+
+        item(key = "audio_adjust", contentType = "audio_adjust") {
+            AudioAdjustCardItem(
                 pitchValue = pitchValue,
                 tempoValue = tempoValue,
                 onPitchPlusOne = onPitchPlusOne,
@@ -62,10 +73,7 @@ fun VideoDetailPanel(
                 onPitchInit = onPitchInit,
                 onTempoPlusOne = onTempoPlusOne,
                 onTempoMinusOne = onTempoMinusOne,
-                onTempoInit = onTempoInit,
-                onAddItemToPlaylist = onAddItemToPlaylist,
-                onNavigateToChannelScreen = onNavigateToChannelScreen,
-                bottomSheetState = bottomSheetState
+                onTempoInit = onTempoInit
             )
         }
 
@@ -86,15 +94,14 @@ fun VideoDetailPanel(
                             contentType = { "related_video" }
                         ) { index ->
                             val item = videoList[index]
-                            CommonVideoItem(
-                                item = item,
+                            PlayerRelatedVideoCard(
+                                video = item,
                                 onClick = {
                                     onPlayVideo(item)
                                     coroutineScope.launch {
                                         listState.animateScrollToItem(0)
                                     }
-                                },
-                                dropDownMenuClick = {}
+                                }
                             )
                         }
                     }

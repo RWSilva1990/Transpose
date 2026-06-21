@@ -7,7 +7,9 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -27,18 +29,26 @@ import com.valentinilk.shimmer.shimmer
 fun VideoInfoSection(currentItem: PlayableItem?) {
     val viewCountFormats = rememberStringArrayResource(R.array.view_count_formats)
 
-    Column(
-        modifier = Modifier
-            .padding(top = 10.dp)
-            .fillMaxWidth()
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 1.dp,
+        shadowElevation = 1.dp
     ) {
-        if (currentItem == null) {
-            FullShimmerEffect()
-        } else {
-            VideoInfoContent(
-                item = currentItem,
-                viewCountFormats = viewCountFormats
-            )
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 12.dp)
+        ) {
+            if (currentItem == null) {
+                FullShimmerEffect()
+            } else {
+                VideoInfoContent(
+                    item = currentItem,
+                    viewCountFormats = viewCountFormats
+                )
+            }
         }
     }
 }
@@ -67,9 +77,8 @@ private fun VideoInfoContent(
     Text(
         text = item.title,
         modifier = Modifier
-            .fillMaxWidth()
-            .padding(start = 10.dp),
-        fontSize = 20.sp,
+            .fillMaxWidth(),
+        fontSize = 18.sp,
         fontWeight = FontWeight.Bold,
         color = MaterialTheme.colorScheme.onSurface,
         maxLines = 2,
@@ -78,7 +87,8 @@ private fun VideoInfoContent(
 
     Text(
         text = formattedViewInfo,
-        modifier = Modifier.padding(top = 5.dp, start = 10.dp),
+        modifier = Modifier.padding(top = 6.dp),
+        fontSize = 12.sp,
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
 }
