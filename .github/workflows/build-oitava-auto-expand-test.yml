@@ -1,0 +1,78 @@
+name: Build Transpose Oitava Auto Expand Test APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/oitava-auto-expand-player
+    paths:
+      - '.github/workflows/build-oitava-auto-expand-test.yml'
+      - 'app/**'
+      - 'feature/main/**'
+      - 'core/**'
+      - 'media/**'
+      - 'audio-effect/**'
+      - 'gradle/**'
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
+      - 'gradle.properties'
+
+permissions:
+  contents: read
+
+jobs:
+  build-debug-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.12.1'
+
+      - name: Prepare test Firebase config
+        shell: bash
+        run: |
+          cat > app/google-services.json <<'JSON'
+          {
+            "project_info": {
+              "project_number": "1234567890",
+              "project_id": "transpose-integration-test",
+              "storage_bucket": "transpose-integration-test.appspot.com"
+            },
+            "client": [
+              {
+                "client_info": {
+                  "mobilesdk_app_id": "1:1234567890:android:0000000000000000",
+                  "android_client_info": {
+                    "package_name": "com.example.transpose"
+                  }
+                },
+                "api_key": [
+                  { "current_key": "AIzaSyDUMMYKEYFORINTEGRATIONTEST0000000" }
+                ]
+              }
+            ],
+            "configuration_version": "1"
+          }
+          JSON
+
+      - name: Build debug APK
+        run: |
+          gradle :app:assembleDebug --no-daemon
+          test -s app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: transpose-oitava-auto-expand-test
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
