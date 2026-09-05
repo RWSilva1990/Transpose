@@ -34,12 +34,44 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-          cache: gradle
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.12.1'
+
+      - name: Prepare local Firebase config for test build
+        shell: bash
+        run: |
+          cat > app/google-services.json <<'JSON'
+          {
+            "project_info": {
+              "project_number": "100000000001",
+              "project_id": "transpose-oitava-local-test",
+              "storage_bucket": "transpose-oitava-local-test.appspot.com"
+            },
+            "client": [
+              {
+                "client_info": {
+                  "mobilesdk_app_id": "1:100000000001:android:0000000000000000000000",
+                  "android_client_info": {
+                    "package_name": "com.example.transpose"
+                  }
+                },
+                "api_key": [
+                  {
+                    "current_key": "AIzaSyAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+                  }
+                ]
+              }
+            ],
+            "configuration_version": "1"
+          }
+          JSON
 
       - name: Build debug APK
         run: |
-          chmod +x gradlew
-          ./gradlew :app:assembleDebug --no-daemon
+          gradle :app:assembleDebug --no-daemon
           test -s app/build/outputs/apk/debug/app-debug.apk
 
       - name: Upload APK
