@@ -1,0 +1,50 @@
+name: Build Transpose Oitava Integration APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - test/oitava-integration-2026-09-05
+    paths:
+      - '.github/workflows/build-oitava-integration-apk.yml'
+      - 'app/**'
+      - 'core/**'
+      - 'media/**'
+      - 'audio-effect/**'
+      - 'feature/**'
+      - 'build-logic/**'
+      - 'gradle/**'
+      - 'gradlew'
+      - 'gradlew.bat'
+      - 'settings.gradle.kts'
+      - 'build.gradle.kts'
+
+permissions:
+  contents: read
+
+jobs:
+  build-test-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Build debug APK
+        run: |
+          chmod +x gradlew
+          ./gradlew :app:assembleDebug --no-daemon
+          test -s app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: transpose-oitava-integration-debug
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
