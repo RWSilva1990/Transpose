@@ -56,6 +56,7 @@ dependencies {
     implementation(project(":core:ui"))
     implementation(project(":core:utils"))
     implementation(project(":feature:main"))
+    implementation(libs.newpipeextractor)
     implementation(libs.androidx.profileinstaller)
     "baselineProfile"(project(":baselineprofile"))
     implementation("androidx.compose.runtime:runtime-tracing:1.0.0-beta01")
