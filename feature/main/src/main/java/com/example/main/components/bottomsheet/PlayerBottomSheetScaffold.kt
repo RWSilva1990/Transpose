@@ -22,11 +22,13 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.trace
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.main.ExternalPlayerUiRequest
 import com.example.main.MainViewModel
 import com.example.main.components.appbar.SearchBarState
 
@@ -58,7 +60,13 @@ fun PlayerBottomSheetScaffold(
     content: @Composable (PaddingValues) -> Unit,
 ) {
     val density = LocalDensity.current
+    val externalExpandRequestId by ExternalPlayerUiRequest.expandRequestId.collectAsStateWithLifecycle()
 
+    LaunchedEffect(externalExpandRequestId) {
+        if (externalExpandRequestId > 0L) {
+            bottomSheetState.expand()
+        }
+    }
 
     val searchBarClosedSheetPeekHeight = remember(innerPadding) {
         innerPadding.calculateBottomPadding() + 56.dp
