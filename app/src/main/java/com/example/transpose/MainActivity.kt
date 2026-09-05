@@ -8,6 +8,7 @@ import androidx.activity.compose.setContent
 import androidx.lifecycle.lifecycleScope
 import com.example.data.newpipe.repository.base.NewPipeManager
 import com.example.domain.model.youtube.video.Video
+import com.example.main.ExternalPlayerUiRequest
 import com.example.main.MainScreen
 import com.example.media.manager.MediaPlaybackManager
 import com.example.ui.theme.TransposeTheme
@@ -63,6 +64,7 @@ class MainActivity : ComponentActivity() {
 
             mediaPlaybackManager.mediaControllerFlow.filterNotNull().first()
             mediaPlaybackManager.playSingleVideo(video)
+            ExternalPlayerUiRequest.requestExpand()
         }
     }
 
